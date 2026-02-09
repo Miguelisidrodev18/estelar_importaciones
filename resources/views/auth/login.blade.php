@@ -1,8 +1,11 @@
 <x-guest>
-    <!-- Session Status -->
+    <!-- Session Status / Success Messages -->
     @if (session('status'))
-        <div class="mb-4 font-medium text-sm text-green-600">
-            {{ session('status') }}
+        <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle mr-2"></i>
+                <span>{{ session('status') }}</span>
+            </div>
         </div>
     @endif
 

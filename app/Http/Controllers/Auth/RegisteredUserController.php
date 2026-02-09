@@ -65,34 +65,14 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        Auth::login($user);
+        // Obtener el nombre del rol para el mensaje
+        $roleName = $user->role->nombre;
 
-        // Redirigir según el rol
-        return $this->redirectBasedOnRole($user);
-    }
+        // Limpiar la verificación de contraseña maestra de la sesión
+        session()->forget('master_password_verified');
 
-    /**
-     * Redirect user based on their role.
-     */
-    private function redirectBasedOnRole(User $user): RedirectResponse
-    {
-        if ($user->hasRole('Administrador')) {
-            return redirect()->route('admin.dashboard')->with('success', '¡Bienvenido Administrador!');
-        }
-
-        if ($user->hasRole('Vendedor')) {
-            return redirect()->route('vendedor.dashboard')->with('success', '¡Bienvenido Vendedor!');
-        }
-
-        if ($user->hasRole('Almacenero')) {
-            return redirect()->route('almacenero.dashboard')->with('success', '¡Bienvenido Almacenero!');
-        }
-
-        if ($user->hasRole('Proveedor')) {
-            return redirect()->route('proveedor.dashboard')->with('success', '¡Bienvenido Proveedor!');
-        }
-
-        // Por defecto, redirigir al dashboard general
-        return redirect()->route('dashboard');
+        // NO iniciar sesión automáticamente
+        // En su lugar, redirigir al login con mensaje de éxito
+        return redirect()->route('login')->with('status', "¡Registro exitoso! Tu cuenta como {$roleName} ha sido creada. Ahora puedes iniciar sesión.");
     }
 }
