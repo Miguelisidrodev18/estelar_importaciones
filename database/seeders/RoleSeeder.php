@@ -38,6 +38,12 @@ class RoleSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
+            [
+                'nombre' => 'Cajero',
+                'descripcion' => 'Encargado de tienda - gestiona cobros y ventas del punto de venta',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ]);
 
         echo "✅ Roles creados exitosamente.\n";
