@@ -13,6 +13,13 @@ return new class extends Migration
     {
         Schema::create('almacenes', function (Blueprint $table) {
             $table->id();
+            $table->string('nombre', 100);
+            $table->string('codigo', 20)->unique();
+            $table->string('direccion')->nullable();
+            $table->string('telefono', 15)->nullable();
+            $table->foreignId('encargado_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->enum('tipo', ['principal', 'sucursal', 'temporal'])->default('sucursal');
+            $table->enum('estado', ['activo', 'inactivo'])->default('activo');
             $table->timestamps();
         });
     }
