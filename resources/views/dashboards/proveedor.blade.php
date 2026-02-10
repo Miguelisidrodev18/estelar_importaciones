@@ -10,7 +10,7 @@
 </head>
 <body class="bg-gray-50">
     <!-- Sidebar -->
-    <x-sidebar role="Proveedor" />
+    <x-sidebar  :role="auth()->user()->role->nombre" />
 
     <!-- Main Content -->
     <div class="ml-64 p-8">
