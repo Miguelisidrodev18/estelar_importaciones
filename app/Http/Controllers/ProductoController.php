@@ -17,7 +17,9 @@ class ProductoController extends Controller
     public function __construct()
     {
         // Solo Admin y Almacenero pueden crear/editar
-        $this->middleware('role:Administrador,Almacenero')->except(['index', 'show']);
+        $this->middleware('role:Administrador,Almacenero')
+                ->except(['index', 'show', 'consultaCajero', 'buscarAjax']);
+
         
         // Solo Admin puede eliminar
         $this->middleware('role:Administrador')->only(['destroy']);
@@ -238,4 +240,24 @@ class ProductoController extends Controller
         
         return response()->json($productos);
     }
+    public function consultaCajero(Request $request)
+    {
+    $query = Producto::with('categoria')->activos();
+    
+    // Búsqueda simple
+    if ($request->filled('buscar')) {
+        $query->buscar($request->buscar);
+    }
+    
+    // Filtro por categoría
+    if ($request->filled('categoria_id')) {
+        $query->where('categoria_id', $request->categoria_id);
+    }
+    
+    $productos = $query->orderBy('nombre')->paginate(20);
+    $categorias = Categoria::activas()->orderBy('nombre')->get();
+    
+    return view('inventario.consulta-cajero', compact('productos', 'categorias'));
+}
+
 }

@@ -69,43 +69,79 @@
             @endif
 
             {{-- INVENTARIO --}}
-@if(in_array($role, ['Administrador', 'Almacenero', 'Vendedor']))
-    <li x-data="{ open: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
-        <button @click="open = !open"
-            class="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-white/10 transition">
-            <div class="flex items-center">
-                <i class="fas fa-boxes mr-3"></i>Inventario
-            </div>
-            <i class="fas fa-chevron-down transition-transform duration-200"
-               :class="{ 'rotate-180': open }"></i>
-        </button>
+            @if(in_array($role, ['Administrador', 'Almacenero', 'Vendedor']))
+            <li x-data="{ open: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
+                <button @click="open = !open"
+                    class="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-white/10 transition">
+                    <div class="flex items-center">
+                        <i class="fas fa-boxes mr-3"></i>Inventario
+                    </div>
+                    <i class="fas fa-chevron-down transition-transform duration-200"
+                        :class="{ 'rotate-180': open }"></i>
+                </button>
 
-        <ul x-show="open" x-collapse class="ml-4 mt-2 space-y-1">
-            <li>
-                <x-sidebar-link
-                    href="{{ route('inventario.categorias.index') }}"
-                    :active="request()->routeIs('inventario.categorias.*')">
-                    <i class="fas fa-tags mr-3 text-sm"></i>Categorías
-                </x-sidebar-link>
-            </li>
+                <ul x-show="open" x-collapse class="ml-4 mt-2 space-y-1">
 
-            <li>
-                <x-sidebar-link
-                    href="{{ route('inventario.productos.index') }}"
-                    :active="request()->routeIs('inventario.productos.*')">
-                    <i class="fas fa-box mr-3 text-sm"></i>Productos
-                </x-sidebar-link>
+                    <li>
+                        <x-sidebar-link
+                            href="{{ route('inventario.categorias.index') }}"
+                            :active="request()->routeIs('inventario.categorias.*')">
+                            <i class="fas fa-tags mr-3 text-sm"></i>Categorías
+                        </x-sidebar-link>
+                    </li>
+
+                    <li>
+                        <x-sidebar-link
+                            href="{{ route('inventario.productos.index') }}"
+                            :active="request()->routeIs('inventario.productos.*')">
+                            <i class="fas fa-box mr-3 text-sm"></i>Productos
+                        </x-sidebar-link>
+                    </li>
+
+                    {{-- MOVIMIENTOS (PROTEGIDO) --}}
+                    @if(Route::has('inventario.movimientos.index'))
+                        <li>
+                            <x-sidebar-link 
+                                href="{{ route('inventario.movimientos.index') }}" 
+                                :active="request()->routeIs('inventario.movimientos.*')">
+                                <i class="fas fa-exchange-alt mr-3 text-sm"></i>Movimientos
+                            </x-sidebar-link>
+                        </li>
+                    @endif
+
+                    <li>
+                        <x-sidebar-link 
+                            href="{{ route('inventario.almacenes.index') }}" 
+                            :active="request()->routeIs('inventario.almacenes.*')">
+                            <i class="fas fa-warehouse mr-3 text-sm"></i>Almacenes
+                        </x-sidebar-link>
+                    </li>
+
+                </ul>
             </li>
-            <li>
-                <x-sidebar-link 
-                    href="{{ route('inventario.movimientos.index') }}" 
-                    :active="request()->routeIs('inventario.movimientos.*')">
-                    <i class="fas fa-exchange-alt mr-3 text-sm"></i>Movimientos
-                </x-sidebar-link>
-            </li>
-        </ul>
+            @elseif($role == 'Cajero')
+    <li>
+        <x-sidebar-link href="{{ route('cajero.dashboard') }}" :active="request()->routeIs('cajero.dashboard')">
+            <i class="fas fa-tachometer-alt mr-3"></i>Dashboard
+        </x-sidebar-link>
     </li>
-    @endif
+
+    <!-- AGREGAR ESTO: -->
+    <li>
+        <x-sidebar-link 
+        href="{{ route('inventario.consulta-cajero') }}"
+        :active="request()->routeIs('inventario.consulta-cajero')">
+        <i class="fas fa-boxes mr-3"></i>Consultar Inventario
+        </x-sidebar-link>
+    </li>
+
+    <li>
+        <x-sidebar-link href="#" :active="false">
+            <i class="fas fa-cash-register mr-3"></i>Punto de Venta
+        </x-sidebar-link>
+    </li>
+            @endif
+
             {{-- LOGOUT --}}
             <li class="pt-4 border-t border-white/20">
                 <form method="POST" action="{{ route('logout') }}">
@@ -120,6 +156,5 @@
         </ul>
     </nav>
 </aside>
-
-<!-- Alpine.js CDN -->
+<script defer src="https://unpkg.com/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
 <script src="//unpkg.com/alpinejs" defer></script>

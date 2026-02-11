@@ -104,19 +104,22 @@ class Producto extends Model
     {
         return $query->where(function($q) use ($termino) {
             $q->where('codigo', 'like', "%{$termino}%")
-              ->orWhere('nombre', 'like', "%{$termino}%")
-              ->orWhere('codigo_barras', 'like', "%{$termino}%");
+                ->orWhere('nombre', 'like', "%{$termino}%")
+                ->orWhere('codigo_barras', 'like', "%{$termino}%");
         });
     }
+    protected $appends = ['imagen_url'];
 
     /**
      * Accessor: URL completa de la imagen
      */
     public function getImagenUrlAttribute()
     {
-        return $this->imagen 
-            ? asset('storage/' . $this->imagen) 
-            : asset('images/no-product.png');
+        if ($this->imagen) {
+            return asset('storage/' . $this->imagen);
+        }
+
+        return null;
     }
 
     /**

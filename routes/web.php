@@ -16,6 +16,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\MovimientoInventarioController;
+use App\Http\Controllers\AlmacenController;
 
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
@@ -209,6 +210,41 @@ Route::middleware('auth')->group(function () {
             Route::get('/api/stock-actual', [MovimientoInventarioController::class, 'getStockActual'])
                 ->name('movimientos.stock-actual');
         });
+        /*
+        |-------------------------
+        | MOVIMIENTOS DE INVENTARIO
+        |-------------------------
+        */
+        // Solo Admin y Almacenero pueden gestionar almacenes
+    Route::middleware('role:Administrador,Almacenero')->group(function () {
+        
+        Route::get('/almacenes', [AlmacenController::class, 'index'])
+            ->name('almacenes.index');
+        
+        Route::get('/almacenes/create', [AlmacenController::class, 'create'])
+            ->name('almacenes.create');
+        
+        Route::post('/almacenes', [AlmacenController::class, 'store'])
+            ->name('almacenes.store');
+        
+        Route::get('/almacenes/{almacen}', [AlmacenController::class, 'show'])
+            ->name('almacenes.show');
+        
+        Route::get('/almacenes/{almacen}/edit', [AlmacenController::class, 'edit'])
+            ->name('almacenes.edit');
+        
+        Route::put('/almacenes/{almacen}', [AlmacenController::class, 'update'])
+            ->name('almacenes.update');
+        
+        Route::delete('/almacenes/{almacen}', [AlmacenController::class, 'destroy'])
+            ->middleware('role:Administrador')
+            ->name('almacenes.destroy');
+    });
+    // Consulta de inventario para cajero (solo lectura)
+    Route::middleware(['auth', 'role:Cajero'])->group(function () {
+        Route::get('/consulta', [ProductoController::class, 'consultaCajero'])
+                ->name('consulta-cajero');
+    });
     });
 
     /*
