@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Cajero - CORPORACIÓN ADIVON SAC</title>
+    <title>Dashboard Tienda - CORPORACIÓN ADIVON SAC</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -16,8 +16,8 @@
     <div class="ml-64 p-8">
         <!-- Header -->
         <x-header 
-            title="Dashboard Cajero" 
-            subtitle="¡Hola {{ auth()->user()->name }}! Gestiona las ventas de tu tienda" 
+            title="Dashboard Tienda" 
+            subtitle="¡Hola {{ auth()->user()->name }}! Gestiona las ventas de la tienda" 
         />
 
         <!-- KPIs -->

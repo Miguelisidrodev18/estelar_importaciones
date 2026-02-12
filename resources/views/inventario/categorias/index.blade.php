@@ -189,7 +189,7 @@
                                     <p class="text-lg font-medium">No hay categorías registradas</p>
                                     <p class="text-sm mt-2">Comienza creando tu primera categoría</p>
                                     @if($canCreate)
-                                        <a href="{{ route('categorias.create') }}" class="mt-4 bg-blue-900 text-white px-4 py-2 rounded-md hover:bg-blue-800 transition-colors">
+                                        <a href="{{ route('inventario.categorias.create') }}" class="mt-4 bg-blue-900 text-white px-4 py-2 rounded-md hover:bg-blue-800 transition-colors">
                                             <i class="fas fa-plus mr-2"></i>
                                             Crear Categoría
                                         </a>

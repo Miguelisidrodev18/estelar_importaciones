@@ -12,17 +12,44 @@
     <x-sidebar :role="auth()->user()->role->nombre" />
 
     <div class="ml-64 p-8">
-        <x-header 
-            title="Editar Producto" 
-            subtitle="Actualiza la información de {{ $producto->nombre }}" 
-        />
+        <x-header title="Editar Producto" subtitle="Actualiza la información de {{ $producto->nombre }}" />
 
         <div class="max-w-5xl mx-auto">
+            <!-- Info del Producto -->
+            <div class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div class="grid grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium text-gray-700">Código:</span>
+                        <span class="text-gray-900 ml-2">{{ $producto->codigo }}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Tipo:</span>
+                        @if($producto->tipo_producto == 'celular')
+                            <span class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                <i class="fas fa-mobile-alt mr-1"></i>Celular
+                            </span>
+                        @else
+                            <span class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                <i class="fas fa-headphones mr-1"></i>Accesorio
+                            </span>
+                        @endif
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Stock Actual:</span>
+                        <span class="text-gray-900 ml-2 font-bold">{{ $producto->stock_actual }}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Creado:</span>
+                        <span class="text-gray-900 ml-2">{{ $producto->created_at->format('d/m/Y') }}</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="bg-white rounded-lg shadow-md overflow-hidden">
                 <div class="bg-blue-900 px-6 py-4">
                     <h2 class="text-xl font-bold text-white">
                         <i class="fas fa-edit mr-2"></i>
-                        Editar Información del Producto
+                        Editar Información
                     </h2>
                 </div>
 
@@ -30,25 +57,31 @@
                     @csrf
                     @method('PUT')
 
-                    <!-- Código (solo lectura) -->
-                    <div class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                            <div>
-                                <span class="font-medium text-gray-700">Código:</span>
-                                <span class="text-gray-900 ml-2">{{ $producto->codigo }}</span>
+                    <!-- TIPO DE PRODUCTO (SOLO LECTURA) -->
+                    <div class="mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                @if($producto->tipo_producto == 'celular')
+                                    <i class="fas fa-mobile-alt text-3xl text-blue-600 mr-3"></i>
+                                    <div>
+                                        <p class="font-semibold text-gray-900">Tipo: Celular</p>
+                                        <p class="text-sm text-gray-500">El stock se controla por IMEI individual</p>
+                                    </div>
+                                @else
+                                    <i class="fas fa-headphones text-3xl text-green-600 mr-3"></i>
+                                    <div>
+                                        <p class="font-semibold text-gray-900">Tipo: Accesorio</p>
+                                        <p class="text-sm text-gray-500">El stock se controla numéricamente</p>
+                                    </div>
+                                @endif
                             </div>
-                            <div>
-                                <span class="font-medium text-gray-700">Stock Actual:</span>
-                                <span class="text-gray-900 ml-2">{{ $producto->stock_actual }} {{ $producto->unidad_medida }}</span>
-                            </div>
-                            <div>
-                                <span class="font-medium text-gray-700">Creado:</span>
-                                <span class="text-gray-900 ml-2">{{ $producto->created_at->format('d/m/Y') }}</span>
-                            </div>
+                            <span class="text-xs text-gray-400">
+                                <i class="fas fa-lock mr-1"></i>No editable
+                            </span>
                         </div>
                     </div>
 
-                    <!-- Información Básica -->
+                    <!-- INFORMACIÓN BÁSICA -->
                     <div class="mb-8">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                             <i class="fas fa-info-circle mr-2 text-blue-900"></i>
@@ -56,26 +89,21 @@
                         </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Nombre -->
-                            <div>
+                            <div class="md:col-span-2">
                                 <label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">
                                     Nombre del Producto <span class="text-red-500">*</span>
                                 </label>
                                 <input type="text" name="nombre" id="nombre" value="{{ old('nombre', $producto->nombre) }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('nombre') border-red-500 @enderror"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                        required>
-                                @error('nombre')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
                             </div>
 
-                            <!-- Categoría -->
                             <div>
                                 <label for="categoria_id" class="block text-sm font-medium text-gray-700 mb-2">
                                     Categoría <span class="text-red-500">*</span>
                                 </label>
                                 <select name="categoria_id" id="categoria_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('categoria_id') border-red-500 @enderror"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                         required>
                                     @foreach($categorias as $categoria)
                                         <option value="{{ $categoria->id }}" {{ old('categoria_id', $producto->categoria_id) == $categoria->id ? 'selected' : '' }}>
@@ -83,62 +111,35 @@
                                         </option>
                                     @endforeach
                                 </select>
-                                @error('categoria_id')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
                             </div>
 
-                            <!-- Marca -->
                             <div>
                                 <label for="marca" class="block text-sm font-medium text-gray-700 mb-2">Marca</label>
                                 <input type="text" name="marca" id="marca" value="{{ old('marca', $producto->marca) }}"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
 
-                            <!-- Modelo -->
                             <div>
                                 <label for="modelo" class="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
                                 <input type="text" name="modelo" id="modelo" value="{{ old('modelo', $producto->modelo) }}"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            </div> 
-
-                            <!-- Unidad de Medida -->
-                            <div>
-                                <label for="unidad_medida" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Unidad de Medida <span class="text-red-500">*</span>
-                                </label>
-                                <select name="unidad_medida" id="unidad_medida" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        required>
-                                    <option value="unidad" {{ old('unidad_medida', $producto->unidad_medida) == 'unidad' ? 'selected' : '' }}>Unidad</option>
-                                    <option value="kg" {{ old('unidad_medida', $producto->unidad_medida) == 'kg' ? 'selected' : '' }}>Kilogramo (kg)</option>
-                                    <option value="litro" {{ old('unidad_medida', $producto->unidad_medida) == 'litro' ? 'selected' : '' }}>Litro</option>
-                                    <option value="caja" {{ old('unidad_medida', $producto->unidad_medida) == 'caja' ? 'selected' : '' }}>Caja</option>
-                                    <option value="paquete" {{ old('unidad_medida', $producto->unidad_medida) == 'paquete' ? 'selected' : '' }}>Paquete</option>
-                                    <option value="metro" {{ old('unidad_medida', $producto->unidad_medida) == 'metro' ? 'selected' : '' }}>Metro</option>
-                                </select>
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
 
-                            <!-- Código de Barras -->
                             <div>
                                 <label for="codigo_barras" class="block text-sm font-medium text-gray-700 mb-2">Código de Barras</label>
                                 <input type="text" name="codigo_barras" id="codigo_barras" value="{{ old('codigo_barras', $producto->codigo_barras) }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('codigo_barras') border-red-500 @enderror">
-                                @error('codigo_barras')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
-                        </div>
 
-                        <!-- Descripción -->
-                        <div class="mt-6">
-                            <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
-                            <textarea name="descripcion" id="descripcion" rows="3"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">{{ old('descripcion', $producto->descripcion) }}</textarea>
+                            <div class="md:col-span-2">
+                                <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                                <textarea name="descripcion" id="descripcion" rows="2"
+                                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">{{ old('descripcion', $producto->descripcion) }}</textarea>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Precios -->
+                    <!-- PRECIOS -->
                     <div class="mb-8">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                             <i class="fas fa-dollar-sign mr-2 text-blue-900"></i>
@@ -146,49 +147,56 @@
                         </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <!-- Precio de Compra -->
                             <div>
                                 <label for="precio_compra_actual" class="block text-sm font-medium text-gray-700 mb-2">
                                     Precio de Compra <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500">S/</span>
-                                    <input type="number" step="0.01" min="0" name="precio_compra_actual" id="precio_compra_actual" 
-                                            value="{{ old('precio_compra_actual', $producto->precio_compra_actual) }}"
-                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            required>
+                                    <span class="absolute left-3 top-2.5 text-gray-500">S/</span>
+                                    <input type="number" name="precio_compra_actual" id="precio_compra_actual" 
+                                           value="{{ old('precio_compra_actual', $producto->precio_compra_actual) }}" 
+                                           step="0.01" min="0"
+                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                           required>
                                 </div>
                             </div>
 
-                            <!-- Precio de Venta -->
                             <div>
                                 <label for="precio_venta" class="block text-sm font-medium text-gray-700 mb-2">
                                     Precio de Venta <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500">S/</span>
-                                    <input type="number" step="0.01" min="0" name="precio_venta" id="precio_venta" 
-                                            value="{{ old('precio_venta', $producto->precio_venta) }}"
-                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            required>
+                                    <span class="absolute left-3 top-2.5 text-gray-500">S/</span>
+                                    <input type="number" name="precio_venta" id="precio_venta" 
+                                           value="{{ old('precio_venta', $producto->precio_venta) }}" 
+                                           step="0.01" min="0"
+                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                           required>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500">Margen: {{ $producto->margen_ganancia }}%</p>
                             </div>
 
-                            <!-- Precio Mayorista -->
                             <div>
                                 <label for="precio_mayorista" class="block text-sm font-medium text-gray-700 mb-2">Precio Mayorista</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500">S/</span>
-                                    <input type="number" step="0.01" min="0" name="precio_mayorista" id="precio_mayorista" 
-                                            value="{{ old('precio_mayorista', $producto->precio_mayorista) }}"
-                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <span class="absolute left-3 top-2.5 text-gray-500">S/</span>
+                                    <input type="number" name="precio_mayorista" id="precio_mayorista" 
+                                           value="{{ old('precio_mayorista', $producto->precio_mayorista) }}" 
+                                           step="0.01" min="0"
+                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                 </div>
+                            </div>
+
+                            <!-- Margen de Ganancia (calculado) -->
+                            <div class="md:col-span-3 bg-blue-50 p-4 rounded-lg">
+                                <p class="text-sm font-medium text-blue-900">
+                                    <i class="fas fa-chart-line mr-2"></i>
+                                    Margen de Ganancia: <span class="text-lg font-bold">{{ number_format($producto->margen_ganancia, 2) }}%</span>
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Stock -->
+                    <!-- CONTROL DE STOCK -->
                     <div class="mb-8">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                             <i class="fas fa-boxes mr-2 text-blue-900"></i>
@@ -196,62 +204,72 @@
                         </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <!-- Stock Mínimo -->
                             <div>
                                 <label for="stock_minimo" class="block text-sm font-medium text-gray-700 mb-2">
                                     Stock Mínimo <span class="text-red-500">*</span>
                                 </label>
-                                <input type="number" min="0" name="stock_minimo" id="stock_minimo" 
-                                       value="{{ old('stock_minimo', $producto->stock_minimo) }}"
+                                <input type="number" name="stock_minimo" id="stock_minimo" 
+                                       value="{{ old('stock_minimo', $producto->stock_minimo) }}" min="0"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                        required>
                             </div>
 
-                            <!-- Stock Máximo -->
                             <div>
                                 <label for="stock_maximo" class="block text-sm font-medium text-gray-700 mb-2">
                                     Stock Máximo <span class="text-red-500">*</span>
                                 </label>
-                                <input type="number" min="1" name="stock_maximo" id="stock_maximo" 
-                                       value="{{ old('stock_maximo', $producto->stock_maximo) }}"
+                                <input type="number" name="stock_maximo" id="stock_maximo" 
+                                       value="{{ old('stock_maximo', $producto->stock_maximo) }}" min="1"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                        required>
                             </div>
 
-                            <!-- Ubicación -->
                             <div>
-                                <label for="ubicacion" class="block text-sm font-medium text-gray-700 mb-2">Ubicación en Almacén</label>
-                                <input type="text" name="ubicacion" id="ubicacion" value="{{ old('ubicacion', $producto->ubicacion) }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Ej: Pasillo A - Estante 3">
+                                <label for="ubicacion" class="block text-sm font-medium text-gray-700 mb-2">Ubicación Física</label>
+                                <input type="text" name="ubicacion" id="ubicacion" 
+                                       value="{{ old('ubicacion', $producto->ubicacion) }}"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
                         </div>
 
-                        <!-- Alerta de stock -->
-                        <div class="mt-6 p-4 rounded-lg border
-                            @if($producto->estado_stock == 'sin_stock') bg-red-50 border-red-200
-                            @elseif($producto->estado_stock == 'bajo') bg-yellow-50 border-yellow-200
-                            @else bg-green-50 border-green-200
+                        <!-- Alerta de Stock -->
+                        <div class="mt-4 p-4 rounded-lg 
+                            @if($producto->estado_stock == 'sin_stock') bg-red-50 border border-red-200
+                            @elseif($producto->estado_stock == 'bajo') bg-yellow-50 border border-yellow-200
+                            @else bg-green-50 border border-green-200
                             @endif">
                             <p class="text-sm font-medium
-                                @if($producto->estado_stock == 'sin_stock') text-red-700
-                                @elseif($producto->estado_stock == 'bajo') text-yellow-700
-                                @else text-green-700
+                                @if($producto->estado_stock == 'sin_stock') text-red-800
+                                @elseif($producto->estado_stock == 'bajo') text-yellow-800
+                                @else text-green-800
                                 @endif">
                                 <i class="fas fa-info-circle mr-2"></i>
-                                Stock actual: {{ $producto->stock_actual }} {{ $producto->unidad_medida }}
+                                Estado Actual: 
+                                <strong>{{ $producto->stock_actual }} {{ $producto->unidad_medida }}</strong>
                                 @if($producto->estado_stock == 'sin_stock')
-                                    - ¡SIN STOCK!
+                                    - Sin stock disponible
                                 @elseif($producto->estado_stock == 'bajo')
-                                    - Stock bajo (alertar)
+                                    - Stock por debajo del mínimo
                                 @else
                                     - Stock normal
                                 @endif
                             </p>
                         </div>
+
+                        <div class="mt-4 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
+                            <p class="text-sm text-yellow-700">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                <strong>Nota:</strong> El stock NO se modifica aquí. Para ajustar stock, usa el módulo de 
+                                @if($producto->tipo_producto == 'celular')
+                                    <a href="{{ route('inventario.imeis.index') }}" class="underline font-semibold">Gestión de IMEIs</a>
+                                @else
+                                    <a href="{{ route('inventario.movimientos.create') }}" class="underline font-semibold">Movimientos de Inventario</a>
+                                @endif
+                            </p>
+                        </div>
                     </div>
 
-                    <!-- Imagen y Estado -->
+                    <!-- IMAGEN Y ESTADO -->
                     <div class="mb-8">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                             <i class="fas fa-image mr-2 text-blue-900"></i>
@@ -259,35 +277,14 @@
                         </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Imagen -->
                             <div>
-                                <label for="imagen" class="block text-sm font-medium text-gray-700 mb-2">Imagen del Producto</label>
-                                <div class="flex items-center space-x-4">
-                                    @if($producto->imagen)
-                                        <div id="current-image">
-                                            <img src="{{ $producto->imagen_url }}" alt="{{ $producto->nombre }}" class="h-32 w-32 object-cover rounded-lg border-2 border-gray-300">
-                                            <p class="text-xs text-gray-500 mt-1 text-center">Imagen actual</p>
-                                        </div>
-                                    @endif
-                                    
-                                    <div id="preview-container" class="hidden">
-                                        <img id="preview-image" src="" alt="Vista previa" class="h-32 w-32 object-cover rounded-lg border-2 border-blue-500">
-                                        <p class="text-xs text-blue-600 mt-1 text-center">Nueva imagen</p>
-                                    </div>
-                                    
-                                    <div class="flex-1">
-                                        <input type="file" name="imagen" id="imagen" accept="image/*"
-                                                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                                onchange="previewImage(event)">
-                                        <p class="mt-1 text-xs text-gray-500">JPG, JPEG, PNG, WEBP. Máx 2MB</p>
-                                        @if($producto->imagen)
-                                            <p class="mt-1 text-xs text-gray-500">Dejar vacío para mantener la imagen actual</p>
-                                        @endif
-                                    </div>
-                                </div>
+                                <label for="imagen" class="block text-sm font-medium text-gray-700 mb-2">Nueva Imagen (Opcional)</label>
+                                <input type="file" name="imagen" id="imagen" accept="image/*"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                       onchange="previewImage(event)">
+                                <p class="mt-1 text-xs text-gray-500">JPG, PNG, WEBP (Max. 2MB)</p>
                             </div>
 
-                            <!-- Estado -->
                             <div>
                                 <label for="estado" class="block text-sm font-medium text-gray-700 mb-2">
                                     Estado <span class="text-red-500">*</span>
@@ -300,16 +297,20 @@
                                     <option value="descontinuado" {{ old('estado', $producto->estado) == 'descontinuado' ? 'selected' : '' }}>Descontinuado</option>
                                 </select>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Nota informativa -->
-                    <div class="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
-                        <div class="flex">
-                            <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-3"></i>
-                            <div class="text-sm text-yellow-700">
-                                <p class="font-medium">Importante:</p>
-                                <p class="mt-1">El stock actual NO se modifica desde aquí. Para ajustar el stock, usa la sección de Movimientos de Inventario.</p>
+                            <!-- Imagen Actual -->
+                            @if($producto->imagen)
+                                <div class="md:col-span-2">
+                                    <p class="text-sm font-medium text-gray-700 mb-2">Imagen Actual:</p>
+                                    <img src="{{ $producto->imagen_url }}" alt="{{ $producto->nombre }}" 
+                                         class="h-32 rounded-lg border border-gray-300">
+                                </div>
+                            @endif
+
+                            <!-- Preview Nueva -->
+                            <div id="imagePreviewContainer" class="md:col-span-2 hidden">
+                                <p class="text-sm font-medium text-gray-700 mb-2">Nueva Imagen:</p>
+                                <img id="imagePreview" src="" alt="Preview" class="h-32 rounded-lg border border-gray-300">
                             </div>
                         </div>
                     </div>
@@ -330,17 +331,16 @@
 
     <script>
         function previewImage(event) {
-            const input = event.target;
-            const preview = document.getElementById('preview-image');
-            const container = document.getElementById('preview-container');
-            
-            if (input.files && input.files[0]) {
+            const file = event.target.files[0];
+            if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
+                    const preview = document.getElementById('imagePreview');
+                    const container = document.getElementById('imagePreviewContainer');
                     preview.src = e.target.result;
                     container.classList.remove('hidden');
-                }
-                reader.readAsDataURL(input.files[0]);
+                };
+                reader.readAsDataURL(file);
             }
         }
     </script>

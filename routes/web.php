@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\MasterPasswordController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\DirectPasswordResetController;
+use App\Http\Controllers\ProfileController;
 
 // ===================== CORE =====================
 use App\Http\Controllers\DashboardController;
@@ -17,6 +18,8 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\MovimientoInventarioController;
 use App\Http\Controllers\AlmacenController;
+use App\Http\Controllers\ImeiController;
+
 
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
@@ -37,7 +40,7 @@ Route::get('/', function () {
         'Administrador' => redirect()->route('admin.dashboard'),
         'Almacenero'    => redirect()->route('almacenero.dashboard'),
         'Vendedor'      => redirect()->route('vendedor.dashboard'),
-        'Cajero'        => redirect()->route('cajero.dashboard'),
+        'Tienda'        => redirect()->route('tienda.dashboard'),
         'Proveedor'     => redirect()->route('proveedor.dashboard'),
         default         => redirect()->route('login'),
     };
@@ -108,92 +111,79 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'almacenero'])->name('dashboard');
     });
 
-    Route::middleware('role:Cajero')->prefix('cajero')->name('cajero.')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'cajero'])->name('dashboard');
+    Route::middleware('role:Tienda')->prefix('tienda')->name('tienda.')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'tienda'])->name('dashboard');
     });
 
     Route::middleware('role:Proveedor')->prefix('proveedor')->name('proveedor.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'proveedor'])->name('dashboard');
     });
-
-    /*
-    |--------------------------------------------------------------------------
-    | INVENTARIO (CATEGORÍAS, PRODUCTOS, MOVIMIENTOS)
-    |--------------------------------------------------------------------------
-    */
-    Route::prefix('inventario')->name('inventario.')->group(function () {
-
-        /*
-        |-------------------------
-        | CATEGORÍAS
-        |-------------------------
-        */
+// ========================================
+// RUTAS DE PERFIL
+// ========================================
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+// ========================================
+// MÓDULO DE INVENTARIO
+// ========================================
+Route::middleware(['auth'])->prefix('inventario')->name('inventario.')->group(function () {
+    
+    // ============================================
+    // CATEGORÍAS (Admin y Almacenero)
+    // ============================================
+    Route::middleware('role:Administrador,Almacenero')->group(function () {
         Route::get('/categorias', [CategoriaController::class, 'index'])
             ->name('categorias.index');
-
         Route::get('/categorias/create', [CategoriaController::class, 'create'])
-            ->middleware('role:Administrador,Almacenero')
             ->name('categorias.create');
-
         Route::post('/categorias', [CategoriaController::class, 'store'])
-            ->middleware('role:Administrador,Almacenero')
             ->name('categorias.store');
-
         Route::get('/categorias/{categoria}/edit', [CategoriaController::class, 'edit'])
-            ->middleware('role:Administrador,Almacenero')
             ->name('categorias.edit');
-
         Route::put('/categorias/{categoria}', [CategoriaController::class, 'update'])
-            ->middleware('role:Administrador,Almacenero')
             ->name('categorias.update');
-
         Route::delete('/categorias/{categoria}', [CategoriaController::class, 'destroy'])
             ->middleware('role:Administrador')
             ->name('categorias.destroy');
-
         Route::get('/categorias/{categoria}', [CategoriaController::class, 'show'])
             ->name('categorias.show');
+    });
 
-        /*
-        |-------------------------
-        | PRODUCTOS
-        |-------------------------
-        */
-        Route::get('/productos', [ProductoController::class, 'index'])
-            ->name('productos.index');
-
+    // ============================================
+    // PRODUCTOS (Admin y Almacenero para gestión, Tienda para consulta)
+    // ============================================
+        Route::middleware('role:Administrador,Almacenero')->group(function () {
         Route::get('/productos/create', [ProductoController::class, 'create'])
-            ->middleware('role:Administrador,Almacenero')
             ->name('productos.create');
-
         Route::post('/productos', [ProductoController::class, 'store'])
-            ->middleware('role:Administrador,Almacenero')
             ->name('productos.store');
-
         Route::get('/productos/{producto}/edit', [ProductoController::class, 'edit'])
-            ->middleware('role:Administrador,Almacenero')
             ->name('productos.edit');
-
         Route::put('/productos/{producto}', [ProductoController::class, 'update'])
-            ->middleware('role:Administrador,Almacenero')
             ->name('productos.update');
-
         Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])
             ->middleware('role:Administrador')
             ->name('productos.destroy');
-
-        Route::get('/productos/{producto}', [ProductoController::class, 'show'])
+    });
+    route::get('/productos', [ProductoController::class, 'index'])
+            ->name('productos.index');
+    Route::get('/productos/{producto}', [ProductoController::class, 'show'])
             ->name('productos.show');
-
-        Route::get('/productos/buscar', [ProductoController::class, 'buscarAjax'])
+    Route::get('/productos/buscar', [ProductoController::class, 'buscarAjax'])
             ->name('productos.buscar-ajax');
+    Route::get('/productos/consulta-tienda', [ProductoController::class, 'consultaTienda'])
+            ->middleware('role:Tienda')
+            ->name('productos.consulta-tienda');
 
         /*
         |-------------------------
         | MOVIMIENTOS DE INVENTARIO
         |-------------------------
         */
-        Route::middleware('role:Administrador,Almacenero')->group(function () {
+    Route::middleware('role:Administrador,Almacenero')->group(function () {
 
             Route::get('/movimientos', [MovimientoInventarioController::class, 'index'])
                 ->name('movimientos.index');
@@ -240,13 +230,57 @@ Route::middleware('auth')->group(function () {
             ->middleware('role:Administrador')
             ->name('almacenes.destroy');
     });
-    // Consulta de inventario para cajero (solo lectura)
-    Route::middleware(['auth', 'role:Cajero'])->group(function () {
-        Route::get('/consulta', [ProductoController::class, 'consultaCajero'])
-                ->name('consulta-cajero');
-    });
-    });
 
+    /*
+    |-------------------------
+    | GESTIÓN DE IMEIs (Solo para CELULARES)
+    |-------------------------
+    */
+    Route::middleware('role:Administrador,Almacenero')->group(function () {
+        Route::get('/imeis', [ImeiController::class, 'index'])
+            ->name('imeis.index');
+        Route::get('/imeis/create', [ImeiController::class, 'create'])
+            ->name('imeis.create');
+        Route::post('/imeis', [ImeiController::class, 'store'])
+            ->name('imeis.store');
+        Route::get('/imeis/{imei}', [ImeiController::class, 'show'])
+            ->name('imeis.show');
+        Route::get('/imeis/{imei}/edit', [ImeiController::class, 'edit'])
+            ->name('imeis.edit');
+        Route::put('/imeis/{imei}', [ImeiController::class, 'update'])
+            ->name('imeis.update');
+        
+        // API para obtener IMEIs disponibles por producto y almacén
+        Route::get('/api/imeis-disponibles', [ImeiController::class, 'getImeisDisponibles'])
+            ->name('imeis.disponibles');
+    });
+//=========================================
+// RUTA DE CONSULTA PARA TIENDA
+//=========================================
+    // Consulta de inventario para tienda (solo lectura)
+    Route::middleware(['auth', 'role:Tienda'])->group(function () {
+        Route::get('/consulta', [ProductoController::class, 'consultaTienda'])
+                ->name('consulta-tienda');
+    });
+    });
+// ========================================
+// RUTAS FUTURAS (Preparadas)
+// ========================================
+
+// Módulo de Compras (Día 3)
+// Route::prefix('compras')->name('compras.')->group(function () {
+//     // Rutas de compras aquí
+// });
+
+// Módulo de Ventas (Día 4)
+// Route::prefix('ventas')->name('ventas.')->group(function () {
+//     // Rutas de ventas aquí
+// });
+
+// Módulo de Reportes (Día 5)
+// Route::prefix('reportes')->name('reportes.')->group(function () {
+//     // Rutas de reportes aquí
+// });
     /*
     |--------------------------------------------------------------------------
     | LOGOUT

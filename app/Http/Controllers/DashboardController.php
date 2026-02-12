@@ -8,6 +8,20 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    public function index()
+{
+    $user = auth()->user();
+    $rol = $user->role->nombre;
+    
+    return match($rol) {
+        'Administrador' => redirect()->route('admin.dashboard'),
+        'Almacenero' => redirect()->route('almacenero.dashboard'),
+        'Tienda' => redirect()->route('tienda.dashboard'), // CAMBIAR DE 'Cajero'
+        'Vendedor' => redirect()->route('vendedor.dashboard'),
+        'Proveedor' => redirect()->route('proveedor.dashboard'),
+        default => abort(403, 'Rol no autorizado'),
+    };
+}
     /**
      * Dashboard del Administrador
      */
@@ -72,17 +86,27 @@ class DashboardController extends Controller
     }
 
     /**
-     * Dashboard del Cajero
+     * Dashboard del Tienda
      */
-    public function cajero(): View
-    {
-        $data = [
-            'ventas_dia' => 0, // Placeholder - se implementará en el módulo de ventas
-            'caja_actual' => 0,
-            'transacciones_dia' => 0,
-            'clientes_atendidos' => 0,
-        ];
+  public function tienda()
+{
+    $user = auth()->user();
+    
+    // Estadísticas básicas para tienda
+    $stats = [
+        'ventas_hoy' => 0, // Implementar cuando tengamos módulo de ventas
+        'transacciones_hoy' => 0,
+        'clientes_atendidos' => 0,
+        'productos_disponibles' => \App\Models\Producto::activos()->count(),
+    ];
+    
+    // Productos más vendidos (placeholder)
+    $productosPopulares = \App\Models\Producto::activos()
+        ->orderBy('nombre')
+        ->limit(5)
+        ->get();
+    
+    return view('dashboards.tienda', compact('stats', 'productosPopulares'));
+}
 
-        return view('dashboards.cajero', $data);
-    }
 }

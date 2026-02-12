@@ -91,10 +91,6 @@
                                 </div>
                             </label>
                         </div>
-
-                        @error('tipo_movimiento')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
                     </div>
 
                     <!-- Datos del Movimiento -->
@@ -111,24 +107,24 @@
                                     Producto <span class="text-red-500">*</span>
                                 </label>
                                 <select name="producto_id" id="producto_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('producto_id') border-red-500 @enderror"
-                                        required onchange="loadStockActual()">
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        required onchange="loadProductInfo()">
                                     <option value="">Seleccione un producto</option>
                                     @foreach($productos as $producto)
-                                        <option value="{{ $producto->id }}" data-stock="{{ $producto->stock_actual }}" data-unidad="{{ $producto->unidad_medida }}">
+                                        <option value="{{ $producto->id }}" 
+                                                data-stock="{{ $producto->stock_actual }}" 
+                                                data-unidad="{{ $producto->unidad_medida }}"
+                                                data-tipo="{{ $producto->tipo_producto }}">
                                             {{ $producto->codigo }} - {{ $producto->nombre }} (Stock: {{ $producto->stock_actual }})
                                         </option>
                                     @endforeach
                                 </select>
-                                @error('producto_id')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
                                 
-                                <div id="stockInfo" class="mt-2 hidden">
+                                <div id="productoInfo" class="mt-2 hidden">
                                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                         <p class="text-sm text-blue-900">
                                             <i class="fas fa-info-circle mr-2"></i>
-                                            Stock actual: <span id="stockActual" class="font-bold">0</span> <span id="unidadMedida"></span>
+                                            <span id="tipoProducto"></span> - Stock: <span id="stockActual" class="font-bold">0</span> <span id="unidadMedida"></span>
                                         </p>
                                     </div>
                                 </div>
@@ -140,32 +136,37 @@
                                     Almacén <span class="text-red-500">*</span>
                                 </label>
                                 <select name="almacen_id" id="almacen_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('almacen_id') border-red-500 @enderror"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                         required>
                                     <option value="">Seleccione un almacén</option>
                                     @foreach($almacenes as $almacen)
                                         <option value="{{ $almacen->id }}">{{ $almacen->nombre }}</option>
                                     @endforeach
                                 </select>
-                                @error('almacen_id')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
                             </div>
 
-                            <!-- Cantidad -->
-                            <div>
+                            <!-- IMEI (solo para celulares) -->
+                            <div id="imeiDiv" class="hidden">
+                                <label for="imei_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    IMEI <span class="text-red-500">*</span>
+                                </label>
+                                <select name="imei_id" id="imei_id" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Primero seleccione producto y almacén</option>
+                                </select>
+                                <p class="mt-1 text-xs text-gray-500">Solo para productos tipo celular</p>
+                            </div>
+
+                            <!-- Cantidad (solo para accesorios) -->
+                            <div id="cantidadDiv">
                                 <label for="cantidad" class="block text-sm font-medium text-gray-700 mb-2">
                                     Cantidad <span class="text-red-500">*</span>
                                 </label>
-                                <input type="number" name="cantidad" id="cantidad" min="1" value="{{ old('cantidad') }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('cantidad') border-red-500 @enderror"
-                                       required>
-                                @error('cantidad')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
+                                <input type="number" name="cantidad" id="cantidad" min="1" value="1"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             </div>
 
-                            <!-- Almacén Destino (solo para transferencias) -->
+                            <!-- Almacén Destino (solo transferencias) -->
                             <div id="almacenDestinoDiv" class="hidden">
                                 <label for="almacen_destino_id" class="block text-sm font-medium text-gray-700 mb-2">
                                     Almacén Destino <span class="text-red-500">*</span>
@@ -177,9 +178,6 @@
                                         <option value="{{ $almacen->id }}">{{ $almacen->nombre }}</option>
                                     @endforeach
                                 </select>
-                                @error('almacen_destino_id')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
                             </div>
 
                             <!-- Motivo -->
@@ -187,21 +185,17 @@
                                 <label for="motivo" class="block text-sm font-medium text-gray-700 mb-2">
                                     Motivo <span class="text-red-500">*</span>
                                 </label>
-                                <input type="text" name="motivo" id="motivo" value="{{ old('motivo') }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('motivo') border-red-500 @enderror"
-                                       placeholder="Ej: Compra a proveedor, Venta a cliente, Corrección de inventario..."
-                                       required>
-                                @error('motivo')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
+                                <input type="text" name="motivo" id="motivo" 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                       placeholder="Ej: Compra a proveedor, Venta a cliente..." required>
                             </div>
 
                             <!-- Observaciones -->
                             <div class="md:col-span-2">
-                                <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-2">Observaciones (Opcional)</label>
-                                <textarea name="observaciones" id="observaciones" rows="3"
+                                <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
+                                <textarea name="observaciones" id="observaciones" rows="2"
                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                          placeholder="Información adicional sobre el movimiento...">{{ old('observaciones') }}</textarea>
+                                          placeholder="Información adicional..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -212,7 +206,7 @@
                             <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-3"></i>
                             <div class="text-sm text-yellow-700">
                                 <p class="font-medium">Importante:</p>
-                                <p class="mt-1">Los movimientos NO se pueden eliminar una vez registrados. Esto garantiza la trazabilidad completa del inventario. Si comete un error, deberá realizar un ajuste posterior.</p>
+                                <p class="mt-1">Los movimientos NO se pueden eliminar. Para celulares, se registrará el IMEI específico.</p>
                             </div>
                         </div>
                     </div>
@@ -232,6 +226,8 @@
     </div>
 
     <script>
+        let tipoProductoActual = '';
+
         function handleTipoChange() {
             const tipo = document.querySelector('input[name="tipo_movimiento"]:checked');
             const almacenDestinoDiv = document.getElementById('almacenDestinoDiv');
@@ -243,26 +239,49 @@
             } else {
                 almacenDestinoDiv.classList.add('hidden');
                 almacenDestinoSelect.required = false;
-                almacenDestinoSelect.value = '';
             }
         }
 
-        function loadStockActual() {
+        function loadProductInfo() {
             const select = document.getElementById('producto_id');
             const option = select.options[select.selectedIndex];
-            const stockInfo = document.getElementById('stockInfo');
+            const productoInfo = document.getElementById('productoInfo');
             const stockActual = document.getElementById('stockActual');
             const unidadMedida = document.getElementById('unidadMedida');
+            const tipoProducto = document.getElementById('tipoProducto');
+            const imeiDiv = document.getElementById('imeiDiv');
+            const cantidadDiv = document.getElementById('cantidadDiv');
+            const imeiSelect = document.getElementById('imei_id');
             
             if (option.value) {
                 const stock = option.dataset.stock;
                 const unidad = option.dataset.unidad;
+                const tipo = option.dataset.tipo;
+                
+                tipoProductoActual = tipo;
                 
                 stockActual.textContent = stock;
                 unidadMedida.textContent = unidad;
-                stockInfo.classList.remove('hidden');
+                tipoProducto.textContent = tipo === 'celular' ? 'Celular' : 'Accesorio';
+                productoInfo.classList.remove('hidden');
+                
+                // Mostrar/ocultar campos según tipo
+                if (tipo === 'celular') {
+                    imeiDiv.classList.remove('hidden');
+                    cantidadDiv.classList.add('hidden');
+                    imeiSelect.required = true;
+                    document.getElementById('cantidad').required = false;
+                    document.getElementById('cantidad').value = 1;
+                } else {
+                    imeiDiv.classList.add('hidden');
+                    cantidadDiv.classList.remove('hidden');
+                    imeiSelect.required = false;
+                    document.getElementById('cantidad').required = true;
+                }
             } else {
-                stockInfo.classList.add('hidden');
+                productoInfo.classList.add('hidden');
+                imeiDiv.classList.add('hidden');
+                cantidadDiv.classList.remove('hidden');
             }
         }
     </script>

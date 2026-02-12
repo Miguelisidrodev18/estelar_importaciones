@@ -39,7 +39,7 @@ class RoleSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'nombre' => 'Cajero',
+                'nombre' => 'Tienda',
                 'descripcion' => 'Encargado de tienda - gestiona cobros y ventas del punto de venta',
                 'created_at' => now(),
                 'updated_at' => now(),
