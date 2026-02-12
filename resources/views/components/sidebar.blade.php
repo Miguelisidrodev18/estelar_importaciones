@@ -1,6 +1,6 @@
 @props(['role'])
 
-<div class="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-xl z-50">
+<div class="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-xl z-50" x-data="{ inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
     <!-- Logo -->
     <div class="p-6 border-b border-blue-700">
         <div class="flex items-center space-x-3">
@@ -33,129 +33,155 @@
             @if($role == 'Administrador')
                 <!-- Dashboard -->
                 <li>
-                    <x-sidebar-link href="{{ route('admin.dashboard') }}" :active="request()->routeIs('admin.dashboard')">
+                    <a href="{{ route('admin.dashboard') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.dashboard') ? 'bg-blue-700' : '' }}">
                         <i class="fas fa-tachometer-alt mr-3"></i>Dashboard
-                    </x-sidebar-link>
+                    </a>
                 </li>
 
-                <!-- Inventario -->
-                <li x-data="{ open: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
-                    <button @click="open = !open" class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                <!-- Inventario (Desplegable) -->
+                <li>
+                    <button @click="inventarioOpen = !inventarioOpen" 
+                            class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.*') ? 'bg-blue-700' : '' }}">
                         <span class="flex items-center">
                             <i class="fas fa-boxes mr-3"></i>Inventario
                         </span>
-                        <i class="fas fa-chevron-down transition-transform" :class="{ 'rotate-180': open }"></i>
+                        <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': inventarioOpen }"></i>
                     </button>
-                    <ul x-show="open" x-collapse class="ml-4 mt-2 space-y-1">
+                    
+                    <ul x-show="inventarioOpen" 
+                        x-transition:enter="transition ease-out duration-200"
+                        x-transition:enter-start="opacity-0 transform scale-95"
+                        x-transition:enter-end="opacity-100 transform scale-100"
+                        x-transition:leave="transition ease-in duration-150"
+                        x-transition:leave-start="opacity-100 transform scale-100"
+                        x-transition:leave-end="opacity-0 transform scale-95"
+                        class="ml-4 mt-2 space-y-1">
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.categorias.index') }}" :active="request()->routeIs('inventario.categorias.*')">
+                            <a href="{{ route('inventario.categorias.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.categorias.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-tags mr-3 text-sm"></i>Categorías
-                            </x-sidebar-link>
+                            </a>
                         </li>
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.productos.index') }}" :active="request()->routeIs('inventario.productos.*')">
+                            <a href="{{ route('inventario.productos.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.productos.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-box mr-3 text-sm"></i>Productos
-                            </x-sidebar-link>
+                            </a>
                         </li>
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.almacenes.index') }}" :active="request()->routeIs('inventario.almacenes.*')">
+                            <a href="{{ route('inventario.almacenes.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.almacenes.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-warehouse mr-3 text-sm"></i>Almacenes
-                            </x-sidebar-link>
+                            </a>
                         </li>
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.imeis.index') }}" :active="request()->routeIs('inventario.imeis.*')">
+                            <a href="{{ route('inventario.imeis.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.imeis.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-mobile-alt mr-3 text-sm"></i>IMEIs
-                            </x-sidebar-link>
+                            </a>
                         </li>
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.movimientos.index') }}" :active="request()->routeIs('inventario.movimientos.*')">
+                            <a href="{{ route('inventario.movimientos.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.movimientos.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-exchange-alt mr-3 text-sm"></i>Movimientos
-                            </x-sidebar-link>
+                            </a>
                         </li>
                     </ul>
                 </li>
 
             @elseif($role == 'Almacenero')
                 <li>
-                    <x-sidebar-link href="{{ route('almacenero.dashboard') }}" :active="request()->routeIs('almacenero.dashboard')">
+                    <a href="{{ route('almacenero.dashboard') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('almacenero.dashboard') ? 'bg-blue-700' : '' }}">
                         <i class="fas fa-tachometer-alt mr-3"></i>Dashboard
-                    </x-sidebar-link>
+                    </a>
                 </li>
 
-                <li x-data="{ open: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
-                    <button @click="open = !open" class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                <li>
+                    <button @click="inventarioOpen = !inventarioOpen" 
+                            class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.*') ? 'bg-blue-700' : '' }}">
                         <span class="flex items-center">
                             <i class="fas fa-boxes mr-3"></i>Inventario
                         </span>
-                        <i class="fas fa-chevron-down transition-transform" :class="{ 'rotate-180': open }"></i>
+                        <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': inventarioOpen }"></i>
                     </button>
-                    <ul x-show="open" x-collapse class="ml-4 mt-2 space-y-1">
+                    
+                    <ul x-show="inventarioOpen" x-collapse class="ml-4 mt-2 space-y-1">
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.productos.index') }}" :active="request()->routeIs('inventario.productos.*')">
+                            <a href="{{ route('inventario.productos.index') }}" 
+                                 class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.productos.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-box mr-3 text-sm"></i>Productos
-                            </x-sidebar-link>
+                            </a>
                         </li>
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.almacenes.index') }}" :active="request()->routeIs('inventario.almacenes.*')">
+                            <a href="{{ route('inventario.almacenes.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.almacenes.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-warehouse mr-3 text-sm"></i>Almacenes
-                            </x-sidebar-link>
+                            </a>
                         </li>
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.imeis.index') }}" :active="request()->routeIs('inventario.imeis.*')">
+                            <a href="{{ route('inventario.imeis.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.imeis.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-mobile-alt mr-3 text-sm"></i>IMEIs
-                            </x-sidebar-link>
+                            </a>
                         </li>
                         <li>
-                            <x-sidebar-link href="{{ route('inventario.movimientos.index') }}" :active="request()->routeIs('inventario.movimientos.*')">
+                            <a href="{{ route('inventario.movimientos.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.movimientos.*') ? 'bg-blue-600' : '' }}">
                                 <i class="fas fa-exchange-alt mr-3 text-sm"></i>Movimientos
-                            </x-sidebar-link>
+                            </a>
                         </li>
                     </ul>
                 </li>
 
             @elseif($role == 'Tienda')
                 <li>
-                    <x-sidebar-link href="{{ route('tienda.dashboard') }}" :active="request()->routeIs('tienda.dashboard')">
+                    <a href="{{ route('tienda.dashboard') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('tienda.dashboard') ? 'bg-blue-700' : '' }}">
                         <i class="fas fa-tachometer-alt mr-3"></i>Dashboard
-                    </x-sidebar-link>
+                    </a>
                 </li>
 
                 <li>
-                    <x-sidebar-link href="{{ route('inventario.consulta-tienda') }}" :active="request()->routeIs('inventario.consulta-tienda')">
+                    <a href="{{ route('inventario.consulta-tienda') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.consulta-tienda') ? 'bg-blue-700' : '' }}">
                         <i class="fas fa-boxes mr-3"></i>Consultar Inventario
-                    </x-sidebar-link>
+                    </a>
                 </li>
 
                 <li>
-                    <x-sidebar-link href="#" :active="false">
+                    <a href="#" class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors">
                         <i class="fas fa-cash-register mr-3"></i>Punto de Venta
-                    </x-sidebar-link>
+                    </a>
                 </li>
 
             @elseif($role == 'Vendedor')
                 <li>
-                    <x-sidebar-link href="{{ route('vendedor.dashboard') }}" :active="request()->routeIs('vendedor.dashboard')">
+                    <a href="{{ route('vendedor.dashboard') }}" 
+                       class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('vendedor.dashboard') ? 'bg-blue-700' : '' }}">
                         <i class="fas fa-tachometer-alt mr-3"></i>Dashboard
-                    </x-sidebar-link>
+                    </a>
                 </li>
 
                 <li>
-                    <x-sidebar-link href="#" :active="false">
+                    <a href="#" class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors">
                         <i class="fas fa-shopping-cart mr-3"></i>Mis Ventas
-                    </x-sidebar-link>
+                    </a>
                 </li>
 
             @elseif($role == 'Proveedor')
                 <li>
-                    <x-sidebar-link href="{{ route('proveedor.dashboard') }}" :active="request()->routeIs('proveedor.dashboard')">
+                    <a href="{{ route('proveedor.dashboard') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('proveedor.dashboard') ? 'bg-blue-700' : '' }}">
                         <i class="fas fa-tachometer-alt mr-3"></i>Dashboard
-                    </x-sidebar-link>
+                    </a>
                 </li>
 
                 <li>
-                    <x-sidebar-link href="#" :active="false">
+                    <a href="#" class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors">
                         <i class="fas fa-file-invoice mr-3"></i>Pedidos
-                    </x-sidebar-link>
+                    </a>
                 </li>
             @endif
         </ul>
@@ -171,3 +197,5 @@
         </form>
     </div>
 </div>
+<script defer src="https://unpkg.com/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+<script src="//unpkg.com/alpinejs" defer></script>
