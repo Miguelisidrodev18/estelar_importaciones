@@ -20,6 +20,14 @@ use App\Http\Controllers\MovimientoInventarioController;
 use App\Http\Controllers\AlmacenController;
 use App\Http\Controllers\ImeiController;
 
+// ===================== NUEVOS MÓDULOS =====================
+use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\PedidoController;
+use App\Http\Controllers\CompraController;
+use App\Http\Controllers\VentaController;
+use App\Http\Controllers\TrasladoController;
+use App\Http\Controllers\CajaController;
 
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
@@ -190,6 +198,9 @@ Route::middleware(['auth'])->prefix('inventario')->name('inventario.')->group(fu
 
             Route::get('/movimientos/create', [MovimientoInventarioController::class, 'create'])
                 ->name('movimientos.create');
+            
+            Route::get('movimientos/imeis-disponibles', [MovimientoInventarioController::class, 'getImeisDisponibles'])
+                ->name('movimientos.imeis-disponibles');
 
             Route::post('/movimientos', [MovimientoInventarioController::class, 'store'])
                 ->name('movimientos.store');
@@ -264,23 +275,93 @@ Route::middleware(['auth'])->prefix('inventario')->name('inventario.')->group(fu
     });
     });
 // ========================================
-// RUTAS FUTURAS (Preparadas)
+// MÓDULO DE PROVEEDORES
 // ========================================
+Route::middleware(['auth', 'role:Administrador,Almacenero'])->prefix('proveedores')->name('proveedores.')->group(function () {
+    Route::get('/', [ProveedorController::class, 'index'])->name('index');
+    Route::get('/create', [ProveedorController::class, 'create'])->name('create');
+    Route::post('/', [ProveedorController::class, 'store'])->name('store');
+    Route::get('/{proveedor}', [ProveedorController::class, 'show'])->name('show');
+    Route::get('/{proveedor}/edit', [ProveedorController::class, 'edit'])->name('edit');
+    Route::put('/{proveedor}', [ProveedorController::class, 'update'])->name('update');
+    Route::delete('/{proveedor}', [ProveedorController::class, 'destroy'])->middleware('role:Administrador')->name('destroy');
+    Route::post('/consultar-sunat', [ProveedorController::class, 'consultarSunat'])->name('consultar-sunat');
+});
 
-// Módulo de Compras (Día 3)
-// Route::prefix('compras')->name('compras.')->group(function () {
-//     // Rutas de compras aquí
-// });
+// ========================================
+// MÓDULO DE CLIENTES
+// ========================================
+Route::middleware(['auth', 'role:Administrador,Vendedor,Tienda'])->prefix('clientes')->name('clientes.')->group(function () {
+    Route::get('/', [ClienteController::class, 'index'])->name('index');
+    Route::get('/create', [ClienteController::class, 'create'])->name('create');
+    Route::post('/', [ClienteController::class, 'store'])->name('store');
+    Route::get('/{cliente}/edit', [ClienteController::class, 'edit'])->name('edit');
+    Route::put('/{cliente}', [ClienteController::class, 'update'])->name('update');
+    Route::delete('/{cliente}', [ClienteController::class, 'destroy'])->middleware('role:Administrador')->name('destroy');
+    Route::post('/consultar-documento', [ClienteController::class, 'consultarDocumento'])->name('consultar-documento');
+});
 
-// Módulo de Ventas (Día 4)
-// Route::prefix('ventas')->name('ventas.')->group(function () {
-//     // Rutas de ventas aquí
-// });
+// ========================================
+// MÓDULO DE PEDIDOS
+// ========================================
+Route::middleware(['auth', 'role:Administrador,Almacenero'])->prefix('pedidos')->name('pedidos.')->group(function () {
+    Route::get('/', [PedidoController::class, 'index'])->name('index');
+    Route::get('/create', [PedidoController::class, 'create'])->name('create');
+    Route::post('/', [PedidoController::class, 'store'])->name('store');
+    Route::get('/{pedido}', [PedidoController::class, 'show'])->name('show');
+    Route::patch('/{pedido}/estado', [PedidoController::class, 'cambiarEstado'])->name('cambiar-estado');
+});
 
-// Módulo de Reportes (Día 5)
-// Route::prefix('reportes')->name('reportes.')->group(function () {
-//     // Rutas de reportes aquí
-// });
+Route::middleware(['auth', 'role:Proveedor'])->group(function () {
+    Route::get('/proveedor/pedidos', [PedidoController::class, 'pedidosProveedor'])->name('proveedor.pedidos');
+});
+
+// ========================================
+// MÓDULO DE COMPRAS
+// ========================================
+Route::middleware(['auth', 'role:Administrador,Almacenero'])->prefix('compras')->name('compras.')->group(function () {
+    Route::get('/', [CompraController::class, 'index'])->name('index');
+    Route::get('/create', [CompraController::class, 'create'])->name('create');
+    Route::post('/', [CompraController::class, 'store'])->name('store');
+    Route::get('/{compra}', [CompraController::class, 'show'])->name('show');
+});
+
+// ========================================
+// MÓDULO DE VENTAS
+// ========================================
+Route::middleware(['auth', 'role:Administrador,Vendedor,Tienda'])->prefix('ventas')->name('ventas.')->group(function () {
+    Route::get('/', [VentaController::class, 'index'])->name('index');
+    Route::get('/create', [VentaController::class, 'create'])->name('create');
+    Route::post('/', [VentaController::class, 'store'])->name('store');
+    Route::get('/{venta}', [VentaController::class, 'show'])->name('show');
+    Route::post('/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])
+        ->middleware('role:Administrador,Tienda')
+        ->name('confirmar-pago');
+    Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
+});
+
+// ========================================
+// MÓDULO DE TRASLADOS
+// ========================================
+Route::middleware(['auth', 'role:Administrador,Almacenero'])->prefix('traslados')->name('traslados.')->group(function () {
+    Route::get('/', [TrasladoController::class, 'index'])->name('index');
+    Route::get('/create', [TrasladoController::class, 'create'])->name('create');
+    Route::post('/', [TrasladoController::class, 'store'])->name('store');
+    Route::get('/pendientes', [TrasladoController::class, 'pendientes'])->name('pendientes');
+    Route::get('/{traslado}', [TrasladoController::class, 'show'])->name('show');
+    Route::post('/{traslado}/confirmar', [TrasladoController::class, 'confirmar'])->name('confirmar');
+});
+
+// ========================================
+// MÓDULO DE CAJA
+// ========================================
+Route::middleware(['auth', 'role:Administrador,Tienda'])->prefix('caja')->name('caja.')->group(function () {
+    Route::get('/', [CajaController::class, 'index'])->name('index');
+    Route::get('/abrir', [CajaController::class, 'abrir'])->name('abrir');
+    Route::post('/abrir', [CajaController::class, 'store'])->name('store');
+    Route::get('/actual', [CajaController::class, 'actual'])->name('actual');
+    Route::post('/cerrar', [CajaController::class, 'cerrar'])->name('cerrar');
+});
     /*
     |--------------------------------------------------------------------------
     | LOGOUT

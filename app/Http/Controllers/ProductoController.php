@@ -106,7 +106,7 @@ class ProductoController extends Controller
 {
     $validated = $request->validate([
         'nombre' => 'required|string|max:255',
-        'tipo_producto' => 'required|in:celular,accesorio', // NUEVO
+        'tipo_producto' => 'required|in:celular,accesorio', // ✅ ASEGURAR QUE ESTÉ AQUÍ
         'categoria_id' => 'required|exists:categorias,id',
         'marca' => 'nullable|string|max:100',
         'modelo' => 'nullable|string|max:100',
@@ -125,6 +125,10 @@ class ProductoController extends Controller
         'almacen_id' => 'nullable|exists:almacenes,id',
     ]);
 
+    // 🔍 DEBUG: Ver qué tipo_producto llegó
+    \Log::info('Tipo producto recibido:', ['tipo' => $request->tipo_producto]);
+    \Log::info('Validated data:', $validated);
+
     // Generar código automático
     $validated['codigo'] = Producto::generarCodigo();
 
@@ -134,7 +138,14 @@ class ProductoController extends Controller
     }
 
     \DB::transaction(function () use ($validated, $request) {
+        // ✅ CREAR PRODUCTO CON TODOS LOS DATOS VALIDADOS
         $producto = Producto::create($validated);
+        
+        \Log::info('Producto creado:', [
+            'id' => $producto->id,
+            'nombre' => $producto->nombre,
+            'tipo_producto' => $producto->tipo_producto // Verificar qué se guardó
+        ]);
         
         // Solo crear stock inicial para ACCESORIOS
         if ($producto->tipo_producto === 'accesorio' && $request->filled('stock_inicial') && $request->stock_inicial > 0) {
@@ -152,12 +163,12 @@ class ProductoController extends Controller
         }
         
         // Para CELULARES, el stock se manejará por IMEIs
-        });
+    });
 
-        return redirect()
-            ->route('inventario.productos.index')
-            ->with('success', 'Producto creado exitosamente');
-    }
+    return redirect()
+        ->route('inventario.productos.index')
+        ->with('success', 'Producto creado exitosamente');
+}
     /**
      * Mostrar un producto específico
      */
@@ -257,4 +268,76 @@ class ProductoController extends Controller
         
         return response()->json($productos);
     }
+    /**
+ * API: Obtener IMEIs disponibles de un producto en un almacén
+ */
+public function getImeisDisponibles(Request $request)
+{
+    try {
+        $productoId = $request->get('producto_id');
+        $almacenId = $request->get('almacen_id');
+        $tipoMovimiento = $request->get('tipo_movimiento');
+        
+        // Log para debug
+        \Log::info('getImeisDisponibles llamado', [
+            'producto_id' => $productoId,
+            'almacen_id' => $almacenId,
+            'tipo_movimiento' => $tipoMovimiento
+        ]);
+        
+        if (!$productoId || !$almacenId) {
+            return response()->json(['error' => 'Faltan parámetros'], 400);
+        }
+        
+        // Verificar que el producto existe y es tipo celular
+        $producto = \App\Models\Producto::find($productoId);
+        if (!$producto) {
+            return response()->json(['error' => 'Producto no encontrado'], 404);
+        }
+        
+        if ($producto->tipo_producto !== 'celular') {
+            return response()->json(['error' => 'El producto no es tipo celular'], 400);
+        }
+        
+        $query = \App\Models\Imei::where('producto_id', $productoId)
+                                  ->where('almacen_id', $almacenId);
+        
+        // Filtrar según tipo de movimiento
+        switch ($tipoMovimiento) {
+            case 'salida':
+            case 'transferencia':
+            case 'merma':
+                $query->where('estado', 'disponible');
+                break;
+            case 'devolucion':
+                $query->where('estado', 'vendido');
+                break;
+            case 'ajuste':
+                // Mostrar todos
+                break;
+            default:
+                // Si no hay tipo de movimiento, mostrar disponibles
+                $query->where('estado', 'disponible');
+                break;
+        }
+        
+        $imeis = $query->limit(100)
+                       ->get(['id', 'codigo_imei', 'serie', 'color', 'estado']);
+        
+        \Log::info('IMEIs encontrados', ['count' => $imeis->count()]);
+        
+        return response()->json($imeis);
+        
+    } catch (\Exception $e) {
+        \Log::error('Error en getImeisDisponibles', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'error' => 'Error interno del servidor',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
 }

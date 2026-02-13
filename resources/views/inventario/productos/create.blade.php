@@ -26,37 +26,51 @@
                 <form action="{{ route('inventario.productos.store') }}" method="POST" enctype="multipart/form-data" class="p-6">
                     @csrf
 
-                    <!-- SECCIÓN 1: TIPO DE PRODUCTO -->
-                    <div class="mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                            <i class="fas fa-mobile-alt mr-2 text-blue-900"></i>
-                            Tipo de Producto
-                        </h3>
+<!-- SECCIÓN 1: TIPO DE PRODUCTO -->
+    <div class="mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+        <i class="fas fa-mobile-alt mr-2 text-blue-900"></i>
+        Tipo de Producto
+        </h3>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <label class="cursor-pointer">
-                                <input type="radio" name="tipo_producto" value="celular" class="peer hidden" required onchange="toggleIMEIFields()">
-                                <div class="border-2 border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all">
-                                    <i class="fas fa-mobile-alt text-5xl text-blue-600 mb-3"></i>
-                                    <p class="text-lg font-semibold text-gray-900">Celular</p>
-                                    <p class="text-sm text-gray-500 mt-2">Requiere IMEI único</p>
-                                </div>
-                            </label>
+    <div class="grid grid-cols-2 gap-4">
+        <!-- CELULAR -->
+        <label class="cursor-pointer">
+            <input type="radio" 
+                    name="tipo_producto" 
+                    value="celular" 
+                    id="tipo_celular"
+                    class="peer hidden" 
+                    {{ old('tipo_producto') == 'celular' ? 'checked' : '' }}
+                    required>
+            <div class="border-2 border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all">
+                <i class="fas fa-mobile-alt text-5xl text-blue-600 mb-3"></i>
+                <p class="text-lg font-semibold text-gray-900">Celular</p>
+                <p class="text-sm text-gray-500 mt-2">Requiere IMEI único</p>
+            </div>
+        </label>
 
-                            <label class="cursor-pointer">
-                                <input type="radio" name="tipo_producto" value="accesorio" class="peer hidden" checked onchange="toggleIMEIFields()">
-                                <div class="border-2 border-gray-300 rounded-lg p-6 text-center hover:border-green-500 peer-checked:border-green-500 peer-checked:bg-green-50 transition-all">
-                                    <i class="fas fa-headphones text-5xl text-green-600 mb-3"></i>
-                                    <p class="text-lg font-semibold text-gray-900">Accesorio</p>
-                                    <p class="text-sm text-gray-500 mt-2">Stock numérico</p>
-                                </div>
-                            </label>
-                        </div>
+        <!-- ACCESORIO -->
+        <label class="cursor-pointer">
+            <input type="radio" 
+                    name="tipo_producto" 
+                    value="accesorio" 
+                    id="tipo_accesorio"
+                    class="peer hidden" 
+                    {{ old('tipo_producto', 'accesorio') == 'accesorio' ? 'checked' : '' }}>
+                <div class="border-2 border-gray-300 rounded-lg p-6 text-center hover:border-green-500 peer-checked:border-green-500 peer-checked:bg-green-50 transition-all">
+                    <i class="fas fa-headphones text-5xl text-green-600 mb-3"></i>
+                    <p class="text-lg font-semibold text-gray-900">Accesorio</p>
+                    <p class="text-sm text-gray-500 mt-2">Stock numérico</p>
+                </div>
+            </label>
+        </div>
 
-                        @error('tipo_producto')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+    @error('tipo_producto')
+        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+    @enderror
+</div>
+```
 
                     <!-- SECCIÓN 2: INFORMACIÓN BÁSICA -->
                     <div class="mb-8">
@@ -302,37 +316,86 @@
         </div>
     </div>
 
-    <script>
-        function toggleIMEIFields() {
-            const tipo = document.querySelector('input[name="tipo_producto"]:checked').value;
-            const stockSection = document.getElementById('stockSection');
-            const stockInicialDiv = document.getElementById('stockInicialDiv');
-            
-            if (tipo === 'celular') {
-                // Para celulares, ocultar stock inicial
-                stockInicialDiv.style.display = 'none';
-            } else {
-                // Para accesorios, mostrar stock inicial
-                stockInicialDiv.style.display = 'block';
-            }
-        }
+<script>
+// Función para alternar campos según tipo de producto
+function toggleIMEIFields() {
+    const tipoSeleccionado = document.querySelector('input[name="tipo_producto"]:checked');
+    
+    if (!tipoSeleccionado) return;
+    
+    const tipo = tipoSeleccionado.value;
+    const stockInicialDiv = document.getElementById('stockInicialDiv');
+    const almacenInicialDiv = document.getElementById('almacenInicialDiv');
+    
+    console.log('Tipo seleccionado:', tipo);
+    
+    if (tipo === 'celular') {
+        if (stockInicialDiv) stockInicialDiv.style.display = 'none';
+        if (almacenInicialDiv) almacenInicialDiv.style.display = 'none';
+    } else {
+        if (stockInicialDiv) stockInicialDiv.style.display = 'block';
+        if (almacenInicialDiv) almacenInicialDiv.style.display = 'block';
+    }
+}
 
-        function previewImage(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.getElementById('imagePreview');
-                    const container = document.getElementById('imagePreviewContainer');
-                    preview.src = e.target.result;
-                    container.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-            }
-        }
+// Preview de imagen
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('imagePreview');
+            const container = document.getElementById('imagePreviewContainer');
+            preview.src = e.target.result;
+            container.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+}
 
-        // Inicializar al cargar
-        document.addEventListener('DOMContentLoaded', toggleIMEIFields);
-    </script>
+// Inicializar cuando cargue la página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Cargado');
+    
+    toggleIMEIFields();
+    
+    const radioButtons = document.querySelectorAll('input[name="tipo_producto"]');
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            console.log('Radio cambiado a:', this.value);
+            toggleIMEIFields();
+        });
+    });
+    
+    // SOLUCIÓN: Interceptar envío y FORZAR el valor correcto
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        // Obtener el radio button marcado
+        const radioChecked = document.querySelector('input[name="tipo_producto"]:checked');
+        
+        if (!radioChecked) {
+            e.preventDefault();
+            alert('⚠️ Debes seleccionar un tipo de producto (Celular o Accesorio)');
+            return false;
+        }
+        
+        // ELIMINAR todos los inputs tipo_producto anteriores
+        const inputsAntiguos = form.querySelectorAll('input[name="tipo_producto"]:not([type="radio"])');
+        inputsAntiguos.forEach(input => input.remove());
+        
+        // CREAR un input hidden con el valor CORRECTO
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'tipo_producto';
+        hiddenInput.value = radioChecked.value;
+        form.appendChild(hiddenInput);
+        
+        console.log('✅ Tipo de producto que se enviará:', radioChecked.value);
+        
+        // Permitir que el formulario se envíe
+        // El input hidden sobrescribirá cualquier otro valor
+    });
+});
+</script>
 </body>
 </html>

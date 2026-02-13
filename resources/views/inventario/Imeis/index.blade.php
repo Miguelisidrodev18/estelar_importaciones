@@ -180,7 +180,7 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="text-sm text-gray-900">{{ $imei->nombre_almacen }}</span>
+                                <span class="text-sm text-gray-900">{{ $imei->almacen->nombre }}</span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 @if($imei->estado == 'disponible')

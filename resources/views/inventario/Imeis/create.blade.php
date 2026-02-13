@@ -53,15 +53,18 @@
                                 Producto (Celular) <span class="text-red-500">*</span>
                             </label>
                             <select name="producto_id" id="producto_id" 
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                     required>
-                                <option value="">Seleccione un producto</option>
+                                <option value="">Seleccione un modelo de celular</option>
                                 @foreach($productos as $producto)
-                                    <option value="{{ $producto->id }}" {{ old('producto_id') == $producto->id ? 'selected' : '' }}>
-                                        {{ $producto->nombre }} - {{ $producto->marca }} {{ $producto->modelo }}
-                                    </option>
-                                @endforeach
-                            </select>
+                                <option value="{{ $producto->id }}" {{ old('producto_id') == $producto->id ? 'selected' : '' }}>
+                                {{ $producto->marca }} {{ $producto->modelo }} 
+                                @if($producto->nombre != $producto->marca . ' ' . $producto->modelo)
+                                ({{ $producto->nombre }})
+                            @endif
+        </option>
+    @endforeach
+</select>
                             @error('producto_id')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror

@@ -11,74 +11,84 @@ class Imei extends Model
 
     protected $fillable = [
         'codigo_imei',
-        'serie',
-        'color',
         'producto_id',
         'almacen_id',
+        'compra_id',
+        'serie',
+        'color',
         'estado',
     ];
 
-    /**
-     * Relación con Producto
-     */
+    // Relaciones
     public function producto()
     {
         return $this->belongsTo(Producto::class);
     }
 
-    /**
-     * Relación con Almacén
-     */
     public function almacen()
     {
         return $this->belongsTo(Almacen::class);
     }
 
-    /**
-     * Relación con MovimientoInventario
-     */
-    public function movimientos()
+    public function compra()
     {
-        return $this->hasMany(MovimientoInventario::class);
+        return $this->belongsTo(Compra::class);
     }
 
-    /**
-     * Scope para IMEIs disponibles
-     */
+    // ✅ SCOPES QUE FALTAN
     public function scopeDisponibles($query)
     {
         return $query->where('estado', 'disponible');
     }
 
-    /**
-     * Scope para IMEIs vendidos
-     */
     public function scopeVendidos($query)
     {
         return $query->where('estado', 'vendido');
     }
 
-    /**
-     * Scope por almacén
-     */
-    public function scopePorAlmacen($query, $almacenId)
+    public function scopeReservados($query)
+    {
+        return $query->where('estado', 'reservado');
+    }
+
+    public function scopeDañados($query)
+    {
+        return $query->where('estado', 'dañado');
+    }
+
+    public function scopeEnAlmacen($query, $almacenId)
     {
         return $query->where('almacen_id', $almacenId);
     }
 
-    /**
-     * Accessor para nombre del producto
-     */
-    public function getNombreProductoAttribute()
+    public function scopeDeProducto($query, $productoId)
     {
-        return $this->producto->nombre ?? 'N/A';
+        return $query->where('producto_id', $productoId);
     }
 
-    /**
-     * Accessor para nombre del almacén
-     */
-    public function getNombreAlmacenAttribute()
+    // Métodos de acción
+    public function reservar()
     {
-        return $this->almacen->nombre ?? 'Sin asignar';
+        $this->update(['estado' => 'reservado']);
+    }
+
+    public function vender()
+    {
+        $this->update(['estado' => 'vendido']);
+    }
+
+    public function transferir($almacenDestinoId)
+    {
+        $this->update(['almacen_id' => $almacenDestinoId]);
+    }
+
+    public function marcarComoDefectuoso()
+    {
+        $this->update(['estado' => 'dañado']);
+    }
+
+    public function liberar()
+    {
+        $this->update(['estado' => 'disponible']);
     }
 }

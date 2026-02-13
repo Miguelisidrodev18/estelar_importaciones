@@ -1,7 +1,13 @@
 @props(['role'])
 
-<div class="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-xl z-50" x-data="{ inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
-    <!-- Logo -->
+<div class="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-xl z-50" 
+     x-data="{ 
+        inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }},
+        comprasOpen: {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') ? 'true' : 'false' }},
+        ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') ? 'true' : 'false' }},
+        trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
+        cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }}
+     }">
     <div class="p-6 border-b border-blue-700">
         <div class="flex items-center space-x-3">
             <i class="fas fa-home text-3xl text-blue-300"></i>
@@ -13,7 +19,6 @@
         <p class="text-xs text-blue-400 mt-2">Sistema de Importaciones</p>
     </div>
 
-    <!-- User Info -->
     <div class="p-4 bg-blue-800/50">
         <div class="flex items-center space-x-3">
             <div class="bg-blue-600 rounded-full p-2">
@@ -26,12 +31,10 @@
         </div>
     </div>
 
-    <!-- Navigation -->
-    <nav class="flex-1 overflow-y-auto p-4">
+    <nav class="flex-1 overflow-y-auto p-4" style="max-height: calc(100vh - 220px);">
         <ul class="space-y-2">
             
             @if($role == 'Administrador')
-                <!-- Dashboard -->
                 <li>
                     <a href="{{ route('admin.dashboard') }}" 
                         class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.dashboard') ? 'bg-blue-700' : '' }}">
@@ -39,7 +42,6 @@
                     </a>
                 </li>
 
-                <!-- Inventario (Desplegable) -->
                 <li>
                     <button @click="inventarioOpen = !inventarioOpen" 
                             class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.*') ? 'bg-blue-700' : '' }}">
@@ -48,15 +50,7 @@
                         </span>
                         <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': inventarioOpen }"></i>
                     </button>
-                    
-                    <ul x-show="inventarioOpen" 
-                        x-transition:enter="transition ease-out duration-200"
-                        x-transition:enter-start="opacity-0 transform scale-95"
-                        x-transition:enter-end="opacity-100 transform scale-100"
-                        x-transition:leave="transition ease-in duration-150"
-                        x-transition:leave-start="opacity-100 transform scale-100"
-                        x-transition:leave-end="opacity-0 transform scale-95"
-                        class="ml-4 mt-2 space-y-1">
+                    <ul x-show="inventarioOpen" x-collapse class="ml-4 mt-2 space-y-1">
                         <li>
                             <a href="{{ route('inventario.categorias.index') }}" 
                                 class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.categorias.*') ? 'bg-blue-600' : '' }}">
@@ -90,6 +84,74 @@
                     </ul>
                 </li>
 
+                <li>
+                    <button @click="comprasOpen = !comprasOpen" 
+                            class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') ? 'bg-blue-700' : '' }}">
+                        <span class="flex items-center">
+                            <i class="fas fa-shopping-bag mr-3"></i>Compras
+                        </span>
+                        <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': comprasOpen }"></i>
+                    </button>
+                    <ul x-show="comprasOpen" x-collapse class="ml-4 mt-2 space-y-1">
+                        <li>
+                            <a href="{{ route('proveedores.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('proveedores.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-truck mr-3 text-sm"></i>Proveedores
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('compras.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-file-invoice mr-3 text-sm"></i>Registrar Compras
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('pedidos.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('pedidos.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-clipboard-list mr-3 text-sm"></i>Pedidos a Proveedor
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    <button @click="ventasOpen = !ventasOpen" 
+                            class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') ? 'bg-blue-700' : '' }}">
+                        <span class="flex items-center">
+                            <i class="fas fa-cash-register mr-3"></i>Ventas
+                        </span>
+                        <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': ventasOpen }"></i>
+                    </button>
+                    <ul x-show="ventasOpen" x-collapse class="ml-4 mt-2 space-y-1">
+                        <li>
+                            <a href="{{ route('clientes.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('clientes.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-users mr-3 text-sm"></i>Clientes
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('ventas.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-receipt mr-3 text-sm"></i>Registrar Ventas
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    <a href="{{ route('traslados.index') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.*') ? 'bg-blue-700' : '' }}">
+                        <i class="fas fa-truck-loading mr-3"></i>Traslados
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ route('caja.index') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.*') ? 'bg-blue-700' : '' }}">
+                        <i class="fas fa-cash-register mr-3"></i>Caja
+                    </a>
+                </li>
+
             @elseif($role == 'Almacenero')
                 <li>
                     <a href="{{ route('almacenero.dashboard') }}" 
@@ -106,7 +168,6 @@
                         </span>
                         <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': inventarioOpen }"></i>
                     </button>
-                    
                     <ul x-show="inventarioOpen" x-collapse class="ml-4 mt-2 space-y-1">
                         <li>
                             <a href="{{ route('inventario.productos.index') }}" 
@@ -135,6 +196,43 @@
                     </ul>
                 </li>
 
+                <li>
+                    <button @click="comprasOpen = !comprasOpen" 
+                            class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') ? 'bg-blue-700' : '' }}">
+                        <span class="flex items-center">
+                            <i class="fas fa-shopping-bag mr-3"></i>Compras
+                        </span>
+                        <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': comprasOpen }"></i>
+                    </button>
+                    <ul x-show="comprasOpen" x-collapse class="ml-4 mt-2 space-y-1">
+                        <li>
+                            <a href="{{ route('proveedores.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('proveedores.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-truck mr-3 text-sm"></i>Proveedores
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('compras.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-file-invoice mr-3 text-sm"></i>Registrar Compras
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('pedidos.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('pedidos.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-clipboard-list mr-3 text-sm"></i>Pedidos a Proveedor
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    <a href="{{ route('traslados.index') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.*') ? 'bg-blue-700' : '' }}">
+                        <i class="fas fa-truck-loading mr-3"></i>Traslados
+                    </a>
+                </li>
+
             @elseif($role == 'Tienda')
                 <li>
                     <a href="{{ route('tienda.dashboard') }}" 
@@ -151,8 +249,40 @@
                 </li>
 
                 <li>
-                    <a href="#" class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors">
-                        <i class="fas fa-cash-register mr-3"></i>Punto de Venta
+                    <button @click="ventasOpen = !ventasOpen" 
+                            class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') ? 'bg-blue-700' : '' }}">
+                        <span class="flex items-center">
+                            <i class="fas fa-cash-register mr-3"></i>Ventas
+                        </span>
+                        <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': ventasOpen }"></i>
+                    </button>
+                    <ul x-show="ventasOpen" x-collapse class="ml-4 mt-2 space-y-1">
+                        <li>
+                            <a href="{{ route('clientes.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('clientes.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-users mr-3 text-sm"></i>Clientes
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('ventas.index') }}" 
+                                class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.*') ? 'bg-blue-600' : '' }}">
+                                <i class="fas fa-receipt mr-3 text-sm"></i>Ventas
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    <a href="{{ route('traslados.pendientes') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.pendientes') ? 'bg-blue-700' : '' }}">
+                        <i class="fas fa-truck-loading mr-3"></i>Traslados Pendientes
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ route('caja.actual') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.*') ? 'bg-blue-700' : '' }}">
+                        <i class="fas fa-money-bill-wave mr-3"></i>Caja
                     </a>
                 </li>
 
@@ -165,8 +295,16 @@
                 </li>
 
                 <li>
-                    <a href="#" class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                    <a href="{{ route('ventas.index') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.*') ? 'bg-blue-700' : '' }}">
                         <i class="fas fa-shopping-cart mr-3"></i>Mis Ventas
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ route('clientes.index') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('clientes.*') ? 'bg-blue-700' : '' }}">
+                        <i class="fas fa-users mr-3"></i>Clientes
                     </a>
                 </li>
 
@@ -179,15 +317,15 @@
                 </li>
 
                 <li>
-                    <a href="#" class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors">
-                        <i class="fas fa-file-invoice mr-3"></i>Pedidos
+                    <a href="{{ route('proveedor.pedidos') }}" 
+                        class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('proveedor.pedidos') ? 'bg-blue-700' : '' }}">
+                        <i class="fas fa-file-invoice mr-3"></i>Mis Pedidos
                     </a>
                 </li>
             @endif
         </ul>
     </nav>
 
-    <!-- Logout -->
     <div class="p-4 border-t border-blue-700">
         <form method="POST" action="{{ route('logout') }}">
             @csrf

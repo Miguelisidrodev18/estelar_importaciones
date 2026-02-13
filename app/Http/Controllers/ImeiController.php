@@ -28,7 +28,7 @@ class ImeiController extends Controller
         if ($request->filled('buscar')) {
             $query->where(function($q) use ($request) {
                 $q->where('codigo_imei', 'like', '%' . $request->buscar . '%')
-                  ->orWhere('serie', 'like', '%' . $request->buscar . '%');
+                    ->orWhere('serie', 'like', '%' . $request->buscar . '%');
             });
         }
         
@@ -68,17 +68,20 @@ class ImeiController extends Controller
      * Mostrar formulario para crear IMEI
      */
     public function create()
-    {
-        // Solo productos tipo celular
-        $productos = Producto::where('tipo_producto', 'celular')
-            ->activos()
-            ->orderBy('nombre')
-            ->get();
-        
-        $almacenes = Almacen::activos()->orderBy('nombre')->get();
-        
-        return view('inventario.imeis.create', compact('productos', 'almacenes'));
-    }
+{
+    // Cargar solo productos tipo CELULAR que estén activos
+    $productos = Producto::where('tipo_producto', 'celular')
+                            ->where('estado', 'activo')
+                            ->orderBy('marca')
+                            ->orderBy('modelo')
+                            ->get();
+    
+    $almacenes = Almacen::where('estado', 'activo')
+                        ->orderBy('nombre')
+                        ->get();
+    
+    return view('inventario.imeis.create', compact('productos', 'almacenes'));
+}
 
     /**
      * Guardar nuevo IMEI
