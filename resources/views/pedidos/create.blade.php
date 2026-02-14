@@ -29,18 +29,12 @@
             </div>
         @endif
 
-        <div class="max-w-4xl" x-data="pedidoForm()">
-            <div class="mb-6">
-                <a href="{{ route('pedidos.index') }}" class="text-blue-600 hover:text-blue-800 text-sm">
-                    <i class="fas fa-arrow-left mr-1"></i>Volver a pedidos
-                </a>
-            </div>
-
+        <div class="max-w-5xl mx-auto" x-data="pedidoForm()">
             <form @submit.prevent="submitForm">
                 {{-- Datos del Pedido --}}
-                <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                     <div class="bg-blue-900 px-6 py-4">
-                        <h2 class="text-lg font-bold text-white">
+                        <h2 class="text-xl font-bold text-white">
                             <i class="fas fa-info-circle mr-2"></i>Datos del Pedido
                         </h2>
                     </div>
@@ -76,41 +70,41 @@
                 </div>
 
                 {{-- Productos --}}
-                <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                     <div class="bg-blue-900 px-6 py-4 flex justify-between items-center">
-                        <h2 class="text-lg font-bold text-white">
+                        <h2 class="text-xl font-bold text-white">
                             <i class="fas fa-boxes mr-2"></i>Productos del Pedido
                         </h2>
                         <button type="button" @click="agregarDetalle()"
-                                class="bg-green-500 hover:bg-green-600 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors">
+                                class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors">
                             <i class="fas fa-plus mr-1"></i>Agregar Producto
                         </button>
                     </div>
                     <div class="p-6">
                         <template x-if="detalles.length === 0">
-                            <div class="text-center py-10 text-gray-400">
-                                <i class="fas fa-box-open text-5xl mb-3"></i>
-                                <p>No hay productos agregados.</p>
-                                <p class="text-sm mt-1">Haga clic en "Agregar Producto" para comenzar.</p>
+                            <div class="text-center py-12">
+                                <i class="fas fa-box-open text-6xl text-gray-300 mb-4"></i>
+                                <p class="text-lg font-medium text-gray-500">No hay productos agregados</p>
+                                <p class="text-sm text-gray-400 mt-2">Haga clic en "Agregar Producto" para comenzar a crear el pedido</p>
                             </div>
                         </template>
 
                         <template x-for="(detalle, index) in detalles" :key="index">
-                            <div class="border border-gray-200 rounded-lg p-5 mb-4 hover:border-blue-300 transition-colors">
+                            <div class="bg-gray-50 border-2 border-gray-200 rounded-lg p-5 mb-4 hover:border-blue-400 transition-colors">
                                 <div class="flex justify-between items-center mb-4">
                                     <span class="text-sm font-bold text-blue-900">
-                                        <i class="fas fa-cube mr-1"></i>Producto #<span x-text="index + 1"></span>
+                                        <i class="fas fa-cube mr-2"></i>Producto #<span x-text="index + 1"></span>
                                     </span>
                                     <button type="button" @click="detalles.splice(index, 1)"
-                                            class="text-red-500 hover:text-red-700 text-sm font-medium">
+                                            class="text-red-600 hover:text-red-700 text-sm font-semibold transition-colors">
                                         <i class="fas fa-trash mr-1"></i>Eliminar
                                     </button>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-500 mb-1">Producto <span class="text-red-500">*</span></label>
+                                        <label class="block text-xs font-medium text-gray-700 mb-2">Producto <span class="text-red-500">*</span></label>
                                         <select x-model="detalle.producto_id" required
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
                                             <option value="">Seleccione producto</option>
                                             @foreach($productos as $producto)
                                                 <option value="{{ $producto->id }}">{{ $producto->codigo }} - {{ $producto->nombre }}</option>
@@ -118,14 +112,14 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-500 mb-1">Cantidad <span class="text-red-500">*</span></label>
+                                        <label class="block text-xs font-medium text-gray-700 mb-2">Cantidad <span class="text-red-500">*</span></label>
                                         <input type="number" x-model.number="detalle.cantidad" min="1" required
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-500 mb-1">Precio Referencial</label>
+                                        <label class="block text-xs font-medium text-gray-700 mb-2">Precio Referencial</label>
                                         <input type="number" x-model.number="detalle.precio_referencial" min="0" step="0.01" placeholder="Opcional"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
                                     </div>
                                 </div>
                             </div>
@@ -134,12 +128,13 @@
                 </div>
 
                 {{-- Botones --}}
-                <div class="flex items-center justify-end space-x-3 pt-4">
-                    <a href="{{ route('pedidos.index') }}" class="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+                <div class="flex items-center justify-end space-x-4 pt-6">
+                    <a href="{{ route('pedidos.index') }}"
+                       class="px-6 py-3 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
                         <i class="fas fa-times mr-2"></i>Cancelar
                     </a>
                     <button type="submit" :disabled="guardando || detalles.length === 0"
-                            class="px-6 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium disabled:opacity-50 transition-colors">
+                            class="px-6 py-3 bg-blue-900 text-white rounded-lg font-semibold hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                         <span x-show="!guardando"><i class="fas fa-save mr-2"></i>Crear Pedido</span>
                         <span x-show="guardando"><i class="fas fa-spinner fa-spin mr-2"></i>Guardando...</span>
                     </button>

@@ -169,7 +169,7 @@
                             </td>
                             <td class="px-6 py-4">
                                 <p class="text-sm font-medium text-gray-900">{{ $imei->nombre_producto }}</p>
-                                <p class="text-xs text-gray-500">{{ $imei->producto->codigo }}</p>
+                                <p class="text-xs text-gray-500">{{ $imei->producto->codigo ?? '-' }}</p>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @if($imei->serie)
@@ -180,7 +180,7 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="text-sm text-gray-900">{{ $imei->almacen->nombre }}</span>
+                                <span class="text-sm text-gray-900">{{ $imei->almacen->nombre ?? '-' }}</span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 @if($imei->estado == 'disponible')

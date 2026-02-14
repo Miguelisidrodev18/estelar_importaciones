@@ -6,29 +6,18 @@
     <title>Nueva Compra - CORPORACIÓN ADIVON SAC</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
 
     <div class="ml-64 p-8">
-        <x-header 
-            title="Registrar Compra" 
-            subtitle="Ingreso de mercadería al inventario" 
+        <x-header
+            title="Registrar Compra"
+            subtitle="Ingreso de mercadería al inventario"
         />
-
-        @if($errors->any())
-            <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg">
-                <p class="font-medium"><i class="fas fa-exclamation-circle mr-2"></i>Se encontraron errores:</p>
-                <ul class="mt-2 list-disc list-inside text-sm">
-                    @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
 
         @if(session('error'))
             <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg">
@@ -36,31 +25,26 @@
             </div>
         @endif
 
-        <div class="max-w-5xl" x-data="compraForm()">
-            {{-- Botón volver --}}
-            <div class="mb-6">
-                <a href="{{ route('compras.index') }}" class="text-blue-600 hover:text-blue-800 text-sm">
-                    <i class="fas fa-arrow-left mr-1"></i>Volver a compras
-                </a>
-            </div>
-
-            <form @submit.prevent="submitForm">
+        <div class="max-w-5xl mx-auto">
+            <form @submit.prevent="submitForm" x-data="compraForm()">
                 @csrf
 
                 {{-- Datos Generales --}}
-                <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                     <div class="bg-blue-900 px-6 py-4">
-                        <h2 class="text-lg font-bold text-white">
+                        <h2 class="text-xl font-bold text-white">
                             <i class="fas fa-info-circle mr-2"></i>Datos Generales
                         </h2>
                     </div>
                     <div class="p-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Proveedor <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Proveedor <span class="text-red-500">*</span>
+                                </label>
                                 <select x-model="proveedor_id" required
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                    <option value="">Seleccione proveedor</option>
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccione un proveedor</option>
                                     @foreach($proveedores as $proveedor)
                                         <option value="{{ $proveedor->id }}" {{ old('proveedor_id') == $proveedor->id ? 'selected' : '' }}>
                                             {{ $proveedor->ruc }} - {{ $proveedor->razon_social }}
@@ -70,10 +54,12 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Almacén Destino <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Almacén Destino <span class="text-red-500">*</span>
+                                </label>
                                 <select x-model="almacen_id" required
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                    <option value="">Seleccione almacén</option>
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccione un almacén</option>
                                     @foreach($almacenes as $almacen)
                                         <option value="{{ $almacen->id }}" {{ old('almacen_id') == $almacen->id ? 'selected' : '' }}>
                                             {{ $almacen->nombre }}
@@ -83,32 +69,36 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">N° Factura <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    N° Factura <span class="text-red-500">*</span>
+                                </label>
                                 <input type="text" x-model="numero_factura" required placeholder="Ej: F001-00012345"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                        value="{{ old('numero_factura') }}">
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Fecha de Compra <span class="text-red-500">*</span>
+                                </label>
                                 <input type="date" x-model="fecha" required
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                        value="{{ old('fecha', date('Y-m-d')) }}">
                             </div>
 
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
-                                <textarea x-model="observaciones" rows="2" placeholder="Notas adicionales..."
-                                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ old('observaciones') }}</textarea>
+                                <textarea x-model="observaciones" rows="3" placeholder="Notas adicionales sobre la compra..."
+                                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">{{ old('observaciones') }}</textarea>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {{-- Detalle de Productos --}}
-                <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                     <div class="bg-blue-900 px-6 py-4 flex justify-between items-center">
-                        <h2 class="text-lg font-bold text-white">
+                        <h2 class="text-xl font-bold text-white">
                             <i class="fas fa-boxes mr-2"></i>Detalle de Productos
                         </h2>
                         <button type="button" @click="agregarDetalle()"
@@ -118,31 +108,33 @@
                     </div>
                     <div class="p-6">
                         <template x-if="detalles.length === 0">
-                            <div class="text-center py-10 text-gray-400">
-                                <i class="fas fa-box-open text-5xl mb-3"></i>
-                                <p>No hay productos agregados.</p>
-                                <p class="text-sm mt-1">Haga clic en "Agregar Producto" para comenzar.</p>
+                            <div class="text-center py-12 text-gray-400">
+                                <i class="fas fa-box-open text-5xl mb-4"></i>
+                                <p class="text-lg font-medium">No hay productos agregados</p>
+                                <p class="text-sm mt-2">Haga clic en "Agregar Producto" para comenzar a registrar la compra</p>
                             </div>
                         </template>
 
                         <template x-for="(detalle, index) in detalles" :key="index">
-                            <div class="border border-gray-200 rounded-lg p-5 mb-4 hover:border-blue-300 transition-colors">
+                            <div class="border-2 border-gray-200 rounded-lg p-5 mb-4 hover:border-blue-300 transition-all bg-gray-50">
                                 <div class="flex justify-between items-center mb-4">
                                     <span class="text-sm font-bold text-blue-900">
-                                        <i class="fas fa-cube mr-1"></i>Producto #<span x-text="index + 1"></span>
+                                        <i class="fas fa-cube mr-2"></i>Producto #<span x-text="index + 1"></span>
                                     </span>
                                     <button type="button" @click="eliminarDetalle(index)"
-                                            class="text-red-500 hover:text-red-700 text-sm font-medium">
+                                            class="text-red-500 hover:text-red-700 font-medium" x-show="detalles.length > 1">
                                         <i class="fas fa-trash mr-1"></i>Eliminar
                                     </button>
                                 </div>
 
-                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-medium text-gray-500 mb-1">Producto <span class="text-red-500">*</span></label>
+                                <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                                    <div class="md:col-span-3">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Producto <span class="text-red-500">*</span>
+                                        </label>
                                         <select x-model="detalle.producto_id" @change="onProductoChange(index)" required
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                            <option value="">Seleccione producto</option>
+                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                            <option value="">Seleccione un producto</option>
                                             @foreach($productos as $producto)
                                                 <option value="{{ $producto->id }}">
                                                     {{ $producto->codigo }} - {{ $producto->nombre }}
@@ -152,58 +144,67 @@
                                     </div>
 
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-500 mb-1">Cantidad <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Cantidad <span class="text-red-500">*</span>
+                                        </label>
                                         <input type="number" x-model.number="detalle.cantidad" min="1" required
                                                @input="calcularSubtotalDetalle(index)"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
 
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-500 mb-1">Precio Unit. <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Precio Unit. <span class="text-red-500">*</span>
+                                        </label>
                                         <input type="number" x-model.number="detalle.precio_unitario" min="0.01" step="0.01" required
                                                @input="calcularSubtotalDetalle(index)"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                     </div>
-                                </div>
 
-                                {{-- Subtotal --}}
-                                <div class="mt-3 text-right">
-                                    <span class="text-sm text-gray-500">Subtotal: </span>
-                                    <span class="text-sm font-bold text-gray-800" x-text="'S/ ' + (detalle.cantidad * detalle.precio_unitario).toFixed(2)"></span>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Subtotal</label>
+                                        <div class="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                            <p class="text-lg font-bold text-blue-900" x-text="'S/ ' + (detalle.cantidad * detalle.precio_unitario).toFixed(2)"></p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {{-- IMEIs para celulares --}}
                                 <template x-if="detalle.tipo_producto === 'celular'">
-                                    <div class="mt-4 border-t border-dashed border-purple-300 pt-4 bg-purple-50 rounded-lg p-4 -mx-1">
+                                    <div class="mt-4 border-t-2 border-dashed border-purple-300 pt-4 bg-purple-50 rounded-lg p-4 -mx-1">
                                         <div class="flex justify-between items-center mb-3">
-                                            <label class="text-xs font-bold text-purple-800">
-                                                <i class="fas fa-mobile-alt mr-1"></i>IMEIs (debe ingresar <span x-text="detalle.cantidad"></span>)
+                                            <label class="text-sm font-bold text-purple-800">
+                                                <i class="fas fa-mobile-alt mr-2"></i>Registro de IMEIs
+                                                <span class="text-xs font-normal text-purple-600">(debe ingresar <span x-text="detalle.cantidad"></span> unidades)</span>
                                             </label>
-                                            <span class="text-xs px-2 py-1 rounded-full font-semibold"
-                                                  :class="detalle.imeis.length === detalle.cantidad ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+                                            <span class="text-xs px-3 py-1 rounded-full font-bold"
+                                                  :class="detalle.imeis.length === detalle.cantidad ? 'bg-green-500 text-white' : 'bg-red-500 text-white'">
                                                 <span x-text="detalle.imeis.length"></span> / <span x-text="detalle.cantidad"></span>
                                             </span>
                                         </div>
 
                                         <template x-for="(imei, iIndex) in detalle.imeis" :key="iIndex">
-                                            <div class="grid grid-cols-12 gap-2 mb-2">
+                                            <div class="grid grid-cols-12 gap-3 mb-3 bg-white p-3 rounded-lg border border-purple-200">
                                                 <div class="col-span-5">
+                                                    <label class="block text-xs font-medium text-gray-600 mb-1">IMEI <span class="text-red-500">*</span></label>
                                                     <input type="text" x-model="imei.codigo_imei" maxlength="20" required
-                                                           placeholder="IMEI (15 dígitos)"
-                                                           class="w-full px-2 py-1.5 rounded border border-gray-300 text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                                           placeholder="15 dígitos"
+                                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm">
                                                 </div>
                                                 <div class="col-span-3">
-                                                    <input type="text" x-model="imei.serie" placeholder="Serie (opcional)"
-                                                           class="w-full px-2 py-1.5 rounded border border-gray-300 text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                                    <label class="block text-xs font-medium text-gray-600 mb-1">Serie</label>
+                                                    <input type="text" x-model="imei.serie" placeholder="Opcional"
+                                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm">
                                                 </div>
                                                 <div class="col-span-3">
-                                                    <input type="text" x-model="imei.color" placeholder="Color"
-                                                           class="w-full px-2 py-1.5 rounded border border-gray-300 text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                                    <label class="block text-xs font-medium text-gray-600 mb-1">Color</label>
+                                                    <input type="text" x-model="imei.color" placeholder="Ej: Negro"
+                                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm">
                                                 </div>
-                                                <div class="col-span-1 flex items-center justify-center">
+                                                <div class="col-span-1 flex items-end justify-center pb-2">
                                                     <button type="button" @click="detalle.imeis.splice(iIndex, 1)"
-                                                            class="text-red-400 hover:text-red-600">
-                                                        <i class="fas fa-times"></i>
+                                                            class="text-red-500 hover:text-red-700 p-2">
+                                                        <i class="fas fa-trash-alt"></i>
                                                     </button>
                                                 </div>
                                             </div>
@@ -211,15 +212,17 @@
 
                                         <button type="button" @click="agregarImei(index)"
                                                 x-show="detalle.imeis.length < detalle.cantidad"
-                                                class="text-purple-600 hover:text-purple-800 text-xs font-semibold mt-2">
-                                            <i class="fas fa-plus mr-1"></i>Agregar IMEI
+                                                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg mt-2 transition-colors">
+                                            <i class="fas fa-plus mr-2"></i>Agregar IMEI
                                         </button>
 
                                         <template x-if="detalle.imeis.length < detalle.cantidad">
-                                            <p class="text-xs text-red-500 mt-2">
-                                                <i class="fas fa-exclamation-triangle mr-1"></i>
-                                                Faltan <span x-text="detalle.cantidad - detalle.imeis.length"></span> IMEI(s)
-                                            </p>
+                                            <div class="bg-red-50 border border-red-200 rounded-lg p-3 mt-3">
+                                                <p class="text-sm text-red-700">
+                                                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                                                    <strong>Atención:</strong> Faltan <span x-text="detalle.cantidad - detalle.imeis.length"></span> IMEI(s) por registrar
+                                                </p>
+                                            </div>
                                         </template>
                                     </div>
                                 </template>
@@ -230,25 +233,27 @@
 
                 {{-- Resumen --}}
                 <template x-if="detalles.length > 0">
-                    <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                         <div class="bg-blue-900 px-6 py-4">
-                            <h2 class="text-lg font-bold text-white">
+                            <h2 class="text-xl font-bold text-white">
                                 <i class="fas fa-calculator mr-2"></i>Resumen de Totales
                             </h2>
                         </div>
-                        <div class="p-6 flex justify-end">
-                            <div class="w-72 space-y-3">
-                                <div class="flex justify-between text-sm">
-                                    <span class="text-gray-500">Subtotal:</span>
-                                    <span class="font-semibold" x-text="'S/ ' + subtotal.toFixed(2)"></span>
-                                </div>
-                                <div class="flex justify-between text-sm">
-                                    <span class="text-gray-500">IGV (18%):</span>
-                                    <span class="font-semibold" x-text="'S/ ' + igv.toFixed(2)"></span>
-                                </div>
-                                <div class="flex justify-between text-xl border-t-2 border-gray-200 pt-3">
-                                    <span class="font-bold text-gray-700">Total:</span>
-                                    <span class="font-bold text-blue-900" x-text="'S/ ' + total.toFixed(2)"></span>
+                        <div class="p-6">
+                            <div class="max-w-md ml-auto">
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                                        <span class="text-gray-700 font-medium">Subtotal:</span>
+                                        <span class="text-lg font-semibold text-gray-900" x-text="'S/ ' + subtotal.toFixed(2)"></span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                                        <span class="text-gray-700 font-medium">IGV (18%):</span>
+                                        <span class="text-lg font-semibold text-gray-900" x-text="'S/ ' + igv.toFixed(2)"></span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-3 bg-blue-50 px-4 rounded-lg border-2 border-blue-200">
+                                        <span class="text-xl font-bold text-blue-900">TOTAL:</span>
+                                        <span class="text-2xl font-bold text-blue-900" x-text="'S/ ' + total.toFixed(2)"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -256,12 +261,13 @@
                 </template>
 
                 {{-- Botones --}}
-                <div class="flex items-center justify-end space-x-3 pt-4">
-                    <a href="{{ route('compras.index') }}" class="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+                <div class="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
+                    <a href="{{ route('compras.index') }}"
+                       class="px-6 py-3 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
                         <i class="fas fa-times mr-2"></i>Cancelar
                     </a>
                     <button type="submit" :disabled="guardando || detalles.length === 0"
-                            class="px-6 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium disabled:opacity-50 transition-colors">
+                            class="px-6 py-3 bg-blue-900 text-white rounded-lg font-semibold hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                         <span x-show="!guardando"><i class="fas fa-save mr-2"></i>Registrar Compra</span>
                         <span x-show="guardando"><i class="fas fa-spinner fa-spin mr-2"></i>Guardando...</span>
                     </button>

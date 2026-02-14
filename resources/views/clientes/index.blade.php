@@ -10,7 +10,6 @@
 </head>
 <body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
-    <x-header title="Clientes" />
 
     <div class="ml-64 p-8">
         <x-header 

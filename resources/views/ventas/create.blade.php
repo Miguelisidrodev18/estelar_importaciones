@@ -4,16 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nueva Venta - Sistema de Importaciones</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
-    <x-header title="Nueva Venta" />
 
-    <div class="ml-64 p-8 pt-24">
+    <div class="ml-64 p-8 ">
+        <x-header 
+            title="Registrar Nueva Venta" 
+            subtitle="Complete el formulario para agregar una nueva venta al sistema"
+        />
         @if(session('error'))
             <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded"><i class="fas fa-exclamation-circle mr-2"></i>{{ session('error') }}</div>
         @endif

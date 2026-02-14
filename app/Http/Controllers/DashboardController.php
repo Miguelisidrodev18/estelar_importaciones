@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Venta;
+use App\Models\Producto;
+use App\Models\Cliente;
+use App\Models\Almacen;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -45,15 +49,58 @@ class DashboardController extends Controller
      */
     public function vendedor(): View
     {
-        $data = [
-            'ventas_hoy' => 0, // Placeholder - se implementará en el módulo de ventas
-            'ventas_mes' => 0,
-            'clientes_atendidos' => 0,
-            'productos_vendidos' => 0,
-        ];
+    $user = auth()->user();
+    
+    // Ventas externas del día
+    $ventas_dia = Venta::where('tipo_venta', 'externa')
+        ->where('user_id', $user->id)
+        ->whereDate('fecha', today())
+        ->sum('total');
+    
+    // Ventas pendientes de pago
+    $ventas_pendientes = Venta::where('tipo_venta', 'externa')
+        ->where('user_id', $user->id)
+        ->where('estado_pago', 'pendiente')
+        ->with('cliente', 'tiendaDestino')
+        ->get();
+    
+    $total_por_cobrar = $ventas_pendientes->sum('total');
+    
+    // Ventas cobradas del mes
+    $ventas_mes = Venta::where('tipo_venta', 'externa')
+        ->where('user_id', $user->id)
+        ->where('estado_pago', 'pagado')
+        ->whereMonth('fecha', now()->month)
+        ->whereYear('fecha', now()->year)
+        ->sum('total');
+    
+    // Tiendas disponibles para enviar clientes
+    $tiendas = User::whereHas('role', function($query) {
+            $query->where('nombre', 'Tienda'); // Ajusta el nombre exacto del rol
+        })
+        ->orderBy('name')
+        ->get(['id', 'name']);
+    
+    // Últimas ventas
+    $ultimas_ventas = Venta::where('user_id', $user->id)
+        ->with('cliente', 'tiendaDestino')
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
+        ->get();
+    
+    $data = [
+        'ventas_hoy' => $ventas_dia,
+        'ventas_mes' => $ventas_mes,
+        'clientes_atendidos' => $ventas_pendientes->count(),
+        'productos_vendidos' => 0, // Lo puedes calcular después
+        'ventas_pendientes' => $ventas_pendientes,
+        'total_por_cobrar' => $total_por_cobrar,
+        'tiendas' => $tiendas,
+        'ultimas_ventas' => $ultimas_ventas,
+    ];
 
-        return view('dashboards.vendedor', $data);
-    }
+    return view('dashboards.vendedor', $data);
+}
 
     /**
      * Dashboard del Almacenero
@@ -88,25 +135,58 @@ class DashboardController extends Controller
     /**
      * Dashboard del Tienda
      */
-  public function tienda()
+    
+public function tienda()
 {
     $user = auth()->user();
+    $hoy = now()->toDateString();
     
-    // Estadísticas básicas para tienda
+    // Calcular todas las variables que necesita la vista
+    $ventas_dia = Venta::where('user_id', $user->id)
+        ->whereDate('fecha', $hoy)
+        ->where('estado_pago', 'pagado')
+        ->sum('total');
+    
+    $transacciones_dia = Venta::where('user_id', $user->id)
+        ->whereDate('fecha', $hoy)
+        ->where('estado_pago', 'pagado')
+        ->count();
+    
+    $clientes_atendidos = Venta::where('user_id', $user->id)
+        ->whereDate('fecha', $hoy)
+        ->where('estado_pago', 'pagado')
+        ->whereNotNull('cliente_id')
+        ->distinct('cliente_id')
+        ->count('cliente_id');
+    
+    $caja_actual = 0;
+    
+    // Stats array (si lo necesitas para otras partes)
     $stats = [
-        'ventas_hoy' => 0, // Implementar cuando tengamos módulo de ventas
-        'transacciones_hoy' => 0,
-        'clientes_atendidos' => 0,
+        'ventas_hoy' => $ventas_dia,
+        'transacciones_hoy' => $transacciones_dia,
+        'clientes_atendidos' => $clientes_atendidos,
         'productos_disponibles' => \App\Models\Producto::activos()->count(),
     ];
     
-    // Productos más vendidos (placeholder)
     $productosPopulares = \App\Models\Producto::activos()
         ->orderBy('nombre')
         ->limit(5)
         ->get();
     
-    return view('dashboards.tienda', compact('stats', 'productosPopulares'));
+    // PASAR TODO lo que necesita la vista
+    return view('dashboards.tienda', [
+        // Variables directas que usa la vista
+        'ventas_dia' => $ventas_dia,
+        'caja_actual' => $caja_actual,
+        'transacciones_dia' => $transacciones_dia,
+        'clientes_atendidos' => $clientes_atendidos,
+        
+        // Variables adicionales que podrías necesitar
+        'stats' => $stats,
+        'productosPopulares' => $productosPopulares,
+        'ultimas_ventas' => collect([]), // Vacío por ahora
+        'ventas_externas_pendientes' => collect([]), // Vacío por ahora
+    ]);
 }
-
 }

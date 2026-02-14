@@ -119,4 +119,44 @@ class VentaController extends Controller
 
         return response()->json($imeis);
     }
+    public function dashboardTienda()
+{
+    $user = auth()->user();
+    
+    // Ventas del día actual
+    $ventas_dia = Venta::whereDate('fecha', today())
+        ->when($user->role->nombre === 'Vendedor', function ($query) use ($user) {
+            return $query->where('user_id', $user->id);
+        })
+        ->sum('total');
+    
+    // Otras estadísticas que puedas necesitar
+    $ventas_pendientes = Venta::where('estado_pago', 'pendiente')
+        ->when($user->role->nombre === 'Vendedor', function ($query) use ($user) {
+            return $query->where('user_id', $user->id);
+        })
+        ->count();
+    
+    $ventas_mes = Venta::whereMonth('fecha', now()->month)
+        ->whereYear('fecha', now()->year)
+        ->when($user->role->nombre === 'Vendedor', function ($query) use ($user) {
+            return $query->where('user_id', $user->id);
+        })
+        ->sum('total');
+    
+    $ultimas_ventas = Venta::with('cliente')
+        ->when($user->role->nombre === 'Vendedor', function ($query) use ($user) {
+            return $query->where('user_id', $user->id);
+        })
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
+        ->get();
+    
+    return view('dashboards.tienda', compact(
+        'ventas_dia', 
+        'ventas_pendientes', 
+        'ventas_mes', 
+        'ultimas_ventas'
+    ));
+}
 }

@@ -272,6 +272,8 @@ Route::middleware(['auth'])->prefix('inventario')->name('inventario.')->group(fu
     Route::middleware(['auth', 'role:Tienda'])->group(function () {
         Route::get('/consulta', [ProductoController::class, 'consultaTienda'])
                 ->name('consulta-tienda');
+        Route::get('/tienda/dashboard', [DashboardController::class, 'tienda'])->name('tienda.dashboard')
+                ->name('consulta-tienda');
     });
     });
 // ========================================

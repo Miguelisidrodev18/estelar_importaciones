@@ -85,7 +85,7 @@ class CompraController extends Controller
 
     public function show(Compra $compra)
     {
-        $compra->load('proveedor', 'almacen', 'usuario', 'detalles.producto');
+        $compra->load('proveedor', 'almacen', 'usuario', 'detalles.producto', 'imeis');
 
         return view('compras.show', compact('compra'));
     }

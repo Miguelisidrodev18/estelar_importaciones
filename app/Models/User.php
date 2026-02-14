@@ -56,7 +56,10 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Role::class);
     }
-
+    public function ventasExternasPendientes()
+    {
+    return $this->hasMany(Venta::class, 'tienda_destino_id');
+    }
     /**
      * Check if user has a specific role.
      *

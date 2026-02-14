@@ -4,16 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nuevo Cliente - Sistema de Importaciones</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
-    <x-header title="Nuevo Cliente" />
 
-    <div class="ml-64 p-8 pt-24">
+    <div class="ml-64 p-8 ">
+        <x-header 
+            title="Registrar Nuevo Cliente" 
+            subtitle="Complete el formulario para agregar un nuevo cliente al sistema"
+        />
         <div class="max-w-2xl mx-auto">
             <div class="flex items-center mb-6">
                 <a href="{{ route('clientes.index') }}" class="text-blue-600 hover:text-blue-800 mr-4"><i class="fas fa-arrow-left"></i></a>
