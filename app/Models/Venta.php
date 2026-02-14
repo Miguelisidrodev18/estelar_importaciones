@@ -23,6 +23,8 @@ class Venta extends Model
         'usuario_confirma_id',
         'fecha_confirmacion',
         'observaciones',
+        'tipo_venta', //'interna para tienda, externa para vendedores',
+        'tienda_destino_id', //para ventas externas, a que tienda iban a pagar con esta venta
     ];
 
     protected $casts = [
