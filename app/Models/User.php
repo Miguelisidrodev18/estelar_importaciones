@@ -21,6 +21,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
+        'almacen_id',
         'telefono',
         'dni',
         'estado',
@@ -56,6 +57,10 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Role::class);
     }
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class);
+    }
     public function ventasExternasPendientes()
     {
     return $this->hasMany(Venta::class, 'tienda_destino_id');
@@ -81,7 +86,11 @@ class User extends Authenticatable
     {
         return $this->role && in_array($this->role->nombre, $roles);
     }
-
+     // Scope para filtrar usuarios por almacén
+    public function scopeEnAlmacen($query, $almacenId)
+    {
+        return $query->where('almacen_id', $almacenId);
+    }
     /**
      * Scope a query to only include active users.
      */

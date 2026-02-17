@@ -94,7 +94,21 @@ Route::middleware('guest')->group(function () {
             ->name('password.update-direct');
     });
 });
-
+// ========================================
+// MÓDULO DE USUARIOS
+// ========================================
+Route::middleware(['auth', 'role:Administrador'])->prefix('users')->name('users.')->group(function () {
+    Route::get('/', [App\Http\Controllers\UserController::class, 'index'])->name('index');
+    Route::get('/create', [App\Http\Controllers\UserController::class, 'create'])->name('create');
+    Route::post('/', [App\Http\Controllers\UserController::class, 'store'])->name('store');
+    Route::get('/{user}/edit', [App\Http\Controllers\UserController::class, 'edit'])->name('edit');
+    Route::get('/{user}', [App\Http\Controllers\UserController::class, 'show'])->name('show');
+    Route::put('/{user}', [App\Http\Controllers\UserController::class, 'update'])->name('update');
+    Route::delete('/{user}', [App\Http\Controllers\UserController::class, 'destroy'])->name('destroy');
+    Route::get('/{user}/edit', [App\Http\Controllers\UserController::class, 'edit'])->name('edit');
+    Route::put('/{user}', [App\Http\Controllers\UserController::class, 'update'])->name('update');
+    Route::delete('/{user}', [App\Http\Controllers\UserController::class, 'destroy'])->name('destroy');
+});
 /*
 |--------------------------------------------------------------------------
 | RUTAS PROTEGIDAS (AUTH)
@@ -345,13 +359,28 @@ Route::middleware(['auth', 'role:Administrador,Vendedor,Tienda'])->prefix('venta
 // ========================================
 // MÓDULO DE TRASLADOS
 // ========================================
-Route::middleware(['auth', 'role:Administrador,Almacenero'])->prefix('traslados')->name('traslados.')->group(function () {
-    Route::get('/', [TrasladoController::class, 'index'])->name('index');
-    Route::get('/create', [TrasladoController::class, 'create'])->name('create');
-    Route::post('/', [TrasladoController::class, 'store'])->name('store');
-    Route::get('/pendientes', [TrasladoController::class, 'pendientes'])->name('pendientes');
-    Route::get('/{traslado}', [TrasladoController::class, 'show'])->name('show');
-    Route::post('/{traslado}/confirmar', [TrasladoController::class, 'confirmar'])->name('confirmar');
+// ========================================
+// MÓDULO DE TRASLADOS - CORREGIDO
+// ========================================
+Route::middleware(['auth'])->prefix('traslados')->name('traslados.')->group(function () {
+    
+    // PRIMERO: Rutas específicas (sin parámetros)
+    Route::middleware('role:Administrador,Almacenero')->group(function () {
+        Route::get('/', [TrasladoController::class, 'index'])->name('index');
+        Route::get('/create', [TrasladoController::class, 'create'])->name('create');
+        Route::post('/', [TrasladoController::class, 'store'])->name('store');
+    });
+
+    // Rutas de recepción (Admin, Almacenero y Tienda)
+    Route::middleware('role:Administrador,Almacenero,Tienda')->group(function () {
+        Route::get('/pendientes', [TrasladoController::class, 'pendientes'])->name('pendientes');
+        Route::post('/{traslado}/confirmar', [TrasladoController::class, 'confirmar'])->name('confirmar');
+    });
+
+    // ÚLTIMO: Rutas con parámetros dinámicos
+    Route::middleware('role:Administrador,Almacenero')->group(function () {
+        Route::get('/{traslado}', [TrasladoController::class, 'show'])->name('show');
+    });
 });
 
 // ========================================

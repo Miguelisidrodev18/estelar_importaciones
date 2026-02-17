@@ -6,6 +6,7 @@ use App\Models\Venta;
 use App\Models\Cliente;
 use App\Models\Producto;
 use App\Models\Almacen;
+use App\Models\Categoria;
 use App\Models\Imei;
 use App\Services\VentaService;
 use Illuminate\Http\Request;
@@ -22,6 +23,10 @@ class VentaController extends Controller
         }
 
         $ventas = $query->orderBy('created_at', 'desc')->get();
+        $ventas = Venta::when($user->almacen_id, function($query) use ($user) {
+        // Si tiene almacén asignado, filtrar por ese almacén
+        return $query->where('almacen_id', $user->almacen_id);
+    })->paginate(15);
 
         return view('ventas.index', compact('ventas'));
     }
@@ -29,10 +34,11 @@ class VentaController extends Controller
     public function create()
     {
         $clientes = Cliente::activos()->orderBy('nombre')->get();
-        $productos = Producto::where('estado', 'activo')->orderBy('nombre')->get();
+        $productos = Producto::where('estado', 'activo')->with('categoria')->orderBy('nombre')->get();
         $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
+        $categorias = Categoria::activas()->orderBy('nombre')->get();
 
-        return view('ventas.create', compact('clientes', 'productos', 'almacenes'));
+        return view('ventas.create', compact('clientes', 'productos', 'almacenes', 'categorias'));
     }
 
     public function store(Request $request)

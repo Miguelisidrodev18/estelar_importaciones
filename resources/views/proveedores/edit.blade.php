@@ -12,7 +12,7 @@
 <body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
 
-    <div class="ml-64 p-8">
+    <div class="md:ml-64 p-4 md:p-8">
         <x-header
             title="Editar Proveedor"
             subtitle="Actualiza la información del proveedor"

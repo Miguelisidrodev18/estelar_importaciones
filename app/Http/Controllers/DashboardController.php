@@ -7,6 +7,11 @@ use App\Models\Venta;
 use App\Models\Producto;
 use App\Models\Cliente;
 use App\Models\Almacen;
+use App\Models\Caja;
+use App\Models\MovimientoInventario;
+use App\Models\Imei;
+use App\Models\Proveedor;
+use App\Models\StockAlmacen;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -38,6 +43,24 @@ class DashboardController extends Controller
             'usuarios_por_rol' => User::join('roles', 'users.role_id', '=', 'roles.id')
                 ->selectRaw('roles.nombre, COUNT(*) as total')
                 ->groupBy('roles.nombre')
+                ->get(),
+            'ventas_totales' => Venta::where('estado_pago', 'pagado')->sum('total'),
+            'stock_total' => StockAlmacen::sum('cantidad'),
+            'stock_celulares' => Producto::where('tipo_producto', 'celular')
+                ->join('stock_almacen', 'productos.id', '=', 'stock_almacen.producto_id')
+                ->sum('stock_almacen.cantidad'),
+            'imeis_totales' => Imei::count(),
+            'imeis_disponibles' => Imei::where('estado', 'disponible')->count(),
+            'productos_bajo_stock' => StockAlmacen::where('cantidad', '<', 10)->count(),
+            'total_tiendas' => Almacen::where('tipo', 'tienda')->count(),
+            'total_almacenes' => Almacen::where('tipo', 'almacen')->count(),
+            'total_proveedores' => Proveedor::count(),
+            'traslados_pendientes' => MovimientoInventario::where('tipo_movimiento', 'transferencia')
+                ->where('estado', 'pendiente')
+                ->count(),
+            'ultimos_movimientos' => MovimientoInventario::with('producto', 'usuario')
+                ->latest()
+                ->limit(10)
                 ->get(),
         ];
 
@@ -159,34 +182,28 @@ public function tienda()
         ->distinct('cliente_id')
         ->count('cliente_id');
     
-    $caja_actual = 0;
-    
-    // Stats array (si lo necesitas para otras partes)
-    $stats = [
-        'ventas_hoy' => $ventas_dia,
-        'transacciones_hoy' => $transacciones_dia,
-        'clientes_atendidos' => $clientes_atendidos,
-        'productos_disponibles' => \App\Models\Producto::activos()->count(),
-    ];
-    
-    $productosPopulares = \App\Models\Producto::activos()
-        ->orderBy('nombre')
-        ->limit(5)
+    // Buscar caja abierta del usuario
+    $caja = Caja::where('user_id', $user->id)
+        ->where('estado', 'abierta')
+        ->first();
+
+    $caja_actual = $caja ? $caja->monto_final : 0;
+
+    // Últimas ventas del día
+    $ultimas_ventas = Venta::where('user_id', $user->id)
+        ->whereDate('fecha', $hoy)
+        ->with('cliente')
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
         ->get();
-    
-    // PASAR TODO lo que necesita la vista
+
     return view('dashboards.tienda', [
-        // Variables directas que usa la vista
         'ventas_dia' => $ventas_dia,
         'caja_actual' => $caja_actual,
+        'caja' => $caja,
         'transacciones_dia' => $transacciones_dia,
         'clientes_atendidos' => $clientes_atendidos,
-        
-        // Variables adicionales que podrías necesitar
-        'stats' => $stats,
-        'productosPopulares' => $productosPopulares,
-        'ultimas_ventas' => collect([]), // Vacío por ahora
-        'ventas_externas_pendientes' => collect([]), // Vacío por ahora
+        'ultimas_ventas' => $ultimas_ventas,
     ]);
 }
 }

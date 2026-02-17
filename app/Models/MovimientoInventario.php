@@ -247,7 +247,15 @@ class MovimientoInventario extends Model
     {
         return $this->tipo_movimiento === 'transferencia';
     }
-
+    public function usuarioConfirma()
+    {
+        return $this->belongsTo(User::class, 'usuario_confirma_id');
+    }
+      // NUEVA RELACIÓN: IMEI
+    public function imei()
+    {
+        return $this->belongsTo(Imei::class, 'imei_id');
+    }
     /**
      * Crear un movimiento de inventario y actualizar el stock del producto
      */

@@ -12,7 +12,7 @@ class SunatService
 
     public function __construct()
     {
-        $this->apiUrl = config('services.sunat.url', 'https://dniruc.apisperu.com/api/v1');
+        $this->apiUrl = config('services.sunat.url', 'https://api.apis.net.pe/v1/ruc?token=') ;
         $this->token = config('services.sunat.token', '');
     }
 

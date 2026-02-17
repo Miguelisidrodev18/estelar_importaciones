@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalle Traslado - Sistema de Importaciones</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Detalle del Traslado - Sistema de Importaciones</title>
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
-    <x-header title="Detalle del Traslado" />
 
-    <div class="ml-64 p-8 pt-24">
+    <div class="md:ml-64 p-4 md:p-8 ">
+        <x-header 
+            title="Detalle del Traslado" 
+            subtitle="Información completa sobre el traslado seleccionado"
+        />
         <div class="flex items-center mb-6">
             <a href="{{ route('traslados.index') }}" class="text-blue-600 hover:text-blue-800 mr-4"><i class="fas fa-arrow-left"></i></a>
             <h2 class="text-2xl font-bold text-gray-800">Traslado {{ $traslado->numero_guia ?? '#' . $traslado->id }}</h2>

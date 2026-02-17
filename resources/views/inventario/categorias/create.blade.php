@@ -13,7 +13,7 @@
     <x-sidebar :role="auth()->user()->role->nombre" />
 
     <!-- Main Content -->
-    <div class="ml-64 p-8">
+    <div class="md:ml-64 p-4 md:p-8">
         <!-- Header -->
         <x-header 
             title="Nueva Categoría" 
