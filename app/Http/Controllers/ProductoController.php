@@ -10,6 +10,7 @@ use App\Models\Catalogo\Marca;
 use App\Models\Catalogo\Modelo;
 use App\Models\Catalogo\Color;
 use App\Models\Catalogo\UnidadMedida;
+use App\Services\CodigoBarrasService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -125,14 +126,14 @@ class ProductoController extends Controller
     /**
      * Guardar nuevo producto
      */
-    public function store(Request $request)
+    public function store(Request $request, CodigoBarrasService $codigoBarrasService)
 {
     $validated = $request->validate([
         'nombre' => 'required|string|max:255',
         'tipo_producto' => 'required|in:celular,accesorio', // ✅ ASEGURAR QUE ESTÉ AQUÍ
         'categoria_id' => 'required|exists:categorias,id',
-        'marca' => 'nullable|string|max:100',
-        'modelo' => 'nullable|string|max:100',
+        'marca_id' => 'nullable|exists:marcas,id',
+        'modelo_id' => 'nullable|exists:modelos,id',
         'descripcion' => 'nullable|string',
         'codigo_barras' => 'nullable|string|max:50|unique:productos,codigo_barras',
         'unidad_medida' => 'required|in:unidad,caja,paquete',
@@ -143,14 +144,36 @@ class ProductoController extends Controller
         'estado' => 'required|in:activo,inactivo,descontinuado',
         'stock_inicial' => 'nullable|integer|min:0',
         'almacen_id' => 'nullable|exists:almacenes,id',
-    ]);
+        // VALIDACIÓN ACTUAL - Le falta:
+        'detalles.*.producto_nombre' => 'sometimes|string', // Para guardar historial
+        'detalles.*.codigo_barras' => 'nullable|string|max:50', // Código generado
+        'forma_pago' => 'required|in:contado,credito', // Importante para contabilidad
+        'condicion_pago' => 'required_if:forma_pago,credito|nullable|integer|min:1|max:90', // Días de crédito
+        'fecha_vencimiento' => 'required_if:forma_pago,credito|nullable|date', // Fecha límite de pago
+        'tipo_moneda' => 'required|in:PEN,USD', // Para compras internacionales
+        'tipo_cambio' => 'required_if:tipo_moneda,USD|nullable|numeric|min:0.001', // Tipo de cambio
+        'incluye_igv' => 'boolean', // Para saber si el precio incluye IGV
+        'descuento_global' => 'numeric|min:0|max:100', // Descuento adicional
+        'monto_adicional' => 'numeric|min:0', // Gastos de envío, etc.
+        'concepto_adicional' => 'nullable|string|max:255', // Concepto del gasto adicional
+        'guia_remision' => 'nullable|string|max:50', // Número de guía
+        'transportista' => 'nullable|string|max:255', // Quién transporta
+        'placa_vehiculo' => 'nullable|string|max:10', // Para control de ingreso
+        ]);
 
     // 🔍 DEBUG: Ver qué tipo_producto llegó
     \Log::info('Tipo producto recibido:', ['tipo' => $request->tipo_producto]);
     \Log::info('Validated data:', $validated);
-
+    $data = $request->validated();
     // Generar código automático
     $validated['codigo'] = Producto::generarCodigo();
+    // Generar código de barras si no se proporcionó
+    if (empty($data['codigo_barras'])) {
+        $producto = new Producto($data); // Solo para obtener el tipo
+        $data['codigo_barras'] = $codigoBarrasService->generarCodigoUnico($producto);
+    }
+    // Crear producto
+    Producto::create($data);
 
     // Manejar imagen
     if ($request->hasFile('imagen')) {
@@ -207,8 +230,9 @@ class ProductoController extends Controller
     public function edit(Producto $producto)
     {
         $categorias = Categoria::activas()->orderBy('nombre')->get();
-        
-        return view('inventario.productos.edit', compact('producto', 'categorias'));
+        $marcas = Marca::where('estado', 'activo')->orderBy('nombre')->get();
+
+        return view('inventario.productos.edit', compact('producto', 'categorias', 'marcas'));
     }
 
     /**
@@ -220,8 +244,8 @@ class ProductoController extends Controller
             'nombre' => 'required|string|max:200',
             'descripcion' => 'nullable|string',
             'categoria_id' => 'required|exists:categorias,id',
-            'marca' => 'nullable|string|max:100',
-            'modelo' => 'nullable|string|max:100',
+            'marca_id' => 'nullable|exists:marcas,id',
+            'modelo_id' => 'nullable|exists:modelos,id',
             'unidad_medida' => 'required|string|max:20',
             'codigo_barras' => 'nullable|string|max:100|unique:productos,codigo_barras,' . $producto->id,
             'imagen' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',

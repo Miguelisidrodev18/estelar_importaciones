@@ -4,6 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Categoria;
+use App\Models\Catalogo\Marca;
+use App\Models\Catalogo\Modelo;
+use App\Models\Catalogo\UnidadMedida;
+use App\Models\Catalogo\Color;
+
 
 class Producto extends Model
 {
@@ -20,8 +26,8 @@ class Producto extends Model
         'tipo_producto',
         'descripcion',
         'categoria_id',
-        'marca',
-        'modelo',
+        'marca_id',
+        'modelo_id',
         'unidad_medida',
         'codigo_barras',
         'imagen',
@@ -245,12 +251,12 @@ class Producto extends Model
 
     public function marca()
     {
-        return $this->belongsTo(Marca::class);
+        return $this->belongsTo(Marca::class, 'marca_id');
     }
 
     public function modelo()
     {
-        return $this->belongsTo(Modelo::class);
+        return $this->belongsTo(Modelo::class, 'modelo_id');
     }
 
     public function unidadMedida()

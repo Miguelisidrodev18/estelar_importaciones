@@ -4,22 +4,44 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Catalogo\Color;
 
 class Imei extends Model
 {
     use HasFactory;
+    protected $table = 'imeis';
+
 
     protected $fillable = [
         'codigo_imei',
+        'serie',
         'producto_id',
+        'modelo_id',        // NUEVO: ID del modelo específico
+        'color_id',         // NUEVO: ID del color
         'almacen_id',
         'compra_id',
-        'serie',
-        'color',
+        'venta_id',
         'estado',
+        'fecha_ingreso',
+        'fecha_venta',
+        'observaciones',
     ];
-
+    protected $casts = [
+        'fecha_ingreso' => 'date',
+        'fecha_venta' => 'date',
+    ];
     // Relaciones
+     // NUEVA RELACIÓN: Modelo
+    public function modelo()
+    {
+        return $this->belongsTo(\App\Models\Catalogo\Modelo::class);
+    }
+
+    // NUEVA RELACIÓN: Color
+    public function color()
+    {
+        return $this->belongsTo(\App\Models\Catalogo\Color::class);
+    }
     public function producto()
     {
         return $this->belongsTo(Producto::class);
@@ -35,7 +57,8 @@ class Imei extends Model
         return $this->belongsTo(Compra::class);
     }
 
-    // ✅ SCOPES QUE FALTAN
+
+    // Scopes
     public function scopeDisponibles($query)
     {
         return $query->where('estado', 'disponible');

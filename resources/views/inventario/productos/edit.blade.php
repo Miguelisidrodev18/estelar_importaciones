@@ -114,15 +114,27 @@
                             </div>
 
                             <div>
-                                <label for="marca" class="block text-sm font-medium text-gray-700 mb-2">Marca</label>
-                                <input type="text" name="marca" id="marca" value="{{ old('marca', $producto->marca) }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <label for="marca_id" class="block text-sm font-medium text-gray-700 mb-2">Marca</label>
+                                <select name="marca_id" id="marca_id"
+                                        onchange="cargarModelosPorMarca(this.value)"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Sin marca</option>
+                                    @foreach($marcas as $marca)
+                                        <option value="{{ $marca->id }}"
+                                            {{ old('marca_id', $producto->marca_id) == $marca->id ? 'selected' : '' }}>
+                                            {{ $marca->nombre }}
+                                        </option>
+                                    @endforeach
+                                </select>
                             </div>
 
                             <div>
-                                <label for="modelo" class="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
-                                <input type="text" name="modelo" id="modelo" value="{{ old('modelo', $producto->modelo) }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <label for="modelo_id" class="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
+                                <select name="modelo_id" id="modelo_id"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Sin modelo</option>
+                                    {{-- Se cargará vía JS con el modelo actual preseleccionado --}}
+                                </select>
                             </div>
 
                             <div>
@@ -343,6 +355,38 @@
                 reader.readAsDataURL(file);
             }
         }
+
+        function cargarModelosPorMarca(marcaId, modeloSeleccionado = null) {
+            const modeloSelect = document.getElementById('modelo_id');
+            modeloSelect.innerHTML = '<option value="">Cargando…</option>';
+
+            if (!marcaId) {
+                modeloSelect.innerHTML = '<option value="">Sin modelo</option>';
+                return;
+            }
+
+            fetch(`/catalogo/modelos-por-marca/${marcaId}`)
+                .then(r => r.json())
+                .then(modelos => {
+                    modeloSelect.innerHTML = '<option value="">Sin modelo</option>';
+                    modelos.forEach(m => {
+                        const sel = (modeloSeleccionado && m.id == modeloSeleccionado) ? 'selected' : '';
+                        modeloSelect.innerHTML += `<option value="${m.id}" ${sel}>${m.nombre}</option>`;
+                    });
+                })
+                .catch(() => {
+                    modeloSelect.innerHTML = '<option value="">Error al cargar</option>';
+                });
+        }
+
+        // Al cargar la página, precargar modelos de la marca actual
+        document.addEventListener('DOMContentLoaded', function () {
+            const marcaId  = document.getElementById('marca_id').value;
+            const modeloId = {{ $producto->modelo_id ?? 'null' }};
+            if (marcaId) {
+                cargarModelosPorMarca(marcaId, modeloId);
+            }
+        });
     </script>
 </body>
 </html>

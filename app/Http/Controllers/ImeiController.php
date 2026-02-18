@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Imei;
 use App\Models\Producto;
 use App\Models\Almacen;
+use App\Models\Catalogo\Color;
 use Illuminate\Http\Request;
 
 class ImeiController extends Controller
@@ -22,7 +23,7 @@ class ImeiController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Imei::with(['producto', 'almacen']);
+        $query = Imei::with(['producto', 'almacen', 'color']);
         
         // Filtro por búsqueda (IMEI o Serie)
         if ($request->filled('buscar')) {
@@ -68,20 +69,24 @@ class ImeiController extends Controller
      * Mostrar formulario para crear IMEI
      */
     public function create()
-{
-    // Cargar solo productos tipo CELULAR que estén activos
-    $productos = Producto::where('tipo_producto', 'celular')
-                            ->where('estado', 'activo')
-                            ->orderBy('marca')
-                            ->orderBy('modelo')
-                            ->get();
-    
-    $almacenes = Almacen::where('estado', 'activo')
-                        ->orderBy('nombre')
-                        ->get();
-    
-    return view('inventario.imeis.create', compact('productos', 'almacenes'));
-}
+    {
+        // Cargar productos tipo CELULAR activos con marca y modelo (relaciones FK)
+        $productos = Producto::with('marca', 'modelo')
+            ->where('tipo_producto', 'celular')
+            ->where('estado', 'activo')
+            ->orderBy('nombre')
+            ->get();
+
+        $colores = Color::where('estado', 'activo')
+            ->orderBy('nombre')
+            ->get();
+
+        $almacenes = Almacen::where('estado', 'activo')
+            ->orderBy('nombre')
+            ->get();
+
+        return view('inventario.imeis.create', compact('productos', 'colores', 'almacenes'));
+    }
 
     /**
      * Guardar nuevo IMEI
@@ -89,17 +94,18 @@ class ImeiController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'codigo_imei' => 'required|string|max:20|unique:imeis,codigo_imei',
+            'codigo_imei' => 'required|string|size:15|unique:imeis,codigo_imei',
             'producto_id' => 'required|exists:productos,id',
-            'almacen_id' => 'required|exists:almacenes,id',
-            'serie' => 'nullable|string|max:50',
-            'color' => 'nullable|string|max:50',
-            'estado' => 'required|in:disponible,reservado,dañado',
+            'almacen_id'  => 'required|exists:almacenes,id',
+            'color_id'    => 'nullable|exists:colores,id',
+            'serie'       => 'nullable|string|max:50',
+            'estado'      => 'required|in:disponible,reservado,dañado',
         ], [
             'codigo_imei.required' => 'El código IMEI es obligatorio',
-            'codigo_imei.unique' => 'Este código IMEI ya está registrado',
+            'codigo_imei.size'     => 'El IMEI debe tener exactamente 15 dígitos',
+            'codigo_imei.unique'   => 'Este código IMEI ya está registrado',
             'producto_id.required' => 'Debe seleccionar un producto',
-            'almacen_id.required' => 'Debe seleccionar un almacén',
+            'almacen_id.required'  => 'Debe seleccionar un almacén',
         ]);
 
         // Verificar que el producto sea tipo celular
@@ -154,9 +160,9 @@ class ImeiController extends Controller
     {
         $validated = $request->validate([
             'almacen_id' => 'required|exists:almacenes,id',
-            'serie' => 'nullable|string|max:50',
-            'color' => 'nullable|string|max:50',
-            'estado' => 'required|in:disponible,vendido,reservado,dañado,garantia',
+            'color_id'   => 'nullable|exists:colores,id',
+            'serie'      => 'nullable|string|max:50',
+            'estado'     => 'required|in:disponible,vendido,reservado,dañado,garantia',
         ]);
 
         $imei->update($validated);

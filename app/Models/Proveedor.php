@@ -32,8 +32,10 @@ class Proveedor extends Model
         return $this->hasMany(Pedido::class);
     }
 
+    
     public function scopeActivos($query)
     {
         return $query->where('estado', 'activo');
     }
+    
 }
