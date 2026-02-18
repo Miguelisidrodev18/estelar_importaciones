@@ -45,6 +45,7 @@ class CajaService
                 'tipo' => $tipo,
                 'monto' => $monto,
                 'concepto' => $concepto,
+                'observaciones' => $observaciones,
             ]);
 
             if ($tipo === 'ingreso') {

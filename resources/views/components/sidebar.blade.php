@@ -19,14 +19,15 @@
 
     {{-- Sidebar --}}
     <div :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
-         class="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-xl z-50 transition-transform duration-300 ease-in-out"
-         x-data="{
-            inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }},
-            comprasOpen: {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') ? 'true' : 'false' }},
-            ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') ? 'true' : 'false' }},
-            trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
-            cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }}
-         }">
+            class="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-xl z-50 transition-transform duration-300 ease-in-out"
+            x-data="{
+                inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }},
+                comprasOpen: {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') ? 'true' : 'false' }},
+                ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') ? 'true' : 'false' }},
+                trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
+                cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }}, // <-- AGREGAR COMA AQUÍ
+                catalogoOpen: {{ request()->routeIs('catalogo.*') ? 'true' : 'false' }}
+            }">
 
         <div class="p-6 border-b border-blue-700 flex items-center justify-between">
             <div class="flex items-center space-x-3">
@@ -174,6 +175,47 @@
                         </a>
                     </li>
                     <li>
+                        <button @click="catalogoOpen = !catalogoOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-book mr-3"></i>Catálogo
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': catalogoOpen }"></i>
+                        </button>
+                        <ul x-show="catalogoOpen" x-collapse class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('catalogo.colores.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.colores.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-palette mr-3 text-sm"></i>Colores
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('catalogo.marcas.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.marcas.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-trademark mr-3 text-sm"></i>Marcas
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('catalogo.modelos.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.modelos.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-mobile-alt mr-3 text-sm"></i>Modelos
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('catalogo.unidades.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.unidades.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-ruler mr-3 text-sm"></i>Unidades de Medida
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('catalogo.motivos.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.motivos.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-exchange-alt mr-3 text-sm"></i>Motivos de Movimiento
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
                         <a href="{{ route('users.index') }}"
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('users.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-users mr-3"></i>Usuarios
@@ -259,6 +301,35 @@
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-truck-loading mr-3"></i>Traslados
                         </a>
+                    </li>
+                    <li>
+                        <button @click="catalogoOpen = !catalogoOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-book mr-3"></i>Consultar Catálogo
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': catalogoOpen }"></i>
+                        </button>
+                        <ul x-show="catalogoOpen" x-collapse class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('catalogo.colores.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-palette mr-3 text-sm"></i>Colores
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('catalogo.marcas.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-trademark mr-3 text-sm"></i>Marcas
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('catalogo.modelos.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-mobile-alt mr-3 text-sm"></i>Modelos
+                                </a>
+                            </li>
+                        </ul>
                     </li>
 
                 @elseif($role == 'Tienda')

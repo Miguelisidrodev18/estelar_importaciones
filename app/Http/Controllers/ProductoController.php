@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\Producto;
 use App\Models\Categoria;
 use App\Models\Almacen;
-use App\Models\MovimientoInventario;
+use App\Models\Catalogo\Marca;
+use App\Models\Catalogo\Modelo;
+use App\Models\Catalogo\Color;
+use App\Models\Catalogo\UnidadMedida;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -93,11 +97,30 @@ class ProductoController extends Controller
      */
     public function create()
     {
-        $categorias = Categoria::activas()->orderBy('nombre')->get();
-        $almacenes = Almacen::activos()->orderBy('nombre')->get();
+        // Verificar que los modelos existen
+        if (!class_exists('App\Models\Catalogo\Marca')) {
+            dd('El modelo Marca no existe');
+        }
+        // Obtener datos de inventario
+        $categorias = Categoria::where('estado', 'activo')->orderBy('nombre')->get();
+        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
         
-        return view('inventario.productos.create', compact('categorias', 'almacenes'));
+        // Obtener datos del catálogo
+        $marcas = Marca::where('estado', 'activo')->orderBy('nombre')->get();
+        $modelos = Modelo::where('estado', 'activo')->with('marca')->orderBy('nombre')->get();
+        $colores = Color::where('estado', 'activo')->orderBy('nombre')->get();
+        $unidades = UnidadMedida::where('estado', 'activo')->orderBy('nombre')->get();
+        
+        return view('inventario.productos.create', compact(
+            'categorias',
+            'almacenes',
+            'marcas',
+            'modelos',
+            'colores',
+            'unidades'
+        ));
     }
+    
 
     /**
      * Guardar nuevo producto
@@ -112,9 +135,6 @@ class ProductoController extends Controller
         'modelo' => 'nullable|string|max:100',
         'descripcion' => 'nullable|string',
         'codigo_barras' => 'nullable|string|max:50|unique:productos,codigo_barras',
-        'precio_compra_actual' => 'required|numeric|min:0',
-        'precio_venta' => 'required|numeric|min:0',
-        'precio_mayorista' => 'nullable|numeric|min:0',
         'unidad_medida' => 'required|in:unidad,caja,paquete',
         'stock_minimo' => 'required|integer|min:0',
         'stock_maximo' => 'required|integer|min:1',
@@ -205,9 +225,6 @@ class ProductoController extends Controller
             'unidad_medida' => 'required|string|max:20',
             'codigo_barras' => 'nullable|string|max:100|unique:productos,codigo_barras,' . $producto->id,
             'imagen' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-            'precio_compra_actual' => 'required|numeric|min:0',
-            'precio_venta' => 'required|numeric|min:0',
-            'precio_mayorista' => 'nullable|numeric|min:0',
             'stock_minimo' => 'required|integer|min:0',
             'stock_maximo' => 'required|integer|min:1',
             'ubicacion' => 'nullable|string|max:50',

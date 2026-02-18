@@ -392,6 +392,46 @@ Route::middleware(['auth', 'role:Administrador,Tienda'])->prefix('caja')->name('
     Route::post('/abrir', [CajaController::class, 'store'])->name('store');
     Route::get('/actual', [CajaController::class, 'actual'])->name('actual');
     Route::post('/cerrar', [CajaController::class, 'cerrar'])->name('cerrar');
+    
+    // Nuevas rutas para gestión de movimientos
+    Route::post('/ingreso', [CajaController::class, 'registrarIngreso'])->name('ingreso');
+    Route::post('/gasto', [CajaController::class, 'registrarGasto'])->name('gasto');
+    Route::get('/movimientos', [CajaController::class, 'movimientos'])->name('movimientos');
+    Route::get('/comprobante/{movimiento}', [CajaController::class, 'comprobante'])->name('comprobante');
+});
+/// ========================================
+// MÓDULO DE CATÁLOGO (Admin y Almacenero)
+// ========================================
+Route::middleware(['auth', 'role:Administrador,Almacenero'])->prefix('catalogo')->name('catalogo.')->group(function () {
+    
+    // Colores
+    Route::resource('colores', App\Http\Controllers\Catalogo\ColorController::class)->parameters([
+        'colores' => 'color'
+    ]);
+    
+    // Motivos de Movimiento
+    Route::resource('motivos', App\Http\Controllers\Catalogo\MotivoMovimientoController::class)->parameters([
+        'motivos' => 'motivo'
+    ]);
+    
+    // Unidades de Medida
+    Route::resource('unidades', App\Http\Controllers\Catalogo\UnidadMedidaController::class)->parameters([
+        'unidades' => 'unidade'
+    ]);
+    
+    // Marcas
+    Route::resource('marcas', App\Http\Controllers\Catalogo\MarcaController::class)->parameters([
+        'marcas' => 'marca'
+    ]);
+    
+    // Modelos
+    Route::resource('modelos', App\Http\Controllers\Catalogo\ModeloController::class)->parameters([
+        'modelos' => 'modelo'
+    ]);
+    
+    // Ruta adicional para obtener modelos por marca (CORREGIDA)
+    Route::get('modelos-por-marca/{marcaId}', [App\Http\Controllers\Catalogo\ModeloController::class, 'getModelosPorMarca'])
+        ->name('modelos.por-marca');
 });
     /*
     |--------------------------------------------------------------------------

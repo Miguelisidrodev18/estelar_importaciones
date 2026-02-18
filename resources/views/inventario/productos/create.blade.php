@@ -26,51 +26,50 @@
                 <form action="{{ route('inventario.productos.store') }}" method="POST" enctype="multipart/form-data" class="p-6">
                     @csrf
 
-<!-- SECCIÓN 1: TIPO DE PRODUCTO -->
-    <div class="mb-8">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-        <i class="fas fa-mobile-alt mr-2 text-blue-900"></i>
-        Tipo de Producto
-        </h3>
+                    <!-- SECCIÓN 1: TIPO DE PRODUCTO -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                            <i class="fas fa-mobile-alt mr-2 text-blue-900"></i>
+                            Tipo de Producto
+                        </h3>
 
-    <div class="grid grid-cols-2 gap-4">
-        <!-- CELULAR -->
-        <label class="cursor-pointer">
-            <input type="radio" 
-                    name="tipo_producto" 
-                    value="celular" 
-                    id="tipo_celular"
-                    class="peer hidden" 
-                    {{ old('tipo_producto') == 'celular' ? 'checked' : '' }}
-                    required>
-            <div class="border-2 border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all">
-                <i class="fas fa-mobile-alt text-5xl text-blue-600 mb-3"></i>
-                <p class="text-lg font-semibold text-gray-900">Celular</p>
-                <p class="text-sm text-gray-500 mt-2">Requiere IMEI único</p>
-            </div>
-        </label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <!-- CELULAR -->
+                            <label class="cursor-pointer">
+                                <input type="radio" 
+                                        name="tipo_producto" 
+                                        value="celular" 
+                                        id="tipo_celular"
+                                        class="peer hidden" 
+                                        {{ old('tipo_producto') == 'celular' ? 'checked' : '' }}
+                                        required>
+                                <div class="border-2 border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all">
+                                    <i class="fas fa-mobile-alt text-5xl text-blue-600 mb-3"></i>
+                                    <p class="text-lg font-semibold text-gray-900">Celular</p>
+                                    <p class="text-sm text-gray-500 mt-2">Requiere IMEI único</p>
+                                </div>
+                            </label>
 
-        <!-- ACCESORIO -->
-        <label class="cursor-pointer">
-            <input type="radio" 
-                    name="tipo_producto" 
-                    value="accesorio" 
-                    id="tipo_accesorio"
-                    class="peer hidden" 
-                    {{ old('tipo_producto', 'accesorio') == 'accesorio' ? 'checked' : '' }}>
-                <div class="border-2 border-gray-300 rounded-lg p-6 text-center hover:border-green-500 peer-checked:border-green-500 peer-checked:bg-green-50 transition-all">
-                    <i class="fas fa-headphones text-5xl text-green-600 mb-3"></i>
-                    <p class="text-lg font-semibold text-gray-900">Accesorio</p>
-                    <p class="text-sm text-gray-500 mt-2">Stock numérico</p>
-                </div>
-            </label>
-        </div>
+                            <!-- ACCESORIO -->
+                            <label class="cursor-pointer">
+                                <input type="radio" 
+                                        name="tipo_producto" 
+                                        value="accesorio" 
+                                        id="tipo_accesorio"
+                                        class="peer hidden" 
+                                        {{ old('tipo_producto', 'accesorio') == 'accesorio' ? 'checked' : '' }}>
+                                <div class="border-2 border-gray-300 rounded-lg p-6 text-center hover:border-green-500 peer-checked:border-green-500 peer-checked:bg-green-50 transition-all">
+                                    <i class="fas fa-headphones text-5xl text-green-600 mb-3"></i>
+                                    <p class="text-lg font-semibold text-gray-900">Accesorio</p>
+                                    <p class="text-sm text-gray-500 mt-2">Stock numérico</p>
+                                </div>
+                            </label>
+                        </div>
 
-    @error('tipo_producto')
-        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-    @enderror
-</div>
-```
+                        @error('tipo_producto')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
 
                     <!-- SECCIÓN 2: INFORMACIÓN BÁSICA -->
                     <div class="mb-8">
@@ -93,7 +92,7 @@
                                 @enderror
                             </div>
 
-                            <!-- Categoría -->
+                            <!-- Categoría (del catálogo) -->
                             <div>
                                 <label for="categoria_id" class="block text-sm font-medium text-gray-700 mb-2">
                                     Categoría <span class="text-red-500">*</span>
@@ -110,33 +109,68 @@
                                 </select>
                             </div>
 
-                            <!-- Marca -->
+                            <!-- Marca (del catálogo) -->
                             <div>
-                                <label for="marca" class="block text-sm font-medium text-gray-700 mb-2">Marca</label>
-                                <input type="text" name="marca" id="marca" value="{{ old('marca') }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Ej: Samsung, Apple, Xiaomi">
+                                <label for="marca_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Marca
+                                </label>
+                                <select name="marca_id" id="marca_id" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccione una marca</option>
+                                    @foreach($marcas as $marca)
+                                        <option value="{{ $marca->id }}" {{ old('marca_id') == $marca->id ? 'selected' : '' }}>
+                                            {{ $marca->nombre }}
+                                        </option>
+                                    @endforeach
+                                </select>
                             </div>
 
-                            <!-- Modelo -->
+                            <!-- Modelo (del catálogo) -->
                             <div>
-                                <label for="modelo" class="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
-                                <input type="text" name="modelo" id="modelo" value="{{ old('modelo') }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Ej: Galaxy S23, iPhone 15">
+                                <label for="modelo_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Modelo
+                                </label>
+                                <select name="modelo_id" id="modelo_id" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccione un modelo</option>
+                                    @foreach($modelos as $modelo)
+                                        <option value="{{ $modelo->id }}" {{ old('modelo_id') == $modelo->id ? 'selected' : '' }}>
+                                            {{ $modelo->nombre }}
+                                        </option>
+                                    @endforeach
+                                </select>
                             </div>
 
-                            <!-- Unidad de Medida -->
+                            <!-- Color (del catálogo) -->
                             <div>
-                                <label for="unidad_medida" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="color_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Color
+                                </label>
+                                <select name="color_id" id="color_id" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccione un color</option>
+                                    @foreach($colores as $color)
+                                        <option value="{{ $color->id }}" {{ old('color_id') == $color->id ? 'selected' : '' }}>
+                                            {{ $color->nombre }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- Unidad de Medida (del catálogo) -->
+                            <div>
+                                <label for="unidad_medida_id" class="block text-sm font-medium text-gray-700 mb-2">
                                     Unidad de Medida <span class="text-red-500">*</span>
                                 </label>
-                                <select name="unidad_medida" id="unidad_medida" 
+                                <select name="unidad_medida_id" id="unidad_medida_id" 
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                         required>
-                                    <option value="unidad" selected>Unidad</option>
-                                    <option value="caja">Caja</option>
-                                    <option value="paquete">Paquete</option>
+                                    <option value="">Seleccione una unidad</option>
+                                    @foreach($unidades as $unidad)
+                                        <option value="{{ $unidad->id }}" {{ old('unidad_medida_id') == $unidad->id ? 'selected' : '' }}>
+                                            {{ $unidad->nombre }} ({{ $unidad->abreviatura }})
+                                        </option>
+                                    @endforeach
                                 </select>
                             </div>
 
@@ -158,53 +192,7 @@
                         </div>
                     </div>
 
-                    <!-- SECCIÓN 3: PRECIOS -->
-                    <div class="mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                            <i class="fas fa-dollar-sign mr-2 text-blue-900"></i>
-                            Precios
-                        </h3>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <label for="precio_compra_actual" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Precio de Compra <span class="text-red-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2.5 text-gray-500">S/</span>
-                                    <input type="number" name="precio_compra_actual" id="precio_compra_actual" 
-                                           value="{{ old('precio_compra_actual') }}" step="0.01" min="0"
-                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                           required>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label for="precio_venta" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Precio de Venta <span class="text-red-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2.5 text-gray-500">S/</span>
-                                    <input type="number" name="precio_venta" id="precio_venta" 
-                                           value="{{ old('precio_venta') }}" step="0.01" min="0"
-                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                           required>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label for="precio_mayorista" class="block text-sm font-medium text-gray-700 mb-2">Precio Mayorista</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2.5 text-gray-500">S/</span>
-                                    <input type="number" name="precio_mayorista" id="precio_mayorista" 
-                                           value="{{ old('precio_mayorista') }}" step="0.01" min="0"
-                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SECCIÓN 4: STOCK (SOLO PARA ACCESORIOS) -->
+                    <!-- SECCIÓN 3: CONTROL DE STOCK -->
                     <div id="stockSection" class="mb-8">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                             <i class="fas fa-boxes mr-2 text-blue-900"></i>
@@ -219,6 +207,7 @@
                                 <input type="number" name="stock_minimo" id="stock_minimo" value="{{ old('stock_minimo', 10) }}" min="0"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                        required>
+                                <p class="text-xs text-gray-500 mt-1">Cantidad mínima antes de alerta</p>
                             </div>
 
                             <div>
@@ -228,13 +217,15 @@
                                 <input type="number" name="stock_maximo" id="stock_maximo" value="{{ old('stock_maximo', 1000) }}" min="1"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                        required>
+                                <p class="text-xs text-gray-500 mt-1">Capacidad máxima de almacenamiento</p>
                             </div>
 
                             <div>
                                 <label for="ubicacion" class="block text-sm font-medium text-gray-700 mb-2">Ubicación Física</label>
                                 <input type="text" name="ubicacion" id="ubicacion" value="{{ old('ubicacion') }}"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Ej: Estante A-5">
+                                       placeholder="Ej: Estante A-5, Pasillo 3">
+                                <p class="text-xs text-gray-500 mt-1">Ubicación en el almacén</p>
                             </div>
 
                             <!-- Stock Inicial (SOLO ACCESORIOS) -->
@@ -243,6 +234,7 @@
                                 <input type="number" name="stock_inicial" id="stock_inicial" value="{{ old('stock_inicial') }}" min="0"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                        placeholder="Cantidad inicial">
+                                <p class="text-xs text-gray-500 mt-1">Stock con el que se registra el producto</p>
                             </div>
 
                             <!-- Almacén (si hay stock inicial) -->
@@ -255,51 +247,57 @@
                                         <option value="{{ $almacen->id }}">{{ $almacen->nombre }}</option>
                                     @endforeach
                                 </select>
+                                <p class="text-xs text-gray-500 mt-1">Obligatorio si se ingresa stock inicial</p>
                             </div>
                         </div>
 
                         <div class="mt-4 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
                             <p class="text-sm text-yellow-700">
                                 <i class="fas fa-info-circle mr-2"></i>
-                                <strong>Nota:</strong> Para celulares, el stock se controlará mediante registros IMEI individuales en el módulo de movimientos.
+                                <strong>Nota:</strong> Para celulares, el stock se controlará mediante registros IMEI individuales en el módulo de movimientos. Los precios se gestionarán en el módulo de ventas.
                             </p>
                         </div>
                     </div>
 
-                    <!-- SECCIÓN 5: IMAGEN -->
-                    <div class="mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                            <i class="fas fa-image mr-2 text-blue-900"></i>
+                    <!-- SECCIÓN 4: IMAGEN -->
+                    <div class="mb-6">
+                        <label for="imagen" class="block text-sm font-medium text-gray-700 mb-2">
                             Imagen del Producto
-                        </h3>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label for="imagen" class="block text-sm font-medium text-gray-700 mb-2">Subir Imagen</label>
-                                <input type="file" name="imagen" id="imagen" accept="image/*"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       onchange="previewImage(event)">
-                                <p class="mt-1 text-xs text-gray-500">JPG, PNG, WEBP (Max. 2MB)</p>
+                        </label>
+                        <div class="flex items-center space-x-4">
+                            <div id="imagePreviewContainer" class="hidden">
+                                <img id="imagePreview" src="" alt="Vista previa" class="h-32 w-32 object-cover rounded-lg border-2 border-gray-300">
                             </div>
+                            <div class="flex-1">
+                                <input type="file" 
+                                        name="imagen" 
+                                        id="imagen" 
+                                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                        onchange="previewImage(event)">
+                                <p class="mt-1 text-xs text-gray-500">Formatos: JPG, JPEG, PNG, WEBP. Máximo 2MB</p>
+                            </div>
+                        </div>
+                        @error('imagen')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
 
-                            <div>
-                                <label for="estado" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Estado <span class="text-red-500">*</span>
-                                </label>
-                                <select name="estado" id="estado" 
+                    <!-- Estado -->
+                    <div class="mb-6">
+                        <label for="estado" class="block text-sm font-medium text-gray-700 mb-2">
+                            Estado <span class="text-red-500">*</span>
+                        </label>
+                        <select name="estado" id="estado" 
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                         required>
                                     <option value="activo" selected>Activo</option>
                                     <option value="inactivo">Inactivo</option>
                                     <option value="descontinuado">Descontinuado</option>
-                                </select>
-                            </div>
-
-                            <div id="imagePreviewContainer" class="md:col-span-2 hidden">
-                                <p class="text-sm font-medium text-gray-700 mb-2">Vista Previa:</p>
-                                <img id="imagePreview" src="" alt="Preview" class="max-h-48 rounded-lg border border-gray-300">
-                            </div>
-                        </div>
+                        </select>
+                        @error('estado')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <!-- Botones -->
@@ -317,85 +315,121 @@
     </div>
 
 <script>
-// Función para alternar campos según tipo de producto
-function toggleIMEIFields() {
-    const tipoSeleccionado = document.querySelector('input[name="tipo_producto"]:checked');
-    
-    if (!tipoSeleccionado) return;
-    
-    const tipo = tipoSeleccionado.value;
-    const stockInicialDiv = document.getElementById('stockInicialDiv');
-    const almacenInicialDiv = document.getElementById('almacenInicialDiv');
-    
-    console.log('Tipo seleccionado:', tipo);
-    
-    if (tipo === 'celular') {
-        if (stockInicialDiv) stockInicialDiv.style.display = 'none';
-        if (almacenInicialDiv) almacenInicialDiv.style.display = 'none';
-    } else {
-        if (stockInicialDiv) stockInicialDiv.style.display = 'block';
-        if (almacenInicialDiv) almacenInicialDiv.style.display = 'block';
+    // Función para alternar campos según tipo de producto
+    function toggleFieldsByType() {
+        const tipoSeleccionado = document.querySelector('input[name="tipo_producto"]:checked');
+        
+        if (!tipoSeleccionado) return;
+        
+        const tipo = tipoSeleccionado.value;
+        const stockInicialDiv = document.getElementById('stockInicialDiv');
+        const almacenInicialDiv = document.getElementById('almacenInicialDiv');
+        
+        if (tipo === 'celular') {
+            if (stockInicialDiv) stockInicialDiv.style.display = 'none';
+            if (almacenInicialDiv) almacenInicialDiv.style.display = 'none';
+        } else {
+            if (stockInicialDiv) stockInicialDiv.style.display = 'block';
+            if (almacenInicialDiv) almacenInicialDiv.style.display = 'block';
+        }
     }
-}
 
-// Preview de imagen
-function previewImage(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('imagePreview');
-            const container = document.getElementById('imagePreviewContainer');
-            preview.src = e.target.result;
-            container.classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
+    // Preview de imagen
+    function previewImage(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('imagePreview');
+                const container = document.getElementById('imagePreviewContainer');
+                preview.src = e.target.result;
+                container.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
     }
-}
 
-// Inicializar cuando cargue la página
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Cargado');
-    
-    toggleIMEIFields();
-    
-    const radioButtons = document.querySelectorAll('input[name="tipo_producto"]');
-    radioButtons.forEach(radio => {
-        radio.addEventListener('change', function() {
-            console.log('Radio cambiado a:', this.value);
-            toggleIMEIFields();
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializar toggle
+        toggleFieldsByType();
+        
+        // Event listeners para radios
+        const radioButtons = document.querySelectorAll('input[name="tipo_producto"]');
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', toggleFieldsByType);
+        });
+
+        // Carga dinámica de modelos según marca seleccionada
+        const marcaSelect = document.getElementById('marca_id');
+        const modeloSelect = document.getElementById('modelo_id');
+
+        if (marcaSelect && modeloSelect) {
+            // Guardar el HTML original solo la primera vez
+            const modelosOriginales = modeloSelect.innerHTML;
+            
+            marcaSelect.addEventListener('change', function() {
+                const marcaId = this.value;
+                
+                // Limpiar y deshabilitar modelo mientras carga
+                modeloSelect.innerHTML = '<option value="">Cargando modelos...</option>';
+                modeloSelect.disabled = true;
+
+                if (marcaId) {
+                    // Usar la ruta correcta que definimos en web.php
+                    fetch(`/catalogo/modelos-por-marca/${marcaId}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`Error HTTP: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            modeloSelect.innerHTML = '<option value="">Seleccione un modelo</option>';
+                            if (data.length > 0) {
+                                data.forEach(modelo => {
+                                    modeloSelect.innerHTML += `<option value="${modelo.id}">${modelo.nombre}</option>`;
+                                });
+                            } else {
+                                modeloSelect.innerHTML += '<option value="" disabled>No hay modelos para esta marca</option>';
+                            }
+                            modeloSelect.disabled = false;
+                        })
+                        .catch(error => {
+                            console.error('Error al cargar modelos:', error);
+                            modeloSelect.innerHTML = '<option value="">Error al cargar modelos</option>';
+                            modeloSelect.disabled = false;
+                        });
+                } else {
+                    // Si no hay marca seleccionada, restaurar opciones originales (vacío)
+                    modeloSelect.innerHTML = '<option value="">Seleccione un modelo</option>';
+                    modeloSelect.disabled = false;
+                }
+            });
+        }
+
+        // Interceptar envío del formulario
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            const radioChecked = document.querySelector('input[name="tipo_producto"]:checked');
+            
+            if (!radioChecked) {
+                e.preventDefault();
+                alert('⚠️ Debes seleccionar un tipo de producto (Celular o Accesorio)');
+                return false;
+            }
+            
+            // Eliminar inputs tipo_producto anteriores
+            const inputsAntiguos = form.querySelectorAll('input[name="tipo_producto"]:not([type="radio"])');
+            inputsAntiguos.forEach(input => input.remove());
+            
+            // Crear input hidden con el valor correcto
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'tipo_producto';
+            hiddenInput.value = radioChecked.value;
+            form.appendChild(hiddenInput);
         });
     });
-    
-    // SOLUCIÓN: Interceptar envío y FORZAR el valor correcto
-    const form = document.querySelector('form');
-    form.addEventListener('submit', function(e) {
-        // Obtener el radio button marcado
-        const radioChecked = document.querySelector('input[name="tipo_producto"]:checked');
-        
-        if (!radioChecked) {
-            e.preventDefault();
-            alert('⚠️ Debes seleccionar un tipo de producto (Celular o Accesorio)');
-            return false;
-        }
-        
-        // ELIMINAR todos los inputs tipo_producto anteriores
-        const inputsAntiguos = form.querySelectorAll('input[name="tipo_producto"]:not([type="radio"])');
-        inputsAntiguos.forEach(input => input.remove());
-        
-        // CREAR un input hidden con el valor CORRECTO
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'tipo_producto';
-        hiddenInput.value = radioChecked.value;
-        form.appendChild(hiddenInput);
-        
-        console.log('✅ Tipo de producto que se enviará:', radioChecked.value);
-        
-        // Permitir que el formulario se envíe
-        // El input hidden sobrescribirá cualquier otro valor
-    });
-});
 </script>
 </body>
 </html>

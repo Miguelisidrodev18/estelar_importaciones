@@ -331,8 +331,8 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Concepto / Descripción *</label>
                                 <input type="text" name="concepto" required
-                                       class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                       placeholder="Ej: Almuerzo equipo, Taxi a cliente, etc.">
+                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        placeholder="Ej: Almuerzo equipo, Taxi a cliente, etc.">
                             </div>
                             
                             <div>

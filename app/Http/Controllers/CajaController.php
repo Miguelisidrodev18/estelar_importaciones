@@ -86,4 +86,85 @@ class CajaController extends Controller
             return back()->with('error', $e->getMessage());
         }
     }
+    public function registrarIngreso(Request $request)
+    {
+        $validated = $request->validate([
+            'caja_id' => 'required|exists:caja,id',
+            'monto' => 'required|numeric|min:0.01',
+            'concepto' => 'required|string|max:255',
+            'observaciones' => 'nullable|string',
+        ]);
+
+        try {
+            $movimiento = app(CajaService::class)->registrarMovimiento(
+                $validated['caja_id'],
+                'ingreso',
+                $validated['monto'],
+                $validated['concepto'],
+                null, // venta_id
+                null, // compra_id
+                $validated['observaciones'] ?? null
+            );
+
+            return redirect()
+                ->route('caja.actual')
+                ->with('success', 'Ingreso registrado exitosamente');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function registrarGasto(Request $request)
+    {
+        $validated = $request->validate([
+            'caja_id' => 'required|exists:caja,id',
+            'monto' => 'required|numeric|min:0.01',
+            'concepto' => 'required|string|max:255',
+            'categoria_gasto' => 'required|string',
+            'observaciones' => 'nullable|string',
+        ]);
+
+        try {
+            // Agregar la categoría al concepto para mejor identificación
+            $conceptoCompleto = '[' . ucfirst($validated['categoria_gasto']) . '] ' . $validated['concepto'];
+            
+            $movimiento = app(CajaService::class)->registrarMovimiento(
+                $validated['caja_id'],
+                'egreso',
+                $validated['monto'],
+                $conceptoCompleto,
+                null, // venta_id
+                null, // compra_id
+                $validated['observaciones'] ?? null
+            );
+
+            return redirect()
+                ->route('caja.actual')
+                ->with('success', 'Gasto registrado exitosamente');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function movimientos()
+    {
+        $movimientos = MovimientoCaja::with('caja')
+            ->whereHas('caja', function($query) {
+                $query->where('user_id', auth()->id());
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return view('caja.movimientos', compact('movimientos'));
+    }
+
+    public function comprobante(MovimientoCaja $movimiento)
+    {
+        // Verificar que el movimiento pertenezca al usuario
+        if ($movimiento->caja->user_id !== auth()->id() && !auth()->user()->hasRole('Administrador')) {
+            abort(403);
+        }
+
+        return view('caja.comprobante', compact('movimiento'));
+    }
 }

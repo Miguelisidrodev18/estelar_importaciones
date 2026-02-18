@@ -25,9 +25,6 @@ class Producto extends Model
         'unidad_medida',
         'codigo_barras',
         'imagen',
-        'precio_compra_actual',
-        'precio_venta',
-        'precio_mayorista',
         'stock_actual',
         'stock_minimo',
         'stock_maximo',
@@ -41,9 +38,6 @@ class Producto extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'precio_compra_actual' => 'decimal:2',
-        'precio_venta' => 'decimal:2',
-        'precio_mayorista' => 'decimal:2',
         'stock_actual' => 'integer',
         'stock_minimo' => 'integer',
         'stock_maximo' => 'integer',
@@ -131,18 +125,6 @@ class Producto extends Model
         return $this->categoria ? $this->categoria->nombre : 'Sin categoría';
     }
 
-    /**
-     * Accessor: Margen de ganancia
-     */
-    public function getMargenGananciaAttribute()
-    {
-        if ($this->precio_compra_actual == 0) {
-            return 0;
-        }
-        
-        $margen = (($this->precio_venta - $this->precio_compra_actual) / $this->precio_compra_actual) * 100;
-        return round($margen, 2);
-    }
 
     /**
      * Accessor: Estado del stock
@@ -255,5 +237,24 @@ class Producto extends Model
                 throw new \Exception('No se puede eliminar un producto que tiene movimientos registrados.');
             }
         });
+    }
+    public function color()
+    {
+        return $this->belongsTo(Color::class);
+    }
+
+    public function marca()
+    {
+        return $this->belongsTo(Marca::class);
+    }
+
+    public function modelo()
+    {
+        return $this->belongsTo(Modelo::class);
+    }
+
+    public function unidadMedida()
+    {
+        return $this->belongsTo(UnidadMedida::class);
     }
 }
