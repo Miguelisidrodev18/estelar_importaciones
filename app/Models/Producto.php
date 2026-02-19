@@ -21,21 +21,13 @@ class Producto extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'codigo',
-        'nombre',
-        'tipo_producto',
-        'descripcion',
-        'categoria_id',
-        'marca_id',
-        'modelo_id',
-        'unidad_medida',
-        'codigo_barras',
-        'imagen',
-        'stock_actual',
-        'stock_minimo',
-        'stock_maximo',
-        'ubicacion',
-        'estado',
+        'codigo', 'nombre', 'descripcion', 'categoria_id',
+        'marca_id', 'modelo_id', 'color_id', 'unidad_medida_id',
+        'tipo_inventario', 'dias_garantia', 'tipo_garantia',
+        'stock_actual', 'stock_minimo', 'stock_maximo', 'ubicacion',
+        'costo_promedio', 'ultimo_costo_compra', 'fecha_ultima_compra',
+        'estado', 'imagen', 'creado_por', 'modificado_por',
+        'codigo_barras'
     ];
 
     /**
@@ -48,6 +40,8 @@ class Producto extends Model
         'stock_minimo' => 'integer',
         'stock_maximo' => 'integer',
         'estado' => 'string',
+        'tipo_inventario' => 'string',
+        'tipo_garantia' => 'string'
     ];
 
     /**
@@ -56,6 +50,14 @@ class Producto extends Model
     public function categoria()
     {
         return $this->belongsTo(Categoria::class);
+    }
+    public function proveedores()
+    {
+        return $this->belongsToMany(Proveedor::class, 'productos_proveedor')
+                    ->withPivot('codigo_proveedor', 'ultimo_precio_compra', 
+                               'ultima_fecha_compra', 'plazo_entrega_dias', 
+                               'es_preferente', 'observaciones')
+                    ->withTimestamps();
     }
 
     /**
@@ -244,6 +246,7 @@ class Producto extends Model
             }
         });
     }
+    
     public function color()
     {
         return $this->belongsTo(Color::class);
@@ -262,5 +265,9 @@ class Producto extends Model
     public function unidadMedida()
     {
         return $this->belongsTo(UnidadMedida::class);
+    }
+    public function codigosBarras()
+    {
+        return $this->hasMany(ProductoCodigoBarras::class);
     }
 }

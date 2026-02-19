@@ -12,13 +12,27 @@ use Illuminate\Support\Facades\Storage;
 
 class ModeloController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $modelos = Modelo::with('marca', 'categoria')
-            ->orderBy('nombre')
-            ->paginate(15);
-            
-        return view('catalogo.modelos.index', compact('modelos'));
+        $query = Modelo::with('marca', 'categoria')->orderBy('nombre');
+
+        if ($request->filled('marca_id')) {
+            $query->where('marca_id', $request->marca_id);
+        }
+
+        if ($request->filled('categoria_id')) {
+            $query->where('categoria_id', $request->categoria_id);
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        $modelos    = $query->paginate(15)->withQueryString();
+        $marcas     = Marca::where('estado', 'activo')->orderBy('nombre')->get();
+        $categorias = Categoria::where('estado', 'activo')->orderBy('nombre')->get();
+
+        return view('catalogo.modelos.index', compact('modelos', 'marcas', 'categorias'));
     }
 
     public function create()

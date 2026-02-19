@@ -150,19 +150,31 @@ Route::middleware('auth')->group(function () {
         });
 
         // PRODUCTOS
-        Route::middleware('role:Administrador,Almacenero')->group(function () {
-            Route::get('/productos/create', [ProductoController::class, 'create'])->name('productos.create');
-            Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store');
-            Route::get('/productos/{producto}/edit', [ProductoController::class, 'edit'])->name('productos.edit');
-            Route::put('/productos/{producto}', [ProductoController::class, 'update'])->name('productos.update');
-            Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->middleware('role:Administrador')->name('productos.destroy');
-        });
-        
-        Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
-        Route::get('/productos/{producto}', [ProductoController::class, 'show'])->name('productos.show');
-        Route::get('/productos/buscar', [ProductoController::class, 'buscarAjax'])->name('productos.buscar-ajax');
-        Route::get('/productos/consulta-tienda', [ProductoController::class, 'consultaTienda'])->middleware('role:Tienda')->name('productos.consulta-tienda');
+            Route::middleware('role:Administrador,Almacenero')->group(function () {
+                Route::get('/productos/create', [ProductoController::class, 'create'])->name('productos.create');
+                Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store');
+                Route::get('/productos/{producto}/edit', [ProductoController::class, 'edit'])->name('productos.edit');
+                Route::put('/productos/{producto}', [ProductoController::class, 'update'])->name('productos.update');
+                Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->middleware('role:Administrador')->name('productos.destroy');
+                
+                // Gestión de códigos de barras múltiples
+                Route::get('/productos/{producto}/codigos-barras', [ProductoController::class, 'codigosBarras'])->name('productos.codigos-barras');
+                Route::post('/productos/{producto}/codigos-barras', [ProductoController::class, 'storeCodigoBarras'])->name('productos.codigos-barras.store');
+                Route::delete('/productos/codigos-barras/{codigoBarras}', [ProductoController::class, 'destroyCodigoBarras'])->name('productos.codigos-barras.destroy');
+                Route::post('/productos/codigos-barras/{codigoBarras}/principal', [ProductoController::class, 'setPrincipalCodigoBarras'])->name('productos.codigos-barras.principal');
+                // 🔴 NUEVAS RUTAS PARA GENERAR CÓDIGOS DE BARRAS
+                Route::post('/productos/generar-codigo-barras', [ProductoController::class, 'generarCodigoBarras'])->name('productos.generar-codigo-barras');
+                Route::get('/productos/validar-codigo-barras', [ProductoController::class, 'validarCodigoBarras'])->name('productos.validar-codigo-barras');
+                // Gestión de proveedores del producto
+                Route::get('/productos/{producto}/proveedores', [ProductoController::class, 'proveedores'])->name('productos.proveedores');
+                Route::post('/productos/{producto}/proveedores', [ProductoController::class, 'asociarProveedor'])->name('productos.proveedores.asociar');
+                Route::delete('/productos/proveedores/{productoProveedor}', [ProductoController::class, 'desasociarProveedor'])->name('productos.proveedores.desasociar');
+            });
 
+            Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
+            Route::get('/productos/{producto}', [ProductoController::class, 'show'])->name('productos.show');
+            Route::get('/productos/buscar', [ProductoController::class, 'buscarAjax'])->name('productos.buscar-ajax');
+            Route::get('/productos/consulta-tienda', [ProductoController::class, 'consultaTienda'])->middleware('role:Tienda')->name('productos.consulta-tienda');
         // MOVIMIENTOS DE INVENTARIO
         Route::middleware('role:Administrador,Almacenero')->group(function () {
             Route::get('/movimientos', [MovimientoInventarioController::class, 'index'])->name('movimientos.index');
@@ -193,7 +205,12 @@ Route::middleware('auth')->group(function () {
             Route::get('/imeis/{imei}/edit', [ImeiController::class, 'edit'])->name('imeis.edit');
             Route::put('/imeis/{imei}', [ImeiController::class, 'update'])->name('imeis.update');
             Route::get('/api/imeis-disponibles', [ImeiController::class, 'getImeisDisponibles'])->name('imeis.disponibles');
-        });
+            Route::get('/imeis/validar-imei', [ImeiController::class, 'validarImei'])->name('imeis.validar-imei');
+            Route::get('/imeis/generar-imei', [ImeiController::class, 'generarImei'])->name('imeis.generar-imei');
+            Route::get('/imeis/generar-qr/{imei}', [ImeiController::class, 'generarQR'])->name('imeis.generar-qr');
+            Route::get('/imeis/buscar-productos', [ImeiController::class, 'buscarProductos'])->name('imeis.buscar-productos');
+                    
+            });
 
         // CONSULTA PARA TIENDA
         Route::middleware('role:Tienda')->group(function () {
@@ -314,6 +331,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('marcas', App\Http\Controllers\Catalogo\MarcaController::class)->parameters(['marcas' => 'marca']);
         Route::resource('modelos', App\Http\Controllers\Catalogo\ModeloController::class)->parameters(['modelos' => 'modelo']);
         Route::get('modelos-por-marca/{marcaId}', [App\Http\Controllers\Catalogo\ModeloController::class, 'getModelosPorMarca'])->name('modelos.por-marca');
+        Route::get('marcas-por-categoria/{categoriaId}', [App\Http\Controllers\Catalogo\MarcaController::class, 'getMarcasPorCategoria'])->name('marcas.por-categoria');
     });
 
     /*

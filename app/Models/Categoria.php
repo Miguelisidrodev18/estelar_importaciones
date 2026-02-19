@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Catalogo\Marca;
 
 class Categoria extends Model
 {
@@ -30,6 +31,14 @@ class Categoria extends Model
     protected $casts = [
         'estado' => 'string',
     ];
+
+    /**
+     * Relación: Una categoría tiene muchas marcas (many-to-many)
+     */
+    public function marcas()
+    {
+        return $this->belongsToMany(Marca::class, 'categoria_marca');
+    }
 
     /**
      * Relación: Una categoría tiene muchos productos

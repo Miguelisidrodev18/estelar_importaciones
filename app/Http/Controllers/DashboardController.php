@@ -46,11 +46,11 @@ class DashboardController extends Controller
                 ->get(),
             'ventas_totales' => Venta::where('estado_pago', 'pagado')->sum('total'),
             'stock_total' => StockAlmacen::sum('cantidad'),
-            'stock_celulares' => Producto::where('tipo_producto', 'celular')
+            'stock_celulares' => Producto::where('tipo_inventario', 'serie')
                 ->join('stock_almacen', 'productos.id', '=', 'stock_almacen.producto_id')
                 ->sum('stock_almacen.cantidad'),
             'imeis_totales' => Imei::count(),
-            'imeis_disponibles' => Imei::where('estado', 'disponible')->count(),
+            'imeis_disponibles' => Imei::where('estado_imei', 'en_stock')->count(),
             'productos_bajo_stock' => StockAlmacen::where('cantidad', '<', 10)->count(),
             'total_tiendas' => Almacen::where('tipo', 'tienda')->count(),
             'total_almacenes' => Almacen::where('tipo', 'almacen')->count(),

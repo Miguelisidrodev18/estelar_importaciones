@@ -57,7 +57,8 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600 font-medium">Productos Activos</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ \App\Models\Producto::query()->activos()->count() }}</p>                    </div>
+                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ \App\Models\Producto::query()->activos()->count() }}</p>
+                    </div>
                     <div class="bg-green-100 rounded-full p-3">
                         <i class="fas fa-check-circle text-green-600 text-2xl"></i>
                     </div>
@@ -68,7 +69,8 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600 font-medium">Stock Bajo</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ \App\Models\Producto::query()->stockBajo()->count() }}</p>                    </div>
+                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ \App\Models\Producto::query()->stockBajo()->count() }}</p>
+                    </div>
                     <div class="bg-red-100 rounded-full p-3">
                         <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
                     </div>
@@ -79,7 +81,8 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600 font-medium">Sin Stock</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ \App\Models\Producto::query()->sinStock()->count() }}</p>                    </div>
+                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ \App\Models\Producto::query()->sinStock()->count() }}</p>
+                    </div>
                     <div class="bg-yellow-100 rounded-full p-3">
                         <i class="fas fa-times-circle text-yellow-600 text-2xl"></i>
                     </div>
@@ -136,6 +139,19 @@
                     </div>
                 </div>
 
+                <!-- NUEVO: Filtro por tipo de inventario -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Inventario</label>
+                        <select name="tipo_inventario" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todos</option>
+                            <option value="cantidad" {{ request('tipo_inventario') == 'cantidad' ? 'selected' : '' }}>Stock por Cantidad</option>
+                            <option value="serie" {{ request('tipo_inventario') == 'serie' ? 'selected' : '' }}>Stock por Serie/IMEI</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-3"></div>
+                </div>
+
                 <div class="flex items-center justify-between pt-4 border-t border-gray-200">
                     <a href="{{ route('inventario.productos.index') }}" class="text-gray-600 hover:text-gray-900">
                         <i class="fas fa-redo mr-2"></i>Limpiar filtros
@@ -171,8 +187,9 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca/Modelo</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Stock</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Precio Venta</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tipo</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
                         </tr>
@@ -194,14 +211,27 @@
                                     @endif
                                     <div>
                                         <p class="text-sm font-medium text-gray-900">{{ $producto->nombre }}</p>
-                                        @if($producto->marca)
-                                            <p class="text-xs text-gray-500">{{ $producto->marca }}</p>
+                                        @if($producto->codigo_barras)
+                                            <p class="text-xs text-gray-500">CB: {{ $producto->codigo_barras }}</p>
                                         @endif
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="text-sm text-gray-600">{{ $producto->nombre_categoria }}</span>
+                                <span class="text-sm text-gray-600">{{ $producto->categoria->nombre ?? 'Sin categoría' }}</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm">
+                                    @if($producto->marca)
+                                        <p class="font-medium">{{ $producto->marca->nombre ?? 'N/A' }}</p>
+                                    @endif
+                                    @if($producto->modelo)
+                                        <p class="text-xs text-gray-500">{{ $producto->modelo->nombre ?? '' }}</p>
+                                    @endif
+                                    @if($producto->color)
+                                        <p class="text-xs text-gray-500">Color: {{ $producto->color->nombre ?? '' }}</p>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -209,11 +239,19 @@
                                     @elseif($producto->estado_stock == 'bajo') bg-yellow-100 text-yellow-800
                                     @else bg-green-100 text-green-800
                                     @endif">
-                                    {{ $producto->stock_actual }}
+                                    {{ $producto->stock_actual }} {{ $producto->unidadMedida->abreviatura ?? 'unid' }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right">
-                                <span class="text-sm font-medium text-gray-900">S/ {{ number_format($producto->precio_venta, 2) }}</span>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                @if($producto->tipo_inventario === 'serie')
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        <i class="fas fa-mobile-alt mr-1"></i> IMEI
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fas fa-boxes mr-1"></i> Cantidad
+                                    </span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 @if($producto->estado === 'activo')
@@ -232,14 +270,35 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                 <div class="flex items-center justify-center space-x-2">
+                                    <!-- Botón Ver Detalles -->
+                                    <a href="{{ route('inventario.productos.show', $producto) }}" class="text-gray-600 hover:text-gray-900" title="Ver detalles">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    
                                     @if($canEdit)
                                         <a href="{{ route('inventario.productos.edit', $producto) }}" class="text-blue-600 hover:text-blue-900" title="Editar">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                     @endif
+
+                                    <!-- Botón para gestionar IMEIs (solo para tipo serie) -->
+                                    @if($producto->tipo_inventario === 'serie')
+                                        <a href="{{ route('inventario.imeis.index', ['producto_id' => $producto->id]) }}" 
+                                           class="text-purple-600 hover:text-purple-900" 
+                                           title="Gestionar IMEIs">
+                                            <i class="fas fa-sim-card"></i>
+                                        </a>
+                                    @endif
+
+                                    <!-- Botón para gestionar códigos de barras adicionales -->
+                                    <a href="{{ route('inventario.productos.codigos-barras', $producto) }}" 
+                                       class="text-indigo-600 hover:text-indigo-900" 
+                                       title="Códigos de barras">
+                                        <i class="fas fa-barcode"></i>
+                                    </a>
                                     
                                     @if($canDelete)
-                                        <form action="{{ route('inventario.productos.destroy', $producto) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar este producto?')">
+                                        <form action="{{ route('inventario.productos.destroy', $producto) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.')">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="text-red-600 hover:text-red-900" title="Eliminar">
@@ -252,10 +311,11 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center">
+                            <td colspan="8" class="px-6 py-12 text-center">
                                 <div class="flex flex-col items-center justify-center text-gray-500">
                                     <i class="fas fa-inbox text-6xl mb-4"></i>
                                     <p class="text-lg font-medium">No se encontraron productos</p>
+                                    <p class="text-sm text-gray-400 mt-1">Intenta con otros filtros o crea un nuevo producto</p>
                                     @if($canCreate)
                                         <a href="{{ route('inventario.productos.create') }}" class="mt-4 bg-blue-900 text-white px-4 py-2 rounded-md hover:bg-blue-800">
                                             <i class="fas fa-plus mr-2"></i>
@@ -270,13 +330,45 @@
                 </table>
             </div>
 
+            <!-- Información adicional del listado -->
+            <div class="px-6 py-3 bg-gray-50 border-t border-gray-200">
+                <div class="flex items-center justify-between text-sm text-gray-600">
+                    <div>
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Mostrando {{ $productos->firstItem() ?? 0 }} - {{ $productos->lastItem() ?? 0 }} de {{ $productos->total() }} productos
+                    </div>
+                    <div class="flex space-x-4">
+                        <span class="flex items-center">
+                            <span class="w-3 h-3 bg-green-100 border border-green-500 rounded-full mr-1"></span>
+                            Stock normal
+                        </span>
+                        <span class="flex items-center">
+                            <span class="w-3 h-3 bg-yellow-100 border border-yellow-500 rounded-full mr-1"></span>
+                            Stock bajo
+                        </span>
+                        <span class="flex items-center">
+                            <span class="w-3 h-3 bg-red-100 border border-red-500 rounded-full mr-1"></span>
+                            Sin stock
+                        </span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Paginación -->
             @if($productos->hasPages())
                 <div class="px-6 py-4 border-t border-gray-200">
-                    {{ $productos->links() }}
+                    {{ $productos->appends(request()->query())->links() }}
                 </div>
             @endif
         </div>
     </div>
+
+    <!-- Script para tooltips (opcional) -->
+    <script>
+        // Inicializar tooltips si estás usando algún framework
+        document.addEventListener('DOMContentLoaded', function() {
+            // Si usas Bootstrap u otro, inicializar tooltips aquí
+        });
+    </script>
 </body>
 </html>

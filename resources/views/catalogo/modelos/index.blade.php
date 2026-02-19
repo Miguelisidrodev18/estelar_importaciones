@@ -24,12 +24,59 @@
             </div>
         @endif
 
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold text-gray-800">Lista de Modelos</h2>
             <a href="{{ route('catalogo.modelos.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg">
                 <i class="fas fa-plus mr-2"></i>Nuevo Modelo
             </a>
         </div>
+
+        {{-- Filtros --}}
+        <form method="GET" action="{{ route('catalogo.modelos.index') }}" class="bg-white rounded-xl shadow-sm p-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Marca</label>
+                    <select name="marca_id" class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Todas las marcas</option>
+                        @foreach($marcas as $marca)
+                            <option value="{{ $marca->id }}" {{ request('marca_id') == $marca->id ? 'selected' : '' }}>
+                                {{ $marca->nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Categoría</label>
+                    <select name="categoria_id" class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Todas las categorías</option>
+                        @foreach($categorias as $categoria)
+                            <option value="{{ $categoria->id }}" {{ request('categoria_id') == $categoria->id ? 'selected' : '' }}>
+                                {{ $categoria->nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Estado</label>
+                    <select name="estado" class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Todos los estados</option>
+                        <option value="activo"   {{ request('estado') == 'activo'   ? 'selected' : '' }}>Activo</option>
+                        <option value="inactivo" {{ request('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                    </select>
+                </div>
+                <div class="flex items-end gap-2">
+                    <button type="submit" class="flex-1 bg-blue-900 hover:bg-blue-800 text-white text-sm px-3 py-2 rounded-lg">
+                        <i class="fas fa-search mr-1"></i>Filtrar
+                    </button>
+                    @if(request()->hasAny(['marca_id','categoria_id','estado']))
+                        <a href="{{ route('catalogo.modelos.index') }}"
+                           class="flex-1 text-center text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-50">
+                            <i class="fas fa-times mr-1"></i>Limpiar
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </form>
 
         <div class="bg-white rounded-xl shadow-lg overflow-hidden">
             <table class="min-w-full divide-y divide-gray-200">

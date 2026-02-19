@@ -60,6 +60,30 @@
                         </div>
 
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Categorías</label>
+                            <p class="text-xs text-gray-500 mb-2">Selecciona las categorías a las que pertenece esta marca</p>
+                            @if($categorias->isEmpty())
+                                <p class="text-sm text-gray-400 italic">No hay categorías activas registradas.</p>
+                            @else
+                                <div class="grid grid-cols-2 gap-2 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto">
+                                    @foreach($categorias as $categoria)
+                                        <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 rounded p-1">
+                                            <input type="checkbox"
+                                                   name="categorias[]"
+                                                   value="{{ $categoria->id }}"
+                                                   {{ in_array($categoria->id, old('categorias', [])) ? 'checked' : '' }}
+                                                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                            <span class="text-sm text-gray-700">{{ $categoria->nombre }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            @endif
+                            @error('categorias')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
                             <select name="estado" class="w-full rounded-lg border-gray-300 shadow-sm">
                                 <option value="activo">Activo</option>

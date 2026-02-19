@@ -26,7 +26,7 @@ class CodigoBarrasService
      */
     public function generarCodigoUnico(Producto $producto = null, string $tipo = null): string
     {
-        $tipo = $tipo ?? ($producto ? $producto->tipo_producto : 'otros');
+        $tipo = $tipo ?? ($producto ? ($producto->tipo_inventario === 'serie' ? 'celular' : 'accesorio') : 'otros');
         $prefijo = self::PREFIJOS[$tipo] ?? '400';
         
         do {

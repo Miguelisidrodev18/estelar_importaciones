@@ -96,32 +96,35 @@ class ProductoController extends Controller
     /**
      * Mostrar formulario de crear producto
      */
-    public function create()
-    {
-        // Verificar que los modelos existen
-        if (!class_exists('App\Models\Catalogo\Marca')) {
-            dd('El modelo Marca no existe');
-        }
-        // Obtener datos de inventario
-        $categorias = Categoria::where('estado', 'activo')->orderBy('nombre')->get();
-        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
-        
-        // Obtener datos del catálogo
-        $marcas = Marca::where('estado', 'activo')->orderBy('nombre')->get();
-        $modelos = Modelo::where('estado', 'activo')->with('marca')->orderBy('nombre')->get();
-        $colores = Color::where('estado', 'activo')->orderBy('nombre')->get();
-        $unidades = UnidadMedida::where('estado', 'activo')->orderBy('nombre')->get();
-        
-        return view('inventario.productos.create', compact(
-            'categorias',
-            'almacenes',
-            'marcas',
-            'modelos',
-            'colores',
-            'unidades'
-        ));
+public function create()
+{
+    // Verificar que los modelos existen
+    if (!class_exists('App\Models\Catalogo\Marca')) {
+        dd('El modelo Marca no existe');
     }
     
+    // Obtener datos de inventario
+    $categorias = Categoria::where('estado', 'activo')
+        ->with(['marcas' => fn($q) => $q->where('estado', 'activo')])
+        ->orderBy('nombre')
+        ->get();
+    $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
+    
+    // Obtener datos del catálogo
+    $marcas = Marca::where('estado', 'activo')->orderBy('nombre')->get();
+    $modelos = Modelo::where('estado', 'activo')->with('marca')->orderBy('nombre')->get();
+    $colores = Color::where('estado', 'activo')->orderBy('nombre')->get(); // ✅ YA LO TIENES
+    $unidades = UnidadMedida::where('estado', 'activo')->orderBy('nombre')->get(); // ✅ YA LO TIENES
+    
+    return view('inventario.productos.create', compact(
+        'categorias',
+        'almacenes',
+        'marcas',
+        'modelos',
+        'colores',      // ✅ BIEN
+        'unidades'      // ✅ BIEN
+    ));
+}
 
     /**
      * Guardar nuevo producto
@@ -129,51 +132,57 @@ class ProductoController extends Controller
     public function store(Request $request, CodigoBarrasService $codigoBarrasService)
 {
     $validated = $request->validate([
+        // Campos básicos
         'nombre' => 'required|string|max:255',
-        'tipo_producto' => 'required|in:celular,accesorio', // ✅ ASEGURAR QUE ESTÉ AQUÍ
-        'categoria_id' => 'required|exists:categorias,id',
-        'marca_id' => 'nullable|exists:marcas,id',
-        'modelo_id' => 'nullable|exists:modelos,id',
         'descripcion' => 'nullable|string',
+        'categoria_id' => 'required|exists:categorias,id',
+        
+        // ✅ NUEVO: Foreign Keys desde catálogos
+        'marca_id' => 'nullable|exists:marcas,id',           // Cambiado de 'marca'
+        'modelo_id' => 'nullable|exists:modelos,id',         // Cambiado de 'modelo'
+        'color_id' => 'nullable|exists:colores,id',          // ✅ NUEVO
+        'unidad_medida_id' => 'required|exists:unidades_medida,id', // Cambiado de 'unidad_medida'
+        
+        // ✅ NUEVO: Tipo de inventario (reemplaza a tipo_producto)
+        'tipo_inventario' => 'required|in:cantidad,serie',   // cantidad = accesorio, serie = celular
+        
+        // ✅ NUEVO: Garantía (para celulares)
+        'dias_garantia' => 'required_if:tipo_inventario,serie|integer|min:0',
+        'tipo_garantia' => 'required_if:tipo_inventario,serie|in:proveedor,tienda,fabricante',
+        
+        // Códigos
         'codigo_barras' => 'nullable|string|max:50|unique:productos,codigo_barras',
-        'unidad_medida' => 'required|in:unidad,caja,paquete',
+        
+        // Stock
         'stock_minimo' => 'required|integer|min:0',
         'stock_maximo' => 'required|integer|min:1',
         'ubicacion' => 'nullable|string|max:100',
+        
+        // Imagen y estado
         'imagen' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
         'estado' => 'required|in:activo,inactivo,descontinuado',
+        
+        // Stock inicial (solo para accesorios)
         'stock_inicial' => 'nullable|integer|min:0',
-        'almacen_id' => 'nullable|exists:almacenes,id',
-        // VALIDACIÓN ACTUAL - Le falta:
-        'detalles.*.producto_nombre' => 'sometimes|string', // Para guardar historial
-        'detalles.*.codigo_barras' => 'nullable|string|max:50', // Código generado
-        'forma_pago' => 'required|in:contado,credito', // Importante para contabilidad
-        'condicion_pago' => 'required_if:forma_pago,credito|nullable|integer|min:1|max:90', // Días de crédito
-        'fecha_vencimiento' => 'required_if:forma_pago,credito|nullable|date', // Fecha límite de pago
-        'tipo_moneda' => 'required|in:PEN,USD', // Para compras internacionales
-        'tipo_cambio' => 'required_if:tipo_moneda,USD|nullable|numeric|min:0.001', // Tipo de cambio
-        'incluye_igv' => 'boolean', // Para saber si el precio incluye IGV
-        'descuento_global' => 'numeric|min:0|max:100', // Descuento adicional
-        'monto_adicional' => 'numeric|min:0', // Gastos de envío, etc.
-        'concepto_adicional' => 'nullable|string|max:255', // Concepto del gasto adicional
-        'guia_remision' => 'nullable|string|max:50', // Número de guía
-        'transportista' => 'nullable|string|max:255', // Quién transporta
-        'placa_vehiculo' => 'nullable|string|max:10', // Para control de ingreso
-        ]);
+        'almacen_id' => 'nullable|required_with:stock_inicial|exists:almacenes,id',
+        
+        // ✅ ELIMINAR estos campos (ya no van en productos)
+        // 'tipo_producto' - reemplazado por tipo_inventario
+        // 'precio_venta' - se maneja en ventas
+        // 'precio_mayorista' - se maneja en ventas
+        // 'unidad_medida' - reemplazado por unidad_medida_id
+    ]);
 
-    // 🔍 DEBUG: Ver qué tipo_producto llegó
-    \Log::info('Tipo producto recibido:', ['tipo' => $request->tipo_producto]);
-    \Log::info('Validated data:', $validated);
-    $data = $request->validated();
-    // Generar código automático
-    $validated['codigo'] = Producto::generarCodigo();
-    // Generar código de barras si no se proporcionó
-    if (empty($data['codigo_barras'])) {
-        $producto = new Producto($data); // Solo para obtener el tipo
-        $data['codigo_barras'] = $codigoBarrasService->generarCodigoUnico($producto);
+    // Generar código automático si no existe
+    if (empty($request->codigo)) {
+        $validated['codigo'] = Producto::generarCodigo();
     }
-    // Crear producto
-    Producto::create($data);
+
+    // Generar código de barras si no se proporcionó
+    if (empty($validated['codigo_barras'])) {
+        $tipoBarras = ($validated['tipo_inventario'] ?? 'cantidad') === 'serie' ? 'celular' : 'accesorio';
+        $validated['codigo_barras'] = $codigoBarrasService->generarCodigoUnico(null, $tipoBarras);
+    }
 
     // Manejar imagen
     if ($request->hasFile('imagen')) {
@@ -181,19 +190,21 @@ class ProductoController extends Controller
     }
 
     \DB::transaction(function () use ($validated, $request) {
-        // ✅ CREAR PRODUCTO CON TODOS LOS DATOS VALIDADOS
+        // Crear producto
         $producto = Producto::create($validated);
         
         \Log::info('Producto creado:', [
             'id' => $producto->id,
             'nombre' => $producto->nombre,
-            'tipo_producto' => $producto->tipo_producto // Verificar qué se guardó
+            'tipo_inventario' => $producto->tipo_inventario
         ]);
         
-        // Solo crear stock inicial para ACCESORIOS
-        if ($producto->tipo_producto === 'accesorio' && $request->filled('stock_inicial') && $request->stock_inicial > 0) {
+        // Stock inicial SOLO para productos tipo 'cantidad' (accesorios)
+        if ($producto->tipo_inventario === 'cantidad' && 
+            $request->filled('stock_inicial') && 
+            $request->stock_inicial > 0) {
+            
             if ($request->filled('almacen_id')) {
-                // Crear movimiento de stock inicial
                 \App\Models\MovimientoInventario::registrarMovimiento([
                     'producto_id' => $producto->id,
                     'almacen_id' => $request->almacen_id,
@@ -205,16 +216,20 @@ class ProductoController extends Controller
             }
         }
         
-        // Para CELULARES, el stock se manejará por IMEIs
+        // Si tiene código de barras, guardarlo también en la nueva tabla
+        if ($producto->codigo_barras) {
+            $producto->codigosBarras()->create([
+                'codigo_barras' => $producto->codigo_barras,
+                'descripcion' => 'Principal',
+                'es_principal' => true
+            ]);
+        }
     });
 
     return redirect()
         ->route('inventario.productos.index')
         ->with('success', 'Producto creado exitosamente');
 }
-    /**
-     * Mostrar un producto específico
-     */
     public function show(Producto $producto)
     {
         $producto->load(['categoria', 'movimientos' => function($query) {
@@ -229,47 +244,111 @@ class ProductoController extends Controller
      */
     public function edit(Producto $producto)
     {
-        $categorias = Categoria::activas()->orderBy('nombre')->get();
-        $marcas = Marca::where('estado', 'activo')->orderBy('nombre')->get();
+        // Cargar relaciones necesarias
+        $producto->load(['marca', 'modelo', 'color', 'categoria', 'unidadMedida']);
+        
+        // Obtener datos para los selects
+        $categorias = Categoria::where('estado', 'activo')->orderBy('nombre')->get();
+        $marcas = \App\Models\Catalogo\Marca::where('estado', 'activo')->orderBy('nombre')->get();
+        $modelos = \App\Models\Catalogo\Modelo::where('estado', 'activo')
+                    ->with('marca')
+                    ->orderBy('nombre')
+                    ->get();
+        
+        // Obtener colores y unidades de medida
+        $colores = \App\Models\Catalogo\Color::where('estado', 'activo')
+                    ->orderBy('nombre')
+                    ->get();
+        
+        $unidades = \App\Models\Catalogo\UnidadMedida::where('estado', 'activo')
+                    ->orderBy('nombre')
+                    ->get();
 
-        return view('inventario.productos.edit', compact('producto', 'categorias', 'marcas'));
+        // Obtener códigos de barras (opcional)
+        $codigosBarras = $producto->codigosBarras ?? collect();
+
+        return view('inventario.productos.edit', compact(
+            'producto', 
+            'categorias', 
+            'marcas', 
+            'modelos',
+            'colores',
+            'unidades',
+            'codigosBarras'
+        ));
     }
 
     /**
      * Actualizar producto
      */
     public function update(Request $request, Producto $producto)
-    {
-        $validated = $request->validate([
-            'nombre' => 'required|string|max:200',
-            'descripcion' => 'nullable|string',
-            'categoria_id' => 'required|exists:categorias,id',
-            'marca_id' => 'nullable|exists:marcas,id',
-            'modelo_id' => 'nullable|exists:modelos,id',
-            'unidad_medida' => 'required|string|max:20',
-            'codigo_barras' => 'nullable|string|max:100|unique:productos,codigo_barras,' . $producto->id,
-            'imagen' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-            'stock_minimo' => 'required|integer|min:0',
-            'stock_maximo' => 'required|integer|min:1',
-            'ubicacion' => 'nullable|string|max:50',
-            'estado' => 'required|in:activo,inactivo,descontinuado',
-        ]);
+{
+    $validated = $request->validate([
+        'nombre' => 'required|string|max:200',
+        'descripcion' => 'nullable|string',
+        'categoria_id' => 'required|exists:categorias,id',
+        
+        // ✅ NUEVO: Foreign Keys
+        'marca_id' => 'nullable|exists:marcas,id',
+        'modelo_id' => 'nullable|exists:modelos,id',
+        'color_id' => 'nullable|exists:colores,id',
+        'unidad_medida_id' => 'required|exists:unidades_medida,id',
+        
+        // ✅ NUEVO: Tipo de inventario
+        'tipo_inventario' => 'required|in:cantidad,serie',
+        
+        // ✅ NUEVO: Garantía
+        'dias_garantia' => 'required_if:tipo_inventario,serie|integer|min:0',
+        'tipo_garantia' => 'required_if:tipo_inventario,serie|in:proveedor,tienda,fabricante',
+        
+        // Código de barras (único excepto este producto)
+        'codigo_barras' => 'nullable|string|max:100|unique:productos,codigo_barras,' . $producto->id,
+        
+        // Imagen
+        'imagen' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+        
+        // Stock
+        'stock_minimo' => 'required|integer|min:0',
+        'stock_maximo' => 'required|integer|min:1',
+        'ubicacion' => 'nullable|string|max:50',
+        'estado' => 'required|in:activo,inactivo,descontinuado',
+        
+        // ❌ ELIMINAR: 'unidad_medida', 'tipo_producto'
+    ]);
 
-        // Subir nueva imagen si existe
-        if ($request->hasFile('imagen')) {
-            // Eliminar imagen anterior
-            if ($producto->imagen) {
-                Storage::disk('public')->delete($producto->imagen);
-            }
-            $validated['imagen'] = $request->file('imagen')->store('productos', 'public');
+    // Subir nueva imagen si existe
+    if ($request->hasFile('imagen')) {
+        if ($producto->imagen) {
+            Storage::disk('public')->delete($producto->imagen);
         }
-
-        $producto->update($validated);
-
-        return redirect()
-            ->route('inventario.productos.index')
-            ->with('success', 'Producto actualizado exitosamente');
+        $validated['imagen'] = $request->file('imagen')->store('productos', 'public');
     }
+
+    // Actualizar producto
+    $producto->update($validated);
+    
+    // Actualizar código de barras principal si cambió
+    if ($producto->wasChanged('codigo_barras')) {
+        // Buscar si ya tiene un código principal
+        $principal = $producto->codigosBarras()->where('es_principal', true)->first();
+        
+        if ($principal) {
+            // Actualizar el existente
+            $principal->update(['codigo_barras' => $producto->codigo_barras]);
+        } else {
+            // Crear nuevo
+            $producto->codigosBarras()->create([
+                'codigo_barras' => $producto->codigo_barras,
+                'descripcion' => 'Principal',
+                'es_principal' => true
+            ]);
+        }
+    }
+
+    return redirect()
+        ->route('inventario.productos.index')
+        ->with('success', 'Producto actualizado exitosamente');
+}
 
     /**
      * Eliminar producto
@@ -294,21 +373,208 @@ class ProductoController extends Controller
                 ->with('error', 'No se puede eliminar el producto porque tiene movimientos registrados');
         }
     }
+    /**
+     * Mostrar gestión de códigos de barras del producto
+     */
+    public function codigosBarras(Producto $producto)
+    {
+        $codigosBarras = $producto->codigosBarras()->orderBy('es_principal', 'desc')->get();
+        
+        return view('inventario.productos.codigos-barras', compact('producto', 'codigosBarras'));
+    }
 
+    /**
+     * Guardar nuevo código de barras
+     */
+    public function storeCodigoBarras(Request $request, Producto $producto)
+    {
+        $validated = $request->validate([
+            'codigo_barras' => 'required|string|max:50|unique:productos_codigos_barras,codigo_barras',
+            'descripcion' => 'nullable|string|max:100',
+            'es_principal' => 'boolean'
+        ]);
+
+        // Si es principal, quitar principal de los demás
+        if ($request->boolean('es_principal')) {
+            $producto->codigosBarras()->update(['es_principal' => false]);
+        }
+
+        $producto->codigosBarras()->create($validated);
+
+        return redirect()->back()->with('success', 'Código de barras agregado');
+    }
+
+    /**
+     * Eliminar código de barras
+     */
+    public function destroyCodigoBarras($codigoBarrasId)
+    {
+        $codigoBarras = \App\Models\ProductoCodigoBarras::findOrFail($codigoBarrasId);
+        $codigoBarras->delete();
+
+        return redirect()->back()->with('success', 'Código de barras eliminado');
+    }
+
+    /**
+ * Generar código de barras automático (AJAX)
+ */
+public function generarCodigoBarras(Request $request, CodigoBarrasService $codigoBarrasService)
+{
+    try {
+        $request->validate([
+            'tipo' => 'nullable|in:celular,accesorio,otros'
+        ]);
+
+        $tipo = $request->get('tipo', 'otros');
+
+        $codigo = $codigoBarrasService->generarCodigoUnico(null, $tipo);
+        
+        return response()->json([
+            'success' => true,
+            'codigo' => $codigo,
+            'message' => 'Código generado correctamente'
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('Error generando código de barras', [
+            'error' => $e->getMessage(),
+            'tipo' => $request->tipo
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al generar código: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Validar si un código de barras ya existe (AJAX)
+ */
+public function validarCodigoBarras(Request $request)
+    {
+        $codigo = $request->get('codigo');
+        $productoId = $request->get('producto_id');
+        
+        $query = Producto::where('codigo_barras', $codigo);
+        
+        // Si estamos editando, excluir el producto actual
+        if ($productoId) {
+            $query->where('id', '!=', $productoId);
+        }
+        
+        $existe = $query->exists();
+        
+        // También verificar en la tabla de códigos de barras múltiples
+        if (!$existe && class_exists('\App\Models\ProductoCodigoBarras')) {
+            $existe = \App\Models\ProductoCodigoBarras::where('codigo_barras', $codigo)->exists();
+        }
+        
+        return response()->json([
+            'existe' => $existe,
+            'codigo' => $codigo
+        ]);
+    }
+    /**
+     * Establecer como principal
+     */
+    public function setPrincipalCodigoBarras($codigoBarrasId)
+    {
+        $codigoBarras = \App\Models\ProductoCodigoBarras::findOrFail($codigoBarrasId);
+        
+        // Quitar principal de todos los demás
+        $codigoBarras->producto->codigosBarras()->update(['es_principal' => false]);
+        
+        // Establecer este como principal
+        $codigoBarras->update(['es_principal' => true]);
+
+        return redirect()->back()->with('success', 'Código de barras principal actualizado');
+    }
     /**
      * Búsqueda AJAX para autocompletado
      */
     public function buscarAjax(Request $request)
-    {
-        $termino = $request->get('q');
-        
-        $productos = Producto::activos()
-            ->buscar($termino)
-            ->limit(10)
-            ->get(['id', 'codigo', 'nombre', 'precio_venta', 'stock_actual']);
-        
-        return response()->json($productos);
+{
+    $termino = $request->get('q');
+    $proveedor_id = $request->get('proveedor_id'); // Para filtrar por proveedor
+    
+    $query = Producto::activos()
+        ->with(['marca', 'modelo', 'color', 'unidadMedida'])
+        ->buscar($termino);
+    
+    // Si se especifica proveedor, filtrar productos que tiene ese proveedor
+    if ($proveedor_id) {
+        $query->whereHas('proveedores', function($q) use ($proveedor_id) {
+            $q->where('proveedor_id', $proveedor_id);
+        });
     }
+    
+    $productos = $query->limit(10)->get([
+        'id', 
+        'codigo', 
+        'nombre', 
+        'tipo_inventario',
+        'marca_id',
+        'modelo_id',
+        'color_id',
+        'unidad_medida_id'
+    ]);
+    
+    // Formatear respuesta para el select2
+    $resultados = $productos->map(function($producto) {
+        return [
+            'id' => $producto->id,
+            'text' => $producto->codigo . ' - ' . $producto->nombre,
+            'nombre' => $producto->nombre,
+            'codigo' => $producto->codigo,
+            'tipo_inventario' => $producto->tipo_inventario,
+            'marca' => $producto->marca->nombre ?? '',
+            'modelo' => $producto->modelo->nombre ?? '',
+            'color' => $producto->color->nombre ?? '',
+            'unidad' => $producto->unidadMedida->nombre ?? ''
+        ];
+    });
+    
+    return response()->json($resultados);
+}
+/**
+ * Mostrar productos de un proveedor específico
+ */
+public function productosPorProveedor($proveedorId)
+{
+    $proveedor = \App\Models\Proveedor::findOrFail($proveedorId);
+    
+    $productos = Producto::whereHas('proveedores', function($q) use ($proveedorId) {
+        $q->where('proveedor_id', $proveedorId);
+    })->with(['marca', 'modelo', 'color'])->get();
+    
+    return view('proveedores.productos', compact('proveedor', 'productos'));
+}
+
+/**
+ * Asociar producto a proveedor
+ */
+public function asociarProveedor(Request $request, $productoId)
+{
+    $validated = $request->validate([
+        'proveedor_id' => 'required|exists:proveedores,id',
+        'codigo_proveedor' => 'nullable|string|max:100',
+        'plazo_entrega_dias' => 'nullable|integer|min:0',
+        'es_preferente' => 'boolean'
+    ]);
+    
+    $producto = Producto::findOrFail($productoId);
+    
+    $producto->proveedores()->syncWithoutDetaching([
+        $validated['proveedor_id'] => [
+            'codigo_proveedor' => $validated['codigo_proveedor'] ?? null,
+            'plazo_entrega_dias' => $validated['plazo_entrega_dias'] ?? 0,
+            'es_preferente' => $validated['es_preferente'] ?? false
+        ]
+    ]);
+    
+    return response()->json(['success' => true]);
+}
     /**
  * API: Obtener IMEIs disponibles de un producto en un almacén
  */
@@ -336,34 +602,33 @@ public function getImeisDisponibles(Request $request)
             return response()->json(['error' => 'Producto no encontrado'], 404);
         }
         
-        if ($producto->tipo_producto !== 'celular') {
-            return response()->json(['error' => 'El producto no es tipo celular'], 400);
+        if ($producto->tipo_inventario !== 'serie') {
+            return response()->json(['error' => 'El producto no es tipo serie/celular'], 400);
         }
-        
+
         $query = \App\Models\Imei::where('producto_id', $productoId)
                                   ->where('almacen_id', $almacenId);
-        
+
         // Filtrar según tipo de movimiento
         switch ($tipoMovimiento) {
             case 'salida':
             case 'transferencia':
             case 'merma':
-                $query->where('estado', 'disponible');
+                $query->where('estado_imei', 'en_stock');
                 break;
             case 'devolucion':
-                $query->where('estado', 'vendido');
+                $query->where('estado_imei', 'vendido');
                 break;
             case 'ajuste':
                 // Mostrar todos
                 break;
             default:
-                // Si no hay tipo de movimiento, mostrar disponibles
-                $query->where('estado', 'disponible');
+                $query->where('estado_imei', 'en_stock');
                 break;
         }
-        
+
         $imeis = $query->limit(100)
-                       ->get(['id', 'codigo_imei', 'serie', 'color', 'estado']);
+                       ->get(['id', 'codigo_imei', 'serie', 'color_id', 'estado_imei']);
         
         \Log::info('IMEIs encontrados', ['count' => $imeis->count()]);
         
