@@ -183,13 +183,115 @@ class ImeiController extends Controller
      */
     public function show(Imei $imei)
     {
-        $imei->load(['producto.marca', 'producto.modelo', 'producto.color', 'almacen', 'color', 'movimientos' => function($query) {
-            $query->with('usuario')->latest()->limit(10);
-        }]);
-        
-        return view('inventario.imeis.show', compact('imei'));
+        $imei->load([
+        'producto.categoria',
+        'producto.marca',
+        'producto.modelo',
+        'producto.color',
+        'almacen',
+        'color',
+        'usuarioRegistro',
+        'movimientos' => function($q) {
+            $q->with('usuario')->latest();
+        }
+    ]);
+    
+    return view('inventario.imeis.show', compact('imei'));
     }
-
+/**
+ * Regenerar QR del IMEI
+ */
+    public function regenerarQR(Request $request, Imei $imei, QRService $qrService)
+    {
+        try {
+            // Eliminar QR anterior si existe
+            if ($imei->qr_path && Storage::disk('public')->exists($imei->qr_path)) {
+                Storage::disk('public')->delete($imei->qr_path);
+            }
+            
+            // Generar nuevo QR
+            $path = $qrService->generarParaIMEI($imei);
+            
+            // Actualizar el modelo con la nueva ruta
+            $imei->update(['qr_path' => $path]);
+            
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'qr_url' => Storage::url($path),
+                    'message' => 'QR regenerado exitosamente'
+                ]);
+            }
+            
+            return back()->with('success', 'QR regenerado exitosamente');
+            
+        } catch (\Exception $e) {
+            \Log::error('Error regenerando QR', [
+                'imei_id' => $imei->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al regenerar QR: ' . $e->getMessage()
+                ], 500);
+            }
+            
+            return back()->with('error', 'Error al regenerar QR: ' . $e->getMessage());
+        }
+    }
+    /**
+     * Mostrar QR del IMEI
+     */
+    public function mostrarQR(Imei $imei)
+    {
+        try {
+            // Si no tiene QR, generarlo
+            if (!$imei->qr_path || !Storage::disk('public')->exists($imei->qr_path)) {
+                $qrService = app(QRService::class);
+                $qrService->generarParaIMEI($imei);
+            }
+            
+            // Devolver la imagen
+            return Storage::disk('public')->response($imei->qr_path);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error mostrando QR', [
+                'imei_id' => $imei->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json(['error' => 'No se pudo cargar el QR'], 404);
+        }
+    }
+    /**
+     * Descargar QR del IMEI
+     */
+    public function descargarQR(Imei $imei)
+    {
+        try {
+            // Si no tiene QR, generarlo
+            if (!$imei->qr_path || !Storage::disk('public')->exists($imei->qr_path)) {
+                $qrService = app(QRService::class);
+                $qrService->generarParaIMEI($imei);
+            }
+            
+            // Descargar la imagen
+            return Storage::disk('public')->download(
+                $imei->qr_path,
+                "IMEI_{$imei->codigo_imei}.png"
+            );
+            
+        } catch (\Exception $e) {
+            \Log::error('Error descargando QR', [
+                'imei_id' => $imei->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return back()->with('error', 'No se pudo descargar el QR');
+        }
+    }
     /**
      * Mostrar formulario para editar IMEI
      */
@@ -202,30 +304,59 @@ class ImeiController extends Controller
     }
 
     /**
-     * Actualizar IMEI
-     */
+        * Actualizar IMEI
+    */
     public function update(Request $request, Imei $imei)
     {
         $validated = $request->validate([
-            'almacen_id'  => 'required|exists:almacenes,id',
-            'color_id'    => 'nullable|exists:colores,id',
-            'serie'       => 'nullable|string|max:50',
-            'estado_imei' => 'required|in:en_stock,vendido,garantia,devuelto,reemplazado,reservado',
+            'almacen_id' => 'required|exists:almacenes,id',
+            'color_id' => 'nullable|exists:colores,id',
+            'serie' => 'nullable|string|max:50',
+            'estado_imei' => 'required|in:en_stock,reservado,vendido,garantia,devuelto,reemplazado',
+            'fecha_garantia' => 'nullable|date',
+            'observaciones' => 'nullable|string',
         ]);
 
-        $oldEstado = $imei->estado_imei;
-        $oldAlmacen = $imei->almacen_id;
-        
-        DB::transaction(function () use ($validated, $imei, $oldEstado, $oldAlmacen) {
-            $imei->update($validated);
-            
-            // Si cambió el estado o almacén, actualizar stocks
-            $this->actualizarStocksPorCambio($imei, $oldEstado, $oldAlmacen);
-        });
+        try {
+            DB::transaction(function () use ($validated, $imei) {
+                $oldEstado = $imei->estado_imei;
+                $oldAlmacen = $imei->almacen_id;
+                
+                // Actualizar IMEI
+                $imei->update($validated);
+                
+                // Registrar movimiento si cambió el estado
+                if ($oldEstado !== $validated['estado_imei']) {
+                    \App\Models\MovimientoInventario::create([
+                        'imei_id' => $imei->id,
+                        'producto_id' => $imei->producto_id,
+                        'almacen_id' => $imei->almacen_id,
+                        'tipo_movimiento' => 'ajuste',
+                        'motivo' => "Cambio de estado: " . 
+                                str_replace('_', ' ', $oldEstado) . " -> " . 
+                                str_replace('_', ' ', $validated['estado_imei']),
+                        'usuario_id' => auth()->id(),
+                    ]);
+                }
+                
+                // Actualizar stocks si es necesario
+                $this->actualizarStocksPorCambio($imei, $oldEstado, $oldAlmacen);
+            });
 
-        return redirect()
-            ->route('inventario.imeis.index')
-            ->with('success', 'IMEI actualizado exitosamente');
+            return redirect()
+                ->route('inventario.imeis.show', $imei)
+                ->with('success', 'IMEI actualizado exitosamente');
+
+        } catch (\Exception $e) {
+            \Log::error('Error actualizando IMEI', [
+                'imei_id' => $imei->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()
+                ->withInput()
+                ->with('error', 'Error al actualizar el IMEI: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -433,7 +564,72 @@ class ImeiController extends Controller
             Log::warning('No se pudo generar QR', ['imei_id' => $imei->id, 'error' => $e->getMessage()]);
         }
     }
+    /**
+     * Generar etiqueta para imprimir
+     */
+    public function generarEtiqueta(Imei $imei)
+    {
+            $imei->load(['producto.marca', 'producto.modelo', 'producto.color', 'color']);
+    
+        $html = view('inventario.imeis.etiqueta', compact('imei'))->render();
+    
+        return response($html);
+    }
 
+    /**
+     * Generar etiquetas masivas
+     */
+    public function generarEtiquetasMasivas(Request $request)
+    {
+        $request->validate([
+            'imeis' => 'required|array',
+            'imeis.*' => 'exists:imeis,id'
+        ]);
+
+        $imeis = Imei::with(['producto.marca', 'producto.modelo', 'producto.color', 'color'])
+            ->whereIn('id', $request->imeis)
+            ->get();
+
+        if ($imeis->isEmpty()) {
+            return response()->json(['error' => 'No se encontraron IMEIs'], 404);
+        }
+
+        $html = view('inventario.imeis.etiquetas-masivas', compact('imeis'))->render();
+        
+        return response($html);
+            return response($html);
+    }
+        /**
+     * Cambiar estado de IMEI (API)
+     */
+    public function cambiarEstado(Request $request, Imei $imei)
+    {
+        $request->validate([
+            'estado' => 'required|in:en_stock,reservado,vendido,garantia,devuelto,reemplazado'
+        ]);
+
+        try {
+            DB::transaction(function() use ($request, $imei) {
+                $oldEstado = $imei->estado_imei;
+                $imei->update(['estado_imei' => $request->estado]);
+                
+                // Registrar movimiento
+                \App\Models\MovimientoInventario::create([
+                    'imei_id' => $imei->id,
+                    'producto_id' => $imei->producto_id,
+                    'almacen_id' => $imei->almacen_id,
+                    'tipo_movimiento' => $request->estado === 'vendido' ? 'salida' : 'ajuste',
+                    'motivo' => "Cambio de estado: $oldEstado -> $request->estado",
+                    'usuario_id' => auth()->id()
+                ]);
+            });
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
     /**
      * Actualizar stocks cuando cambia estado/almacén
      */

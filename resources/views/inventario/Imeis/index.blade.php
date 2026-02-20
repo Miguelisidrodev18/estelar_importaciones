@@ -199,6 +199,10 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                <input type="checkbox" id="seleccionarTodos" onclick="toggleTodos()"
+                                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">IMEI</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Serie/Color</th>
@@ -212,6 +216,7 @@
                         @forelse($imeis as $imei)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap">
+                            <input type="checkbox" name="imei_seleccionado[]" value="{{ $imei->id }}" class="imei-checkbox">
                                 <span class="text-sm font-mono font-bold text-gray-900">{{ $imei->codigo_imei }}</span>
                             </td>
                             <td class="px-6 py-4">
@@ -330,7 +335,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center">
+                            <td colspan="8" class="px-6 py-12 text-center">
                                 <i class="fas fa-mobile-alt text-6xl text-gray-300 mb-4"></i>
                                 <p class="text-lg font-medium text-gray-500">No hay IMEIs registrados</p>
                                 @if(auth()->user()->role->nombre != 'Tienda')

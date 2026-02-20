@@ -197,6 +197,7 @@ Route::middleware('auth')->group(function () {
         });
 
         // GESTIÓN DE IMEIs
+       // GESTIÓN DE IMEIs
         Route::middleware('role:Administrador,Almacenero')->group(function () {
             Route::get('/imeis', [ImeiController::class, 'index'])->name('imeis.index');
             Route::get('/imeis/create', [ImeiController::class, 'create'])->name('imeis.create');
@@ -204,13 +205,26 @@ Route::middleware('auth')->group(function () {
             Route::get('/imeis/{imei}', [ImeiController::class, 'show'])->name('imeis.show');
             Route::get('/imeis/{imei}/edit', [ImeiController::class, 'edit'])->name('imeis.edit');
             Route::put('/imeis/{imei}', [ImeiController::class, 'update'])->name('imeis.update');
+            Route::delete('/imeis/{imei}', [ImeiController::class, 'destroy'])->name('imeis.destroy');
+            
+            // 🔴 RUTAS API PARA AJAX
             Route::get('/api/imeis-disponibles', [ImeiController::class, 'getImeisDisponibles'])->name('imeis.disponibles');
             Route::get('/imeis/validar-imei', [ImeiController::class, 'validarImei'])->name('imeis.validar-imei');
             Route::get('/imeis/generar-imei', [ImeiController::class, 'generarImei'])->name('imeis.generar-imei');
-            Route::get('/imeis/generar-qr/{imei}', [ImeiController::class, 'generarQR'])->name('imeis.generar-qr');
-            Route::get('/imeis/buscar-productos', [ImeiController::class, 'buscarProductos'])->name('imeis.buscar-productos');
-                    
-            });
+            
+            // 🔴 RUTAS PARA QR
+            Route::get('/imeis/{imei}/qr', [ImeiController::class, 'mostrarQR'])->name('imeis.qr');
+            Route::get('/imeis/{imei}/qr/download', [ImeiController::class, 'descargarQR'])->name('imeis.qr.download');
+            Route::post('/imeis/{imei}/qr/regenerar', [ImeiController::class, 'regenerarQR'])->name('imeis.qr.regenerar'); // 🔴 ESTA FALTA
+            Route::get('/imeis/{imei}/qr/print', [ImeiController::class, 'imprimirQR'])->name('imeis.qr.print');
+            
+            // 🔴 RUTAS PARA ETIQUETAS
+            Route::get('/imeis/{imei}/etiqueta', [ImeiController::class, 'generarEtiqueta'])->name('imeis.etiqueta');
+            Route::post('/imeis/etiquetas-masivas', [ImeiController::class, 'generarEtiquetasMasivas'])->name('imeis.etiquetas-masivas');
+            
+            // 🔴 RUTA PARA CAMBIAR ESTADO
+            Route::post('/imeis/{imei}/estado', [ImeiController::class, 'cambiarEstado'])->name('imeis.cambiar-estado');
+        });
 
         // CONSULTA PARA TIENDA
         Route::middleware('role:Tienda')->group(function () {
