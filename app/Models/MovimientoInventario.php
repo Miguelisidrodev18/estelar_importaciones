@@ -273,14 +273,14 @@ public static function registrarMovimiento($datos)
         \Log::info('🟢 Producto encontrado', [
             'id' => $producto->id,
             'nombre' => $producto->nombre,
-            'tipo' => $producto->tipo_producto
+            'tipo' => $producto->tipo_inventario
         ]);
-        
+
         $userId = $datos['user_id'] ?? auth()->id() ?? 1;
-        
-        // SI ES CELULAR, manejar por IMEI
-        if ($producto->tipo_producto === 'celular') {
-            \Log::info('📱 Procesando como CELULAR');
+
+        // SI ES SERIE/IMEI, manejar por IMEI
+        if ($producto->tipo_inventario === 'serie') {
+            \Log::info('📱 Procesando como SERIE/IMEI');
             
             if (!isset($datos['imei_id']) || !$datos['imei_id']) {
                 \Log::error('❌ ERROR: No se proporcionó IMEI');
@@ -292,62 +292,62 @@ public static function registrarMovimiento($datos)
             \Log::info('📱 IMEI encontrado', [
                 'id' => $imei->id,
                 'codigo' => $imei->codigo_imei,
-                'estado_actual' => $imei->estado,
+                'estado_actual' => $imei->estado_imei,
                 'almacen_actual' => $imei->almacen_id
             ]);
-            
+
             // Validar y ejecutar acción según tipo de movimiento
             switch ($datos['tipo_movimiento']) {
                 case 'salida':
                 case 'merma':
                     \Log::info("🔴 Procesando {$datos['tipo_movimiento']}");
-                    
-                    if ($imei->estado !== 'disponible') {
-                        throw new \Exception("El IMEI no está disponible para {$datos['tipo_movimiento']}. Estado actual: {$imei->estado}");
+
+                    if ($imei->estado_imei !== 'en_stock') {
+                        throw new \Exception("El IMEI no está en stock para {$datos['tipo_movimiento']}. Estado actual: {$imei->estado_imei}");
                     }
                     if ($imei->almacen_id != $datos['almacen_id']) {
                         throw new \Exception('El IMEI no pertenece al almacén seleccionado');
                     }
-                    
-                    $imei->update(['estado' => 'vendido', 'almacen_id' => null]);
+
+                    $imei->update(['estado_imei' => 'vendido', 'almacen_id' => null]);
                     \Log::info('✅ IMEI actualizado a vendido');
                     break;
-                    
+
                 case 'transferencia':
                     \Log::info('🟣 Procesando transferencia');
-                    
+
                     if ($imei->almacen_id != $datos['almacen_id']) {
                         throw new \Exception('El IMEI no pertenece al almacén de origen');
                     }
-                    if ($imei->estado !== 'disponible') {
-                        throw new \Exception('El IMEI debe estar disponible para transferencia');
+                    if ($imei->estado_imei !== 'en_stock') {
+                        throw new \Exception('El IMEI debe estar en stock para transferencia');
                     }
-                    
+
                     $imei->update(['almacen_id' => $datos['almacen_destino_id']]);
                     \Log::info('✅ IMEI transferido al almacén destino', [
                         'almacen_destino' => $datos['almacen_destino_id']
                     ]);
                     break;
-                    
+
                 case 'devolucion':
                     \Log::info('🟠 Procesando devolución');
-                    
-                    if ($imei->estado !== 'vendido') {
+
+                    if ($imei->estado_imei !== 'vendido') {
                         throw new \Exception('Solo se pueden devolver IMEIs vendidos');
                     }
-                    
+
                     $imei->update([
-                        'estado' => 'disponible',
+                        'estado_imei' => 'en_stock',
                         'almacen_id' => $datos['almacen_id']
                     ]);
-                    \Log::info('✅ IMEI devuelto y marcado como disponible');
+                    \Log::info('✅ IMEI devuelto y marcado como en stock');
                     break;
-                    
+
                 case 'ajuste':
                     \Log::info('🔵 Procesando ajuste');
-                    
+
                     if (isset($datos['nuevo_estado'])) {
-                        $imei->update(['estado' => $datos['nuevo_estado']]);
+                        $imei->update(['estado_imei' => $datos['nuevo_estado']]);
                     }
                     if (isset($datos['almacen_destino_id'])) {
                         $imei->update(['almacen_id' => $datos['almacen_destino_id']]);

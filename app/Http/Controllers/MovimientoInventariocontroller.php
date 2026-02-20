@@ -81,7 +81,7 @@ class MovimientoInventarioController extends Controller
         // FIX 1: Validación condicional según tipo de producto
         // =====================================================
         $producto = Producto::find($request->producto_id);
-        $esCelular = $producto && $producto->tipo_producto === 'celular';
+        $esCelular = $producto && $producto->tipo_inventario === 'serie';
         
         $rules = [
             'producto_id' => 'required|exists:productos,id',
@@ -185,7 +185,7 @@ class MovimientoInventarioController extends Controller
         
         return response()->json([
             'stock_actual' => $producto->stock_actual,
-            'unidad_medida' => $producto->unidad_medida,
+            'unidad_medida' => $producto->unidadMedida?->abreviatura,
             'codigo' => $producto->codigo,
             'nombre' => $producto->nombre,
         ]);
@@ -210,7 +210,7 @@ class MovimientoInventarioController extends Controller
                 return response()->json(['error' => 'Producto no encontrado'], 404);
             }
             
-            if ($producto->tipo_producto !== 'celular') {
+            if ($producto->tipo_inventario !== 'serie') {
                 return response()->json(['error' => 'El producto seleccionado no es tipo celular'], 400);
             }
             

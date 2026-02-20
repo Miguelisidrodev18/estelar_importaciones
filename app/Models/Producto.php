@@ -210,7 +210,7 @@ class Producto extends Model
      */
     public function getValorInventarioAttribute()
     {
-        return $this->stock_actual * $this->precio_compra_actual;
+        return $this->stock_actual * ($this->costo_promedio ?? 0);
     }
 
     /**

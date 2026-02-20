@@ -56,8 +56,8 @@ class CompraService
                 // 3.2 Actualizar stock
                 $this->actualizarStock($producto, $compra, $detalle);
                 
-                // 3.3 Registrar IMEIs si es celular
-                if ($producto->tipo_producto === 'celular') {
+                // 3.3 Registrar IMEIs si es serie/IMEI
+                if ($producto->tipo_inventario === 'serie') {
                     $this->registrarIMEIs($detalle, $producto, $compra);
                 }
                 
@@ -112,14 +112,14 @@ class CompraService
             }
             $productosIds[] = $detalle['producto_id'];
             
-            // Validar que si es celular, tenga IMEIs
-            if ($producto->tipo_producto === 'celular' && 
+            // Validar que si es serie/IMEI, tenga IMEIs
+            if ($producto->tipo_inventario === 'serie' &&
                 (!isset($detalle['imeis']) || count($detalle['imeis']) !== $detalle['cantidad'])) {
                 throw new \Exception("El producto {$producto->nombre} requiere {$detalle['cantidad']} IMEI(s)");
             }
-            
+
             // Validar IMEIs únicos (global)
-            if ($producto->tipo_producto === 'celular' && isset($detalle['imeis'])) {
+            if ($producto->tipo_inventario === 'serie' && isset($detalle['imeis'])) {
                 $this->validarIMEIsUnicos($detalle['imeis']);
             }
         }
@@ -135,13 +135,13 @@ class CompraService
         
         // Buscar existentes en una sola consulta
         $existentes = Imei::whereIn('codigo_imei', $codigos)
-            ->get(['codigo_imei', 'producto_id', 'estado']);
-        
+            ->get(['codigo_imei', 'producto_id', 'estado_imei']);
+
         if ($existentes->isNotEmpty()) {
             $mensaje = "Los siguientes IMEI ya están registrados:\n";
             foreach ($existentes as $imei) {
                 $producto = Producto::find($imei->producto_id);
-                $mensaje .= "- {$imei->codigo_imei} (Producto: {$producto->nombre}, Estado: {$imei->estado})\n";
+                $mensaje .= "- {$imei->codigo_imei} (Producto: {$producto->nombre}, Estado: {$imei->estado_imei})\n";
             }
             throw new \Exception($mensaje);
         }
@@ -210,7 +210,7 @@ class CompraService
                 'detalle_compra_id' => null, // Podrías relacionar con el detalle si quieres
                 'almacen_id'  => $compra->almacen_id,
                 'compra_id'   => $compra->id,
-                'estado'      => 'disponible',
+                'estado_imei' => 'en_stock',
             ]);
         }
     }
@@ -224,7 +224,8 @@ class CompraService
         // PrecioHistorico::create([...]);
         
         $producto->update([
-            'precio_compra_actual' => $precio,
+            'ultimo_costo_compra' => $precio,
+            'costo_promedio'      => $precio,
             'fecha_ultima_compra' => now(),
         ]);
     }
@@ -301,11 +302,11 @@ class CompraService
                     ]);
                 }
                 
-                // Marcar IMEIs como anulados si existen
-                if ($detalle->producto->tipo_producto === 'celular') {
+                // Marcar IMEIs como devueltos si existen
+                if ($detalle->producto->tipo_inventario === 'serie') {
                     Imei::where('compra_id', $compra->id)
                         ->where('producto_id', $detalle->producto_id)
-                        ->update(['estado' => 'anulado']);
+                        ->update(['estado_imei' => 'devuelto']);
                 }
             }
             

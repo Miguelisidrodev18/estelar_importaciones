@@ -27,7 +27,7 @@ class VentaService
 
                 if (isset($detalle['imei_id']) && $detalle['imei_id']) {
                     $imei = Imei::find($detalle['imei_id']);
-                    if (!$imei || $imei->estado !== 'disponible') {
+                    if (!$imei || $imei->estado_imei !== 'en_stock') {
                         throw new \Exception("IMEI no disponible: {$detalle['imei_id']}");
                     }
                 }
@@ -49,7 +49,7 @@ class VentaService
 
                 if (isset($detalle['imei_id']) && $detalle['imei_id']) {
                     Imei::where('id', $detalle['imei_id'])
-                        ->update(['estado' => 'reservado']);
+                        ->update(['estado_imei' => 'reservado']);
                 }
             }
 
@@ -98,7 +98,7 @@ class VentaService
 
                 if ($detalle->imei_id) {
                     Imei::where('id', $detalle->imei_id)
-                        ->update(['estado' => 'vendido']);
+                        ->update(['estado_imei' => 'vendido']);
                 }
             }
 

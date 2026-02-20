@@ -55,14 +55,14 @@ class CompraController extends Controller
                 return [
                     'id'            => $producto->id,
                     'nombre'        => $producto->nombre,
-                    'tipo_producto' => $producto->tipo_producto,
-                    'categoria'     => $producto->categoria->nombre ?? 'N/A',
-                    'marca_id'      => $producto->marca_id,
-                    'marca'         => $producto->marca?->nombre,
-                    'modelo_id'     => $producto->modelo_id,
-                    'modelo'        => $producto->modelo?->nombre,
-                    'unidad_medida' => $producto->unidad_medida ?? 'UND',
-                    'requiere_imei' => $producto->tipo_producto === 'celular',
+                    'tipo_inventario' => $producto->tipo_inventario,
+                    'categoria'       => $producto->categoria->nombre ?? 'N/A',
+                    'marca_id'        => $producto->marca_id,
+                    'marca'           => $producto->marca?->nombre,
+                    'modelo_id'       => $producto->modelo_id,
+                    'modelo'          => $producto->modelo?->nombre,
+                    'unidad_medida'   => $producto->unidadMedida?->abreviatura ?? 'UND',
+                    'requiere_imei'   => $producto->tipo_inventario === 'serie',
                 ];
             });
 

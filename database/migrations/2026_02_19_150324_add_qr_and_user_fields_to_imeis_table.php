@@ -14,12 +14,12 @@ return new class extends Migration
         Schema::table('imeis', function (Blueprint $table) {
             // Verificar si la columna 'observaciones' existe, si no, crearla primero
             if (!Schema::hasColumn('imeis', 'observaciones')) {
-                $table->text('observaciones')->nullable()->after('fecha_venta');
+                $table->text('observaciones')->nullable();
             }
             
             // Agregar qr_path DESPUÉS de fecha_venta (no después de observaciones)
             if (!Schema::hasColumn('imeis', 'qr_path')) {
-                $table->string('qr_path')->nullable()->after('fecha_venta');
+                $table->string('qr_path')->nullable();
             }
             
             // Agregar usuario_registro_id
@@ -35,11 +35,11 @@ return new class extends Migration
             if (!Schema::hasColumn('imeis', 'fecha_garantia')) {
                 $table->date('fecha_garantia')
                       ->nullable()
-                      ->after('fecha_venta');
+                      ;
             }
             
             // Crear índices para búsquedas frecuentes
-            $this->crearIndicesSiNoExisten($table);
+
         });
     }
 
@@ -70,26 +70,6 @@ return new class extends Migration
         });
     }
     
-    /**
-     * Crear índices si no existen
-     */
-    private function crearIndicesSiNoExisten(Blueprint $table): void
-    {
-        $sm = Schema::getConnection()->getDoctrineSchemaManager();
-        $indexes = $sm->listTableIndexes('imeis');
-        
-        if (!array_key_exists('imeis_estado_imei_index', $indexes)) {
-            $table->index('estado_imei');
-        }
-        
-        if (!array_key_exists('imeis_fecha_ingreso_index', $indexes)) {
-            $table->index('fecha_ingreso');
-        }
-        
-        if (!array_key_exists('imeis_fecha_garantia_index', $indexes)) {
-            $table->index('fecha_garantia');
-        }
-    }
     
     /**
      * Eliminar índices si existen
