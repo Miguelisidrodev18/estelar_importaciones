@@ -27,6 +27,8 @@ class Compra extends Model
         'incluye_igv',
         'subtotal',
         'igv',
+        'tipo_operacion',
+        'tipo_operacion_texto',
         'total',
         'total_pen',
         'descuento_global',
@@ -74,8 +76,18 @@ class Compra extends Model
         'completado' => 'Completado',
         'anulado' => 'Anulado',
     ];
+    const TIPOS_OPERACION_SUNAT = [
+    '01' => 'Gravado - Operación gravada (IGV 18%)',
+    '02' => 'Exonerado - Operación exonerada',
+    '03' => 'Inafecto - Operación inafecta',
+    '04' => 'Exportación - Operación de exportación',
+    ];
 
     // Relaciones
+    public function getTipoOperacionTextoAttribute()
+    {
+        return self::TIPOS_OPERACION_SUNAT[$this->tipo_operacion] ?? $this->tipo_operacion;
+    }
     public function proveedor()
     {
         return $this->belongsTo(Proveedor::class);

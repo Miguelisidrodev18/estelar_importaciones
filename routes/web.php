@@ -37,22 +37,17 @@ use App\Http\Middleware\VerifyMasterPassword;
 | RUTA PRINCIPAL
 |--------------------------------------------------------------------------
 */
-Route::get('/', function () {
-    if (!Auth::check()) {
-        return redirect()->route('login');
-    }
-
-    $role = Auth::user()->role->nombre ?? null;
-
+Route::get('/dashboard', function () {
+    $role = auth()->user()->role->nombre ?? null;
+    
     return match ($role) {
         'Administrador' => redirect()->route('admin.dashboard'),
         'Almacenero'    => redirect()->route('almacenero.dashboard'),
         'Vendedor'      => redirect()->route('vendedor.dashboard'),
         'Tienda'        => redirect()->route('tienda.dashboard'),
-        'Proveedor'     => redirect()->route('proveedor.dashboard'),
         default         => redirect()->route('login'),
     };
-});
+})->name('dashboard')->middleware('auth');
 
 /*
 |--------------------------------------------------------------------------
@@ -281,8 +276,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [CompraController::class, 'index'])->name('index');
         Route::get('/create', [CompraController::class, 'create'])->name('create');
         Route::post('/', [CompraController::class, 'store'])->name('store');
+        Route::get('buscar-productos', [CompraController::class, 'buscarProductos'])->name('buscar-productos');
+        Route::get('producto/{id}', [CompraController::class, 'getProductoDetalle'])->name('producto-detalle');
         Route::get('/{compra}', [CompraController::class, 'show'])->name('show');
-        
+
         // Rutas para importación de IMEI (AHORA ESTÁN EN EL LUGAR CORRECTO)
         Route::get('/importar-imei', [CompraController::class, 'importarIMEI'])->name('importar-imei');
         Route::post('/importar-imei/procesar', [CompraController::class, 'procesarImportacionIMEI'])->name('procesar-importacion');

@@ -89,6 +89,7 @@ class CompraController extends Controller
             'tipo_moneda' => 'required|in:PEN,USD',
             'tipo_cambio' => 'required_if:tipo_moneda,USD|nullable|numeric|min:0.001',
             'incluye_igv' => 'boolean',
+            'tipo_operacion' => 'required|in:01,02,03,04',
             'descuento_global' => 'nullable|numeric|min:0|max:100',
             'monto_adicional' => 'nullable|numeric|min:0',
             'concepto_adicional' => 'nullable|string|max:255',
@@ -141,10 +142,21 @@ class CompraController extends Controller
                 $subtotal += $validated['monto_adicional'];
             }
 
-            // Calcular IGV según corresponda
-            $incluyeIgv = $validated['incluye_igv'] ?? true;
-            $igv = $incluyeIgv ? $subtotal * 0.18 : 0;
-            $total = $incluyeIgv ? $subtotal : $subtotal + $igv;
+           // Calcular IGV según tipo de operación
+                $incluyeIgv = $validated['incluye_igv'] ?? true;
+                $tipoOperacion = $validated['tipo_operacion'] ?? '01';
+
+                // Solo se aplica IGV si es Gravado (01)
+                $igv = 0;
+                if ($tipoOperacion === '01' && $incluyeIgv) {
+                    $igv = $subtotal * 0.18;
+                } elseif ($tipoOperacion === '01' && !$incluyeIgv) {
+                    // Si no incluye IGV pero es gravado, el IGV se suma después
+                    $igv = $subtotal * 0.18;
+                    // El total se calculará como subtotal + igv (ya está en la lógica actual)
+                }
+
+                $total = $tipoOperacion === '01' ? $subtotal + $igv : $subtotal;
 
             // Aplicar tipo de cambio si es USD
             if ($validated['tipo_moneda'] === 'USD' && !empty($validated['tipo_cambio'])) {
@@ -168,6 +180,8 @@ class CompraController extends Controller
                 'incluye_igv' => $incluyeIgv,
                 'subtotal' => $subtotal,
                 'igv' => $igv,
+                'tipo_operacion' => $validated['tipo_operacion'],
+                'tipo_operacion_texto' => Compra::TIPOS_OPERACION_SUNAT[$validated['tipo_operacion']] ?? null,
                 'total' => $total,
                 'total_pen' => $totalPEN,
                 'descuento_global' => $validated['descuento_global'] ?? 0,
@@ -251,6 +265,7 @@ class CompraController extends Controller
             return back()->with('error', 'Error al eliminar: ' . $e->getMessage());
         }
     }
+
 
     /**
  * Mostrar vista de importación masiva de IMEI
@@ -359,4 +374,78 @@ public function importarIMEI(Request $request)
             
         return response()->json(['existe' => $existe]);
     }
+    // Agrega estos métodos al final de tu CompraController.php
+
+    /**
+     * Buscar productos para el modal de selección (AJAX)
+     */
+    public function buscarProductos(Request $request)
+    {
+        $termino = $request->get('q', '');
+        
+        $productos = Producto::with(['marca', 'modelo', 'categoria'])
+            ->where('estado', 'activo')
+            ->where(function($query) use ($termino) {
+                $query->where('nombre', 'like', "%{$termino}%")
+                    ->orWhere('codigo', 'like', "%{$termino}%")
+                    ->orWhereHas('marca', function($q) use ($termino) {
+                        $q->where('nombre', 'like', "%{$termino}%");
+                    })
+                    ->orWhereHas('modelo', function($q) use ($termino) {
+                        $q->where('nombre', 'like', "%{$termino}%");
+                    });
+            })
+            ->limit(20)
+            ->get()
+            ->map(function($producto) {
+                return [
+                    'id' => $producto->id,
+                    'nombre' => $producto->nombre,
+                    'codigo' => $producto->codigo,
+                    'marca' => $producto->marca?->nombre,
+                    'modelo' => $producto->modelo?->nombre,
+                    'categoria' => $producto->categoria?->nombre,
+                    'tipo_inventario' => $producto->tipo_inventario,
+                    'marca_id' => $producto->marca_id,
+                    'modelo_id' => $producto->modelo_id,
+                    'imagen' => $producto->imagen_url ?? null,
+                ];
+            });
+        
+        return response()->json($productos);
+    }
+
+    /**
+ * Obtener detalles completos de un producto (para selección rápida)
+ */
+public function getProductoDetalle($id)
+{
+    try {
+        $producto = Producto::with(['marca', 'modelo', 'categoria', 'color'])
+            ->findOrFail($id);
+        
+        return response()->json([
+            'success' => true,
+            'id' => $producto->id,
+            'nombre' => $producto->nombre,
+            'tipo_inventario' => $producto->tipo_inventario,
+            'marca_id' => $producto->marca_id,
+            'marca_nombre' => $producto->marca?->nombre,
+            'modelo_id' => $producto->modelo_id,
+            'modelo_nombre' => $producto->modelo?->nombre,
+            'color_id' => $producto->color_id,
+            'color_nombre' => $producto->color?->nombre,
+            'categoria_id' => $producto->categoria_id,
+            'categoria_nombre' => $producto->categoria?->nombre,
+            'codigo' => $producto->codigo,
+            'precio_compra' => 0, // Por ahora, luego lo obtendrás de tabla precios
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => true,
+            'message' => 'Error al cargar el producto: ' . $e->getMessage()
+        ], 500);
+    }
+}
 }

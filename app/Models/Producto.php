@@ -68,6 +68,46 @@ class Producto extends Model
         return $this->hasMany(MovimientoInventario::class);
     }
 
+    // En app/Models/Producto.php
+
+    // Relación con precios
+    public function precios()
+    {
+        return $this->hasMany(ProductoPrecio::class);
+    }
+
+    // Obtener precio de venta actual
+    public function getPrecioVentaAttribute()
+    {
+        return $this->precios()
+            ->where('tipo_precio', 'venta_regular')
+            ->where('activo', true)
+            ->where(function($q) {
+                $q->whereNull('fecha_inicio')
+                ->orWhere('fecha_inicio', '<=', now());
+            })
+            ->where(function($q) {
+                $q->whereNull('fecha_fin')
+                ->orWhere('fecha_fin', '>=', now());
+            })
+            ->orderBy('prioridad', 'desc')
+            ->first()?->precio ?? 0;
+    }
+
+    // Obtener precio mayorista
+    public function getPrecioMayoristaAttribute($cantidad = null)
+    {
+        $query = $this->precios()
+            ->where('tipo_precio', 'venta_mayorista')
+            ->where('activo', true);
+        
+        if ($cantidad) {
+            $query->where('cantidad_minima', '<=', $cantidad);
+        }
+        
+        return $query->orderBy('prioridad', 'desc')
+            ->first()?->precio;
+    }
     /**
      * Scope para productos activos
      */
@@ -152,6 +192,11 @@ class Producto extends Model
     /**
      * Accessor: Color del estado de stock para UI
      */
+    public function colores()
+    {
+        return $this->belongsToMany(Color::class, 'producto_color')
+                    ->withTimestamps();
+    }
     public function getColorEstadoStockAttribute()
     {
         return match($this->estado_stock) {
