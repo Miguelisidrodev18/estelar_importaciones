@@ -37,7 +37,28 @@ class UnidadMedidaController extends Controller
         
         return view('catalogo.unidades.create', compact('categorias'));
     }
-
+    public function storeRapida(Request $request)
+    {
+        $request->validate([
+            'nombre' => 'required|string|max:100|unique:unidades_medida',
+            'abreviatura' => 'required|string|max:10|unique:unidades_medida',
+            'tipo' => 'required|in:unidad,masa,volumen,longitud,empaque'
+        ]);
+        
+        $unidad = UnidadMedida::create([
+            'nombre' => $request->nombre,
+            'abreviatura' => $request->abreviatura,
+            'tipo' => $request->tipo,
+            'estado' => 'activo'
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'id' => $unidad->id,
+            'nombre' => $unidad->nombre,
+            'abreviatura' => $unidad->abreviatura
+        ]);
+    }
     public function store(Request $request)
     {
         $validated = $request->validate([

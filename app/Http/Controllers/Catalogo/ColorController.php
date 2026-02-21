@@ -72,4 +72,28 @@ class ColorController extends Controller
             ->route('catalogo.colores.index')
             ->with('success', 'Color eliminado exitosamente');
     }
+
+    /**
+     * Creación rápida de color desde el formulario de productos (AJAX).
+     */
+    public function storeRapida(Request $request)
+    {
+        $validated = $request->validate([
+            'nombre'     => 'required|string|max:100|unique:colores,nombre',
+            'codigo_hex' => 'nullable|string|max:7|regex:/^#[a-fA-F0-9]{6}$/',
+        ]);
+
+        $color = Color::create([
+            'nombre'     => $validated['nombre'],
+            'codigo_hex' => $validated['codigo_hex'] ?? null,
+            'estado'     => 'activo',
+        ]);
+
+        return response()->json([
+            'success'    => true,
+            'id'         => $color->id,
+            'nombre'     => $color->nombre,
+            'codigo_hex' => $color->codigo_hex,
+        ]);
+    }
 }

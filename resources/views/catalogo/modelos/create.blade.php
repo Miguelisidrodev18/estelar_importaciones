@@ -9,161 +9,138 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
 
     <div class="md:ml-64 p-4 md:p-8">
-        <x-header 
-            title="Nuevo Modelo" 
-            subtitle="Registrar un nuevo modelo de producto"
-        />
+        <div class="mb-4">
+            <a href="{{ route('catalogo.modelos.index') }}" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 w-fit">
+                <i class="fas fa-arrow-left text-xs"></i> Volver a Modelos
+            </a>
+        </div>
 
         <div class="max-w-2xl mx-auto">
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <form action="{{ route('catalogo.modelos.store') }}" method="POST" enctype="multipart/form-data">
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-900 to-blue-700 px-6 py-4">
+                    <h1 class="text-xl font-bold text-white">Nuevo Modelo</h1>
+                    <p class="text-blue-200 text-sm">Registrar un nuevo modelo de producto</p>
+                </div>
+
+                <form action="{{ route('catalogo.modelos.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-5">
                     @csrf
-                    
-                    <div class="space-y-6">
-                        {{-- Marca (del catálogo de marcas) --}}
-                        <div>
-                            <label for="marca_id" class="block text-sm font-medium text-gray-700 mb-1">
-                                Marca <span class="text-red-500">*</span>
-                            </label>
-                            <select name="marca_id" 
-                                    id="marca_id" 
-                                    required
-                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 @error('marca_id') border-red-500 @enderror">
-                                <option value="">Seleccione una marca...</option>
-                                @foreach($marcas as $marca)
-                                    <option value="{{ $marca->id }}" {{ old('marca_id') == $marca->id ? 'selected' : '' }}>
-                                        {{ $marca->nombre }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('marca_id')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
 
-                        {{-- Categoría (del módulo inventario/categorias) --}}
-                        <div>
-                            <label for="categoria_id" class="block text-sm font-medium text-gray-700 mb-1">
-                                Categoría
-                            </label>
-                            <select name="categoria_id" 
-                                    id="categoria_id" 
-                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 @error('categoria_id') border-red-500 @enderror">
-                                <option value="">Seleccione una categoría (opcional)...</option>
-                                @foreach($categorias as $categoria)
-                                    <option value="{{ $categoria->id }}" {{ old('categoria_id') == $categoria->id ? 'selected' : '' }}>
-                                        {{ $categoria->nombre }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <p class="mt-1 text-xs text-gray-500">Categoría del inventario (opcional)</p>
-                            @error('categoria_id')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Nombre del Modelo --}}
-                        <div>
-                            <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">
-                                Nombre del Modelo <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" 
-                                   name="nombre" 
-                                   id="nombre" 
-                                   value="{{ old('nombre') }}" 
-                                   required
-                                   class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 @error('nombre') border-red-500 @enderror"
-                                   placeholder="Ej: iPhone 14 Pro Max, Galaxy S23 Ultra">
-                            @error('nombre')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Código de Modelo --}}
-                        <div>
-                            <label for="codigo_modelo" class="block text-sm font-medium text-gray-700 mb-1">
-                                Código de Modelo
-                            </label>
-                            <input type="text" 
-                                   name="codigo_modelo" 
-                                   id="codigo_modelo" 
-                                   value="{{ old('codigo_modelo') }}" 
-                                   class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                   placeholder="Ej: A2896, SM-S918B">
-                            <p class="mt-1 text-xs text-gray-500">Código de fábrica o referencia del modelo</p>
-                            @error('codigo_modelo')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Especificaciones Técnicas --}}
-                        <div>
-                            <label for="especificaciones_tecnicas" class="block text-sm font-medium text-gray-700 mb-1">
-                                Especificaciones Técnicas
-                            </label>
-                            <textarea name="especificaciones_tecnicas" 
-                                      id="especificaciones_tecnicas" 
-                                      rows="4"
-                                      class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                      placeholder="Ej: Pantalla 6.7', 256GB, Cámara 48MP...">{{ old('especificaciones_tecnicas') }}</textarea>
-                            @error('especificaciones_tecnicas')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Imagen de Referencia --}}
-                         <div class="mb-6">
-                        <label for="imagen" class="block text-sm font-medium text-gray-700 mb-2">
-                            Imagen de Referencia
+                    <div>
+                        <label for="marca_id" class="block text-sm font-medium text-gray-700 mb-1">
+                            Marca <span class="text-red-500">*</span>
                         </label>
-                        <div class="flex items-center space-x-4">
-                            <div id="imagePreviewContainer" class="hidden">
-                                <img id="imagePreview" src="" alt="Vista previa" class="h-32 w-32 object-cover rounded-lg border-2 border-gray-300">
-                            </div>
-                            <div class="flex-1">
-                                <input type="file" 
-                                        name="imagen" 
-                                        id="imagen" 
-                                        accept="image/jpeg,image/jpg,image/png,image/webp"
-                                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                        onchange="previewImage(event)">
-                                <p class="mt-1 text-xs text-gray-500">Formatos: JPG, JPEG, PNG, WEBP. Máximo 2MB</p>
-                            </div>
-                        </div>
-                        @error('imagen')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        <select name="marca_id" id="marca_id" required
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <option value="">Seleccione una marca...</option>
+                            @foreach($marcas as $marca)
+                                <option value="{{ $marca->id }}" {{ old('marca_id') == $marca->id ? 'selected' : '' }}>
+                                    {{ $marca->nombre }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('marca_id')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
-                        {{-- Estado --}}
-                        <div>
-                            <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">
-                                Estado
-                            </label>
-                            <select name="estado" 
-                                    id="estado" 
-                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                <option value="activo" {{ old('estado', 'activo') == 'activo' ? 'selected' : '' }}>Activo</option>
-                                <option value="inactivo" {{ old('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
-                            </select>
-                            @error('estado')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                    <div>
+                        <label for="categoria_id" class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                        <select name="categoria_id" id="categoria_id"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <option value="">Sin categoría (opcional)</option>
+                            @foreach($categorias as $categoria)
+                                <option value="{{ $categoria->id }}" {{ old('categoria_id') == $categoria->id ? 'selected' : '' }}>
+                                    {{ $categoria->nombre }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('categoria_id')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
-                    {{-- Botones --}}
-                    <div class="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
-                        <a href="{{ route('catalogo.modelos.index') }}" 
-                           class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50">
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">
+                            Nombre del Modelo <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="nombre" id="nombre"
+                               value="{{ old('nombre') }}" required
+                               placeholder="Ej: iPhone 14 Pro Max, Galaxy S23 Ultra"
+                               class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        @error('nombre')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="codigo_modelo" class="block text-sm font-medium text-gray-700 mb-1">Código de Modelo</label>
+                        <div class="flex gap-2">
+                            <input type="text" name="codigo_modelo" id="codigo_modelo"
+                                   value="{{ old('codigo_modelo') }}"
+                                   placeholder="Ej: A2896, SM-S918B"
+                                   class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <button type="button" onclick="sugerirCodigo()"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-xs text-gray-600 transition whitespace-nowrap">
+                                <i class="fas fa-magic mr-1"></i>Sugerir
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">Código de fábrica o referencia del modelo</p>
+                        @error('codigo_modelo')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="especificaciones_tecnicas" class="block text-sm font-medium text-gray-700 mb-1">
+                            Especificaciones Técnicas
+                        </label>
+                        <textarea name="especificaciones_tecnicas" id="especificaciones_tecnicas" rows="3"
+                                  placeholder="Ej: Pantalla 6.7&quot;, 256GB, Cámara 48MP, Batería 4500mAh..."
+                                  class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">{{ old('especificaciones_tecnicas') }}</textarea>
+                    </div>
+
+                    <div>
+                        <label for="imagen" class="block text-sm font-medium text-gray-700 mb-1">Imagen de Referencia</label>
+                        <div class="flex items-center gap-4">
+                            <div id="imagePreviewContainer" class="hidden">
+                                <img id="imagePreview" src="" alt="Vista previa"
+                                     class="h-24 w-24 object-cover rounded-lg border-2 border-gray-300">
+                            </div>
+                            <div class="flex-1">
+                                <input type="file" name="imagen" id="imagen"
+                                       accept="image/jpeg,image/jpg,image/png,image/webp"
+                                       onchange="previewImage(event)"
+                                       class="block w-full text-sm text-gray-500
+                                              file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                                              file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
+                                              hover:file:bg-blue-100">
+                                <p class="mt-1 text-xs text-gray-400">JPG, PNG, WEBP. Máx 2MB</p>
+                            </div>
+                        </div>
+                        @error('imagen')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                        <select name="estado"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <option value="activo"   {{ old('estado', 'activo') == 'activo'   ? 'selected' : '' }}>Activo</option>
+                            <option value="inactivo" {{ old('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <a href="{{ route('catalogo.modelos.index') }}"
+                           class="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm">
                             Cancelar
                         </a>
-                        <button type="submit" 
-                                class="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800">
+                        <button type="submit" class="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-save mr-2"></i>Guardar Modelo
                         </button>
                     </div>
@@ -172,11 +149,26 @@
         </div>
     </div>
 
-    {{-- Script para carga dinámica de categorías si es necesario --}}
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Si necesitas carga dinámica de categorías por marca, aquí va el código
-        });
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    document.getElementById('imagePreview').src = e.target.result;
+                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function sugerirCodigo() {
+            const marca  = document.getElementById('marca_id');
+            const texto  = marca.options[marca.selectedIndex]?.text || '';
+            const prefijo = texto.substring(0, 3).toUpperCase().replace(/\s/g, '') || 'MOD';
+            const num    = String(Math.floor(Math.random() * 9000) + 1000);
+            document.getElementById('codigo_modelo').value = prefijo + '-' + num;
+        }
     </script>
 </body>
 </html>

@@ -9,133 +9,111 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
 
     <div class="md:ml-64 p-4 md:p-8">
-        <x-header 
-            title="Editar Color" 
-            subtitle="Modificar información del color"
-        />
+        <div class="mb-4">
+            <a href="{{ route('catalogo.colores.index') }}" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 w-fit">
+                <i class="fas fa-arrow-left text-xs"></i> Volver a Colores
+            </a>
+        </div>
 
         <div class="max-w-2xl mx-auto">
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <form action="{{ route('catalogo.colores.update', $color) }}" method="POST">
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-900 to-blue-700 px-6 py-4">
+                    <h1 class="text-xl font-bold text-white">Editar Color</h1>
+                    <p class="text-blue-200 text-sm">Modificar información del color</p>
+                </div>
+
+                <form action="{{ route('catalogo.colores.update', $color) }}" method="POST" class="p-6 space-y-5">
                     @csrf
                     @method('PUT')
-                    
-                    <div class="space-y-6">
-                        {{-- Vista previa del color actual --}}
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Vista previa del color</label>
-                            <div class="flex items-center space-x-4">
-                                <div class="w-16 h-16 rounded-lg border-2 border-gray-300 shadow-md" 
-                                     style="background-color: {{ $color->codigo_hex ?? '#cccccc' }};"></div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">{{ $color->nombre }}</p>
-                                    <p class="text-xs text-gray-500 font-mono">{{ $color->codigo_hex ?? 'Sin código hex' }}</p>
-                                </div>
+
+                    {{-- Nombre --}}
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">
+                            Nombre del Color <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="nombre" id="nombre"
+                               value="{{ old('nombre', $color->nombre) }}" required
+                               placeholder="Ej: Rojo Intenso, Azul Marino, Negro Mate"
+                               class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition @error('nombre') border-red-500 @enderror">
+                        @error('nombre')
+                            <p class="mt-1 text-xs text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Código --}}
+                    <div>
+                        <label for="codigo_color" class="block text-sm font-medium text-gray-700 mb-1">
+                            Código de Color
+                        </label>
+                        <div class="flex gap-2">
+                            <input type="text" name="codigo_color" id="codigo_color"
+                                   value="{{ old('codigo_color', $color->codigo_color) }}"
+                                   placeholder="Ej: COL-001"
+                                   class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <button type="button" onclick="sugerirCodigo()"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-xs text-gray-600 transition whitespace-nowrap">
+                                <i class="fas fa-magic mr-1"></i>Sugerir
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">Código de referencia interno (opcional)</p>
+                        @error('codigo_color')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Color picker + preview --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Color Visual</label>
+                        <div class="flex items-start gap-4">
+                            @php $hexVal = old('codigo_hex', $color->codigo_hex ?? '#3b82f6'); @endphp
+                            <input type="color" id="colorPicker" value="{{ $hexVal }}"
+                                   oninput="syncColor(this.value)"
+                                   class="w-16 h-12 rounded-lg border border-gray-300 cursor-pointer p-0.5">
+                            <div class="flex-1">
+                                <input type="text" name="codigo_hex" id="hexInput"
+                                       value="{{ old('codigo_hex', $color->codigo_hex) }}"
+                                       placeholder="#RRGGBB (opcional)"
+                                       maxlength="7"
+                                       oninput="syncFromHex(this.value)"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent transition @error('codigo_hex') border-red-500 @enderror">
+                                <p class="mt-1 text-xs text-gray-400">Código hexadecimal del color (ej: #FF5733)</p>
+                                @error('codigo_hex')
+                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
                         </div>
 
-                        {{-- Nombre del Color --}}
-                        <div>
-                            <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">
-                                Nombre del Color <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" 
-                                   name="nombre" 
-                                   id="nombre" 
-                                   value="{{ old('nombre', $color->nombre) }}" 
-                                   required
-                                   class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 @error('nombre') border-red-500 @enderror"
-                                   placeholder="Ej: Rojo, Azul Marino, Verde Esmeralda">
-                            @error('nombre')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Código Hexadecimal --}}
-                        <div>
-                            <label for="codigo_hex" class="block text-sm font-medium text-gray-700 mb-1">
-                                Código Hexadecimal
-                            </label>
-                            <div class="flex items-center space-x-3">
-                                <input type="color" 
-                                       id="color_picker" 
-                                       value="{{ old('codigo_hex', $color->codigo_hex ?? '#000000') }}"
-                                       class="h-10 w-20 rounded border border-gray-300 cursor-pointer">
-                                <input type="text" 
-                                       name="codigo_hex" 
-                                       id="codigo_hex" 
-                                       value="{{ old('codigo_hex', $color->codigo_hex ?? '#000000') }}" 
-                                       class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono"
-                                       placeholder="#000000"
-                                       pattern="^#[a-fA-F0-9]{6}$"
-                                       title="Formato: #RRGGBB (ej: #FF0000)">
+                        {{-- Preview card --}}
+                        <div class="mt-4 p-4 rounded-xl border-2 border-gray-200 flex items-center gap-4 bg-gray-50">
+                            <div id="colorSquare" class="w-16 h-16 rounded-xl shadow-md border border-gray-200 flex-shrink-0"
+                                 style="background: {{ $hexVal }}"></div>
+                            <div>
+                                <p class="font-semibold text-gray-800" id="previewNombre">{{ old('nombre', $color->nombre) }}</p>
+                                <p class="text-sm font-mono text-gray-500" id="previewHex">{{ old('codigo_hex', $color->codigo_hex) }}</p>
+                                <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Editando</span>
                             </div>
-                            <p class="mt-1 text-xs text-gray-500">Selecciona el color o ingresa el código hexadecimal</p>
-                            @error('codigo_hex')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Código Interno --}}
-                        <div>
-                            <label for="codigo_color" class="block text-sm font-medium text-gray-700 mb-1">
-                                Código Interno
-                            </label>
-                            <input type="text" 
-                                   name="codigo_color" 
-                                   id="codigo_color" 
-                                   value="{{ old('codigo_color', $color->codigo_color) }}" 
-                                   class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                   placeholder="Ej: COL001, RED-01">
-                            <p class="mt-1 text-xs text-gray-500">Código interno para identificación en el sistema</p>
-                            @error('codigo_color')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Descripción --}}
-                        <div>
-                            <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-1">
-                                Descripción
-                            </label>
-                            <textarea name="descripcion" 
-                                      id="descripcion" 
-                                      rows="3"
-                                      class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">{{ old('descripcion', $color->descripcion) }}</textarea>
-                            @error('descripcion')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Estado --}}
-                        <div>
-                            <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">
-                                Estado
-                            </label>
-                            <select name="estado" 
-                                    id="estado" 
-                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                <option value="activo" {{ old('estado', $color->estado) == 'activo' ? 'selected' : '' }}>Activo</option>
-                                <option value="inactivo" {{ old('estado', $color->estado) == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
-                            </select>
-                            @error('estado')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
                         </div>
                     </div>
 
-                    {{-- Botones de Acción --}}
-                    <div class="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
-                        <a href="{{ route('catalogo.colores.index') }}" 
-                           class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                            <i class="fas fa-times mr-2"></i>Cancelar
+                    {{-- Estado --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                        <select name="estado" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <option value="activo"   {{ old('estado', $color->estado) == 'activo'   ? 'selected' : '' }}>Activo</option>
+                            <option value="inactivo" {{ old('estado', $color->estado) == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <a href="{{ route('catalogo.colores.index') }}"
+                           class="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm">
+                            Cancelar
                         </a>
-                        <button type="submit" 
-                                class="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors">
+                        <button type="submit" class="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-save mr-2"></i>Actualizar Color
                         </button>
                     </div>
@@ -144,34 +122,29 @@
         </div>
     </div>
 
-    {{-- Script para sincronizar color picker con input hex --}}
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const colorPicker = document.getElementById('color_picker');
-            const hexInput = document.getElementById('codigo_hex');
+        function syncColor(value) {
+            document.getElementById('hexInput').value = value;
+            document.getElementById('previewHex').textContent = value;
+            document.getElementById('colorSquare').style.background = value;
+        }
 
-            // Actualizar input hex cuando se selecciona color en el picker
-            colorPicker.addEventListener('input', function() {
-                hexInput.value = this.value;
-            });
+        function syncFromHex(value) {
+            if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+                document.getElementById('colorPicker').value = value;
+                document.getElementById('colorSquare').style.background = value;
+            }
+            document.getElementById('previewHex').textContent = value;
+        }
 
-            // Actualizar color picker cuando se ingresa un hex válido
-            hexInput.addEventListener('input', function() {
-                const hexPattern = /^#[a-fA-F0-9]{6}$/;
-                if (hexPattern.test(this.value)) {
-                    colorPicker.value = this.value;
-                }
-            });
-
-            // Validar formato hex en submit
-            document.querySelector('form').addEventListener('submit', function(e) {
-                const hexValue = hexInput.value;
-                if (hexValue && !/^#[a-fA-F0-9]{6}$/.test(hexValue)) {
-                    e.preventDefault();
-                    alert('El código hexadecimal debe tener el formato #RRGGBB (ej: #FF0000)');
-                }
-            });
+        document.getElementById('nombre').addEventListener('input', function () {
+            document.getElementById('previewNombre').textContent = this.value || 'Sin nombre';
         });
+
+        function sugerirCodigo() {
+            const num = String(Math.floor(Math.random() * 900) + 100);
+            document.getElementById('codigo_color').value = 'COL-' + num;
+        }
     </script>
 </body>
 </html>

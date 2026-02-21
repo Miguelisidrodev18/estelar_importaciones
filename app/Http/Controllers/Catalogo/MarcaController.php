@@ -103,6 +103,39 @@ class MarcaController extends Controller
     }
 
     /**
+     * Creación rápida de marca desde el formulario de productos (AJAX).
+     */
+    public function storeRapida(Request $request)
+        {
+            try {
+                $request->validate([
+                    'nombre' => 'required|string|max:100|unique:marcas',
+                    'categoria_id' => 'required|exists:categorias,id'
+                ]);
+                
+                $marca = Marca::create([
+                    'nombre' => $request->nombre,
+                    'estado' => 'activo'
+                ]);
+                
+                // Asociar con la categoría
+                $marca->categorias()->attach($request->categoria_id);
+                
+                return response()->json([
+                    'success' => true,
+                    'id' => $marca->id,
+                    'nombre' => $marca->nombre
+                ]);
+                
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ], 500);
+            }
+        }
+
+    /**
      * API: devuelve las marcas activas que pertenecen a una categoría.
      * Usado por el selector encadenado Categoría → Marca → Modelo en productos.
      */

@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Nuevo Producto - CORPORACIÓN ADIVON SAC</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-50">
@@ -174,11 +174,19 @@
                                 <label for="marca_id" class="block text-sm font-medium text-gray-700 mb-2">
                                     Marca <span class="text-red-500">*</span>
                                 </label>
-                                <select name="marca_id" id="marca_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        required>
-                                    <option value="">Primero seleccione una categoría</option>
-                                </select>
+                                <div class="flex gap-2">
+                                    <select name="marca_id" id="marca_id"
+                                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            required>
+                                        <option value="">Primero seleccione una categoría</option>
+                                    </select>
+                                    <button type="button" onclick="abrirModalMarca()"
+                                            title="Crear nueva marca"
+                                            class="px-3 py-2 bg-blue-100 text-blue-800 border border-blue-300
+                                                   rounded-lg hover:bg-blue-200 transition shrink-0">
+                                        <i class="fas fa-plus text-sm"></i>
+                                    </button>
+                                </div>
                                 @error('marca_id')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -189,11 +197,19 @@
                                 <label for="modelo_id" class="block text-sm font-medium text-gray-700 mb-2">
                                     Modelo <span class="text-red-500">*</span>
                                 </label>
-                                <select name="modelo_id" id="modelo_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        required>
-                                    <option value="">Primero seleccione una marca</option>
-                                </select>
+                                <div class="flex gap-2">
+                                    <select name="modelo_id" id="modelo_id"
+                                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            required>
+                                        <option value="">Primero seleccione una marca</option>
+                                    </select>
+                                    <button type="button" onclick="abrirModalModelo()"
+                                            title="Crear nuevo modelo"
+                                            class="px-3 py-2 bg-indigo-100 text-indigo-800 border border-indigo-300
+                                                   rounded-lg hover:bg-indigo-200 transition shrink-0">
+                                        <i class="fas fa-plus text-sm"></i>
+                                    </button>
+                                </div>
                                 @error('modelo_id')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -204,32 +220,133 @@
                                 <label for="color_id" class="block text-sm font-medium text-gray-700 mb-2">
                                     Color
                                 </label>
-                                <select name="color_id" id="color_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Seleccione un color</option>
-                                    @foreach($colores as $color)
-                                        <option value="{{ $color->id }}" {{ old('color_id') == $color->id ? 'selected' : '' }}>
-                                            {{ $color->nombre }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                <div class="flex gap-2">
+                                    <select name="color_id" id="color_id"
+                                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Seleccione un color</option>
+                                        @foreach($colores as $color)
+                                            <option value="{{ $color->id }}" {{ old('color_id') == $color->id ? 'selected' : '' }}>
+                                                {{ $color->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <button type="button" onclick="abrirModalColor()"
+                                            title="Crear nuevo color"
+                                            class="px-3 py-2 bg-pink-100 text-pink-700 border border-pink-300
+                                                   rounded-lg hover:bg-pink-200 transition shrink-0">
+                                        <i class="fas fa-plus text-sm"></i>
+                                    </button>
+                                </div>
                             </div>
 
-                            <!-- Unidad de Medida -->
-                            <div>
-                                <label for="unidad_medida_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Unidad de Medida <span class="text-red-500">*</span>
-                                </label>
-                                <select name="unidad_medida_id" id="unidad_medida_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        required>
-                                    <option value="">Seleccione una unidad</option>
-                                    @foreach($unidades as $unidad)
-                                        <option value="{{ $unidad->id }}" {{ old('unidad_medida_id') == $unidad->id ? 'selected' : '' }}>
-                                            {{ $unidad->nombre }} ({{ $unidad->abreviatura }})
-                                        </option>
-                                    @endforeach
-                                </select>
+                            <!-- SECCIÓN DE UNIDADES DE MEDIDA -->
+                            <div class="md:col-span-2 bg-gray-50 rounded-xl border border-gray-200 p-5">
+                                <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    <i class="fas fa-balance-scale text-blue-900"></i>
+                                    Unidades de Medida
+                                </h3>
+
+                                <!-- Unidad base -->
+                                <div class="mb-5">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        Unidad Base <span class="text-red-500">*</span>
+                                        <span class="ml-1 text-xs font-normal text-gray-400">— unidad principal de inventario</span>
+                                    </label>
+                                    <div class="flex gap-2">
+                                        <select name="unidad_medida_id" id="unidad_medida_id"
+                                                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                                required>
+                                            <option value="">Seleccionar unidad base...</option>
+                                            @foreach($unidades as $unidad)
+                                                <option value="{{ $unidad->id }}" {{ old('unidad_medida_id') == $unidad->id ? 'selected' : '' }}>
+                                                    {{ $unidad->nombre }} ({{ $unidad->abreviatura }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <button type="button"
+                                                onclick="abrirModalUnidad()"
+                                                title="Crear nueva unidad de medida"
+                                                class="px-3 py-2 bg-green-100 text-green-700 border border-green-300 rounded-lg hover:bg-green-200 transition shrink-0">
+                                            <i class="fas fa-plus text-sm"></i>
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        <i class="fas fa-info-circle mr-1 text-blue-400"></i>
+                                        Ej: Unidad, Kilogramo, Litro
+                                    </p>
+                                </div>
+
+                                <!-- Presentaciones alternativas -->
+                                <div>
+                                    <div class="flex justify-between items-center mb-2">
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Presentaciones Alternativas</span>
+                                            <span class="ml-1 text-xs text-gray-400">(opcional)</span>
+                                        </div>
+                                        <button type="button" onclick="agregarUnidadAlternativa()"
+                                                class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-100 transition flex items-center gap-1">
+                                            <i class="fas fa-plus"></i> Agregar
+                                        </button>
+                                    </div>
+
+                                    <!-- Cabecera de columnas -->
+                                    <div id="unidades-header" class="hidden grid grid-cols-12 gap-2 px-3 mb-1 text-xs font-medium text-gray-500 uppercase">
+                                        <div class="col-span-7">Unidad de presentación</div>
+                                        <div class="col-span-4">Factor de conversión</div>
+                                        <div class="col-span-1"></div>
+                                    </div>
+
+                                    <!-- Filas dinámicas -->
+                                    <div id="unidades-alternativas-container" class="space-y-2"></div>
+
+                                    <!-- Estado vacío -->
+                                    <div id="sin-unidades-msg" class="text-center py-5 bg-white rounded-lg border-2 border-dashed border-gray-200">
+                                        <i class="fas fa-layer-group text-2xl text-gray-300 mb-1 block"></i>
+                                        <p class="text-xs text-gray-400">Sin presentaciones alternativas</p>
+                                        <p class="text-xs text-gray-300">Ej: Pack, Caja, Docena…</p>
+                                    </div>
+
+                                    <!-- Template fila -->
+                                    <template id="template-unidad-alternativa">
+                                        <div class="grid grid-cols-12 gap-2 items-center bg-white px-3 py-2 rounded-lg border border-gray-200 unidad-item">
+                                            <div class="col-span-7">
+                                                <select name="unidades_alternativas[][unidad_id]"
+                                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                                        required>
+                                                    <option value="">Seleccionar presentación...</option>
+                                                    @foreach($unidades as $unidad)
+                                                        <option value="{{ $unidad->id }}">{{ $unidad->nombre }} ({{ $unidad->abreviatura }})</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div class="col-span-4 flex items-center gap-1">
+                                                <span class="text-xs text-gray-400 whitespace-nowrap">×</span>
+                                                <input type="number"
+                                                       name="unidades_alternativas[][factor]"
+                                                       placeholder="Factor"
+                                                       step="0.0001"
+                                                       min="0.0001"
+                                                       title="Cuántas unidades base equivale esta presentación"
+                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                                       required>
+                                                <span class="text-xs text-gray-400 whitespace-nowrap">u.b.</span>
+                                            </div>
+                                            <div class="col-span-1 flex justify-end">
+                                                <button type="button" onclick="eliminarUnidad(this)"
+                                                        class="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition"
+                                                        title="Eliminar">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Nota sobre precios -->
+                                    <p class="mt-3 text-xs text-amber-600 flex items-start gap-1">
+                                        <i class="fas fa-tag mt-0.5 shrink-0"></i>
+                                        Los precios por presentación se configuran en el módulo de <strong>Gestión de Precios</strong>.
+                                    </p>
+                                </div>
                             </div>
 
                             <!-- Código de Barras -->
@@ -374,6 +491,8 @@
         </div>
     </div>
 
+    @include('inventario.productos.partials.modales-rapidos')
+
     <script>
         // Preview de imagen
         function previewImage(event) {
@@ -478,6 +597,7 @@
                     }
                     
                     modeloSelect.disabled = false;
+                    sugerirNombreAuto();
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -523,26 +643,71 @@
             if (oldCategoria) {
                 cargarMarcasPorCategoria(oldCategoria, oldMarca);
             }
+
+            // Detectar edición manual del nombre
+            document.getElementById('nombre')?.addEventListener('input', function () {
+                nombreEditadoManual = true;
+            });
+
+            // Auto-sugerir al cambiar color
+            document.getElementById('color_id')?.addEventListener('change', sugerirNombreAuto);
+
+            // Auto-sugerir al cambiar modelo (el select se rellena dinámicamente,
+            // pero el listener sobre el elemento ya existente funciona igual)
+            document.getElementById('modelo_id')?.addEventListener('change', sugerirNombreAuto);
         });
+        // Bandera: true cuando el usuario editó el nombre manualmente
+        let nombreEditadoManual = {{ old('nombre') ? 'true' : 'false' }};
+
         function sugerirNombre() {
-            const categoria = document.getElementById('categoria_id').selectedOptions[0]?.text || '';
-            const marca = document.getElementById('marca_id').selectedOptions[0]?.text || '';
-            const modelo = document.getElementById('modelo_id').selectedOptions[0]?.text || '';
-            const color = document.getElementById('color_id').selectedOptions[0]?.text || '';
-            
-            let sugerencia = [];
-            if (marca) sugerencia.push(marca);
-            if (modelo) sugerencia.push(modelo);
-            if (color && color !== 'Seleccione un color') sugerencia.push(color);
-            
-            if (sugerencia.length > 0) {
-                document.getElementById('nombre').value = sugerencia.join(' ');
+            const marcaOpt  = document.getElementById('marca_id').selectedOptions[0];
+            const modeloOpt = document.getElementById('modelo_id').selectedOptions[0];
+            const colorOpt  = document.getElementById('color_id').selectedOptions[0];
+
+            const marca  = (marcaOpt  && marcaOpt.value)  ? marcaOpt.text  : '';
+            const modelo = (modeloOpt && modeloOpt.value)  ? modeloOpt.text : '';
+            const color  = (colorOpt  && colorOpt.value)  ? colorOpt.text  : '';
+
+            let partes = [];
+            if (marca)  partes.push(marca);
+            if (modelo) partes.push(modelo);
+            if (color)  partes.push(color);
+
+            if (partes.length > 0) {
+                document.getElementById('nombre').value = partes.join(' ');
+                nombreEditadoManual = false;
             } else {
-                alert('Selecciona al menos marca y modelo para generar una sugerencia');
+                alert('Selecciona al menos marca o modelo para generar el nombre');
             }
         }
 
-        document.getElementById('btnSugerirNombre')?.addEventListener('click', sugerirNombre);
+        // Auto-sugerir solo si el usuario no editó manualmente
+        function sugerirNombreAuto() {
+            if (!nombreEditadoManual) {
+                const marcaOpt  = document.getElementById('marca_id').selectedOptions[0];
+                const modeloOpt = document.getElementById('modelo_id').selectedOptions[0];
+                const colorOpt  = document.getElementById('color_id').selectedOptions[0];
+
+                const marca  = (marcaOpt  && marcaOpt.value)  ? marcaOpt.text  : '';
+                const modelo = (modeloOpt && modeloOpt.value)  ? modeloOpt.text : '';
+                const color  = (colorOpt  && colorOpt.value)  ? colorOpt.text  : '';
+
+                let partes = [];
+                if (marca)  partes.push(marca);
+                if (modelo) partes.push(modelo);
+                if (color)  partes.push(color);
+
+                if (partes.length > 0) {
+                    document.getElementById('nombre').value = partes.join(' ');
+                }
+            }
+        }
+
+        // Botón "Sugerir" siempre fuerza la generación y resetea la bandera
+        document.getElementById('btnSugerirNombre')?.addEventListener('click', function () {
+            nombreEditadoManual = false;
+            sugerirNombre();
+        });
 
         // Botón Generar código de barras
         document.getElementById('btnGenerarCodigo')?.addEventListener('click', function() {

@@ -136,6 +136,40 @@ class ModeloController extends Controller
             ->with('success', 'Modelo eliminado exitosamente');
     }
 
+    /**
+     * Creación rápida de modelo desde el formulario de productos (AJAX).
+     */
+    public function storeRapida(Request $request)
+    {
+        $validated = $request->validate([
+            'nombre'   => 'required|string|max:100',
+            'marca_id' => 'required|exists:marcas,id',
+        ]);
+
+        $exists = Modelo::where('marca_id', $validated['marca_id'])
+            ->where('nombre', $validated['nombre'])
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ya existe un modelo con ese nombre para esta marca.',
+            ], 422);
+        }
+
+        $modelo = Modelo::create([
+            'nombre'   => $validated['nombre'],
+            'marca_id' => $validated['marca_id'],
+            'estado'   => 'activo',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'id'      => $modelo->id,
+            'nombre'  => $modelo->nombre,
+        ]);
+    }
+
     // API para selects dinámicos
     public function getModelosPorMarca($marcaId)
     {
@@ -143,7 +177,7 @@ class ModeloController extends Controller
             ->where('estado', 'activo')
             ->orderBy('nombre')
             ->get(['id', 'nombre']);
-            
+
         return response()->json($modelos);
     }
 }
