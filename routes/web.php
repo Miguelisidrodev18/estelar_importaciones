@@ -32,9 +32,6 @@ use App\Http\Controllers\CajaController;
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
 
-Route::get('/', function () {
-    return redirect()->route('login');
-}); 
 /*
 |--------------------------------------------------------------------------
 | RUTA PRINCIPAL
