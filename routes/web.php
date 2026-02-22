@@ -32,6 +32,7 @@ use App\Http\Controllers\CajaController;
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
 
+
 /*
 |--------------------------------------------------------------------------
 | RUTA PRINCIPAL
@@ -39,8 +40,7 @@ use App\Http\Middleware\VerifyMasterPassword;
 */
 Route::get('/dashboard', function () {
     $role = auth()->user()->role->nombre ?? null;
-    
-    return match ($role) {
+        return match ($role) {
         'Administrador' => redirect()->route('admin.dashboard'),
         'Almacenero'    => redirect()->route('almacenero.dashboard'),
         'Vendedor'      => redirect()->route('vendedor.dashboard'),
@@ -358,3 +358,5 @@ Route::middleware('auth')->group(function () {
     */
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });
+
+
