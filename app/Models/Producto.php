@@ -80,18 +80,18 @@ class Producto extends Model
     public function getPrecioVentaAttribute()
     {
         return $this->precios()
-            ->where('tipo_precio', 'venta_regular')
-            ->where('activo', true)
-            ->where(function($q) {
-                $q->whereNull('fecha_inicio')
-                ->orWhere('fecha_inicio', '<=', now());
-            })
-            ->where(function($q) {
-                $q->whereNull('fecha_fin')
-                ->orWhere('fecha_fin', '>=', now());
-            })
-            ->orderBy('prioridad', 'desc')
-            ->first()?->precio ?? 0;
+        ->where('tipo_precio', 'venta_regular')  // Asegurar que sea string
+        ->where('activo', 1)                      // Cambiar true por 1
+        ->where(function($q) {
+            $q->whereNull('fecha_inicio')
+              ->orWhere('fecha_inicio', '<=', now());
+        })
+        ->where(function($q) {
+            $q->whereNull('fecha_fin')
+              ->orWhere('fecha_fin', '>=', now());
+        })
+        ->orderBy('prioridad', 'desc')
+        ->first()?->precio ?? 0;
     }
 
     // Obtener precio mayorista
@@ -99,7 +99,7 @@ class Producto extends Model
     {
         $query = $this->precios()
             ->where('tipo_precio', 'venta_mayorista')
-            ->where('activo', true);
+            ->where('activo', 1);  // Cambiar true por 1
         
         if ($cantidad) {
             $query->where('cantidad_minima', '<=', $cantidad);
