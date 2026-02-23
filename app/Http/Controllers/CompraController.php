@@ -171,8 +171,9 @@ class CompraController extends Controller
                 'fecha' => $validated['fecha'],
                 'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? null,
                 'forma_pago' => $validated['forma_pago'],
-                'condicion_pago' => $validated['condicion_pago'] ?? null,
-                'tipo_moneda' => $validated['tipo_moneda'],
+                'condicion_pago' => $validated['forma_pago'] === 'credito' 
+                    ? ($validated['condicion_pago'] ?? null) 
+                    : null,                'tipo_moneda' => $validated['tipo_moneda'],
                 'tipo_cambio' => $validated['tipo_cambio'] ?? 1,
                 'incluye_igv' => $incluyeIgv,
                 'subtotal' => $subtotal,
@@ -218,24 +219,53 @@ class CompraController extends Controller
 
     public function edit(Compra $compra)
     {
-        // Solo permitir editar si está en estado 'pendiente' o similar
+        // Solo permitir editar si está en estado 'pendiente' o 'borrador'
         if (!in_array($compra->estado, ['pendiente', 'borrador'])) {
             return redirect()
                 ->route('compras.show', $compra)
-                ->with('error', 'No se puede editar una compra procesada');
+                ->with('error', 'No se puede editar una compra procesada o anulada');
         }
 
-        $proveedores = Proveedor::where('estado', 'activo')->orderBy('nombre')->get();
-        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
-        $productos = Producto::where('estado', 'activo')->orderBy('nombre')->get();
+        // Cargar relaciones necesarias
+        $compra->load('detalles.producto');
         
-        return view('compras.edit', compact('compra', 'proveedores', 'almacenes', 'productos'));
+        $proveedores = Proveedor::where('estado', 'activo')
+            ->orderBy('razon_social') // 🔴 Cambiado de 'nombre' a 'razon_social'
+            ->get();
+            
+        $almacenes = Almacen::where('estado', 'activo')
+            ->orderBy('nombre')
+            ->get();
+        
+        return view('compras.edit', compact('compra', 'proveedores', 'almacenes'));
     }
 
     public function update(Request $request, Compra $compra)
     {
-        // Similar a store pero para actualización
-        // Validar que la compra sea editable
+        // Solo permitir editar compras pendientes o borrador
+        if (!in_array($compra->estado, ['pendiente', 'borrador'])) {
+            return back()->with('error', 'No se puede editar una compra procesada o anulada');
+        }
+
+        $validated = $request->validate([
+            'almacen_id' => 'required|exists:almacenes,id',
+            'fecha' => 'required|date',
+            'observaciones' => 'nullable|string',
+        ]);
+
+        try {
+            $compra->update([
+                'almacen_id' => $validated['almacen_id'],
+                'fecha' => $validated['fecha'],
+                'observaciones' => $validated['observaciones'],
+            ]);
+
+            return redirect()->route('compras.show', $compra)
+                ->with('success', 'Compra actualizada correctamente');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al actualizar: ' . $e->getMessage());
+        }
     }
 
     public function destroy(Compra $compra)

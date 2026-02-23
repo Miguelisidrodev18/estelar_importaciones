@@ -219,13 +219,14 @@
                         </div>
 
                         <!-- Condición de Pago (crédito) -->
-                        <div id="condicion_pago_div" class="hidden">
+                        <div id="condicion_pago_div" class="{{ old('forma_pago') == 'credito' ? '' : 'hidden' }}">
                             <label for="condicion_pago" class="block text-sm font-medium text-gray-700 mb-1.5">
                                 Días de Crédito
                             </label>
                             <input type="number" name="condicion_pago" id="condicion_pago"
-                                   value="{{ old('condicion_pago', 30) }}" min="1" max="90"
-                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                value="{{ old('condicion_pago', 30) }}" min="1" max="90"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                {{ old('forma_pago') == 'credito' ? '' : 'disabled' }}>
                         </div>
 
                         <!-- Moneda -->
@@ -661,7 +662,16 @@
     // ============================================
     function toggleCondicionPago(valor) {
         const div = document.getElementById('condicion_pago_div');
-        div.style.display = valor === 'credito' ? 'block' : 'none';
+        const input = document.getElementById('condicion_pago');
+        
+        if (valor === 'credito') {
+            div.style.display = 'block';
+            input.disabled = false;
+        } else {
+            div.style.display = 'none';
+            input.disabled = true;
+            input.value = ''; // Limpiar valor cuando no es crédito
+        }
     }
 
     function toggleTipoCambio(valor) {
