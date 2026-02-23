@@ -244,50 +244,39 @@ class ImeiController extends Controller
     public function mostrarQR(Imei $imei)
     {
         try {
-            // Si no tiene QR, generarlo usando el método privado
-            if (!$imei->qr_path || !\Storage::disk('public')->exists($imei->qr_path)) {
-                $this->generarQRParaIMEI($imei);
-                $imei->refresh();
-            }
-
-            // Devolver la imagen
-            return \Storage::disk('public')->response($imei->qr_path);
-            
+            $imei->load('producto');
+            $svg = $this->generarQRSvg($imei);
+            return response($svg)->header('Content-Type', 'image/svg+xml');
         } catch (\Exception $e) {
-            \Log::error('Error mostrando QR', [
-                'imei_id' => $imei->id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return response()->json(['error' => 'No se pudo cargar el QR'], 404);
+            \Log::error('Error mostrando QR', ['imei_id' => $imei->id, 'error' => $e->getMessage()]);
+            return response()->json(['error' => 'No se pudo generar el QR: ' . $e->getMessage()], 500);
         }
     }
+
     /**
      * Descargar QR del IMEI
      */
     public function descargarQR(Imei $imei)
     {
         try {
-            // Si no tiene QR, generarlo usando el método privado
-            if (!$imei->qr_path || !\Storage::disk('public')->exists($imei->qr_path)) {
-                $this->generarQRParaIMEI($imei);
-                $imei->refresh();
-            }
-
-            // Descargar la imagen
-            return \Storage::disk('public')->download(
-                $imei->qr_path,
-                "IMEI_{$imei->codigo_imei}.png"
-            );
-            
+            $imei->load('producto');
+            $svg = $this->generarQRSvg($imei);
+            return response($svg)
+                ->header('Content-Type', 'image/svg+xml')
+                ->header('Content-Disposition', 'attachment; filename="IMEI_' . $imei->codigo_imei . '.svg"');
         } catch (\Exception $e) {
-            \Log::error('Error descargando QR', [
-                'imei_id' => $imei->id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return back()->with('error', 'No se pudo descargar el QR');
+            \Log::error('Error descargando QR', ['imei_id' => $imei->id, 'error' => $e->getMessage()]);
+            return back()->with('error', 'No se pudo descargar el QR: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Genera el SVG del QR — no requiere Imagick ni GD
+     */
+    private function generarQRSvg(Imei $imei): string
+    {
+        // Usamos solo el IMEI como contenido del QR (texto legible por lectores)
+        return (string) QrCode::format('svg')->size(300)->margin(2)->generate($imei->codigo_imei);
     }
     /**
      * Mostrar formulario para editar IMEI
@@ -459,13 +448,13 @@ class ImeiController extends Controller
                 'url' => route('inventario.imeis.show', $imei)
             ];
             
-            $qrCode = QrCode::format('png')
+            $qrCode = QrCode::format('svg')
                 ->size(300)
                 ->margin(1)
                 ->errorCorrection('H')
                 ->generate(json_encode($data));
-            
-            return response($qrCode)->header('Content-Type', 'image/png');
+
+            return response($qrCode)->header('Content-Type', 'image/svg+xml');
             
         } catch (\Exception $e) {
             Log::error('Error generando QR', ['error' => $e->getMessage()]);
@@ -540,23 +529,25 @@ class ImeiController extends Controller
     private function generarQRParaIMEI(Imei $imei): void
     {
         try {
-            $data = [
-                'imei' => $imei->codigo_imei,
-                'id' => $imei->id,
-                'producto' => $imei->producto->nombre,
-                'fecha' => now()->format('Y-m-d')
-            ];
-            
-            // Guardar QR en storage (opcional)
-            $qrCode = QrCode::format('png')
-                ->size(200)
-                ->generate(json_encode($data));
-            
-            $path = "qrs/imei_{$imei->id}.png";
+            // Asegurar que existe el directorio
+            if (!\Storage::disk('public')->exists('qrs')) {
+                \Storage::disk('public')->makeDirectory('qrs');
+            }
+
+            $data = json_encode([
+                'imei'     => $imei->codigo_imei,
+                'id'       => $imei->id,
+                'producto' => $imei->producto->nombre ?? '',
+                'fecha'    => now()->format('Y-m-d'),
+            ]);
+
+            $qrCode = QrCode::format('svg')->size(200)->generate($data);
+
+            $path = "qrs/imei_{$imei->id}.svg";
             \Storage::disk('public')->put($path, $qrCode);
-            
+
             $imei->update(['qr_path' => $path]);
-            
+
         } catch (\Exception $e) {
             Log::warning('No se pudo generar QR', ['imei_id' => $imei->id, 'error' => $e->getMessage()]);
         }
@@ -566,10 +557,13 @@ class ImeiController extends Controller
      */
     public function generarEtiqueta(Imei $imei)
     {
-            $imei->load(['producto.marca', 'producto.modelo', 'producto.color', 'color']);
-    
-        $html = view('inventario.imeis.etiqueta', compact('imei'))->render();
-    
+        $imei->load(['producto.marca', 'producto.modelo', 'producto.color', 'color']);
+
+        // Siempre usa el route dinámico para el QR (no depende de archivos guardados)
+        $qrUrl = route('imeis.qr', $imei);
+
+        $html = view('inventario.imeis.etiqueta', compact('imei', 'qrUrl'))->render();
+
         return response($html);
     }
 
@@ -601,28 +595,20 @@ class ImeiController extends Controller
      */
     public function imprimirQR(Imei $imei)
     {
-        try {
-            if (!$imei->qr_path || !\Storage::disk('public')->exists($imei->qr_path)) {
-                $this->generarQRParaIMEI($imei);
-                $imei->refresh();
-            }
+        $imei->load('producto');
+        $qrUrl = route('imeis.qr', $imei);
 
-            $qrUrl = \Storage::url($imei->qr_path);
+        $html = '<html><head><title>QR IMEI '.$imei->codigo_imei.'</title>'
+            . '<style>body{display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif}'
+            . 'img{width:250px;height:250px} p{font-size:14px;margin:4px 0}'
+            . '</style></head><body>'
+            . '<img src="'.$qrUrl.'" alt="QR IMEI">'
+            . '<p><strong>IMEI:</strong> '.$imei->codigo_imei.'</p>'
+            . '<p>'.e($imei->producto->nombre ?? '').'</p>'
+            . '<script>window.onload=function(){window.print()}</script>'
+            . '</body></html>';
 
-            $html = '<html><head><title>QR IMEI '.$imei->codigo_imei.'</title>'
-                . '<style>body{display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif}'
-                . 'img{width:200px;height:200px} p{font-size:14px;margin:4px 0}'
-                . '</style></head><body>'
-                . '<img src="'.asset($qrUrl).'" alt="QR">'
-                . '<p><strong>IMEI:</strong> '.$imei->codigo_imei.'</p>'
-                . '<p>'.($imei->producto->nombre ?? '').'</p>'
-                . '<script>window.onload=function(){window.print()}</script>'
-                . '</body></html>';
-
-            return response($html);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'No se pudo generar el QR para impresión'], 500);
-        }
+        return response($html);
     }
         /**
      * Cambiar estado de IMEI (API)

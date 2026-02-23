@@ -7,6 +7,7 @@ use App\Models\Compra;
 use App\Models\Proveedor;
 use App\Models\Almacen;
 use App\Models\Producto;
+use App\Models\Categoria;
 use App\Services\CompraService;
 use App\Models\Catalogo\Color;
 use App\Models\Catalogo\Marca;
@@ -66,14 +67,15 @@ class CompraController extends Controller
                 ];
             });
 
-        $colores = Color::where('estado', 'activo')->orderBy('nombre')->get();
+        $colores     = Color::where('estado', 'activo')->orderBy('nombre')->get();
+        $categorias  = Categoria::activas()->orderBy('nombre')->get();
 
-        return view('compras.create', compact('proveedores', 'almacenes', 'productos', 'colores', 'marcas'));
+        return view('compras.create', compact('proveedores', 'almacenes', 'productos', 'colores', 'marcas', 'categorias'));
     }
 
     public function store(Request $request)
     {
-        // Validación extendida y completa
+        // Validación extendida y completa (PRIMERO)
         $validated = $request->validate([
             // Datos principales
             'proveedor_id' => 'required|exists:proveedores,id',
@@ -142,21 +144,16 @@ class CompraController extends Controller
                 $subtotal += $validated['monto_adicional'];
             }
 
-           // Calcular IGV según tipo de operación
-                $incluyeIgv = $validated['incluye_igv'] ?? true;
-                $tipoOperacion = $validated['tipo_operacion'] ?? '01';
+            // Calcular IGV según tipo de operación SUNAT y estado del checkbox
+            $incluyeIgv    = filter_var($validated['incluye_igv'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $tipoOperacion = $validated['tipo_operacion'] ?? '01';
 
-                // Solo se aplica IGV si es Gravado (01)
-                $igv = 0;
-                if ($tipoOperacion === '01' && $incluyeIgv) {
-                    $igv = $subtotal * 0.18;
-                } elseif ($tipoOperacion === '01' && !$incluyeIgv) {
-                    // Si no incluye IGV pero es gravado, el IGV se suma después
-                    $igv = $subtotal * 0.18;
-                    // El total se calculará como subtotal + igv (ya está en la lógica actual)
-                }
-
-                $total = $tipoOperacion === '01' ? $subtotal + $igv : $subtotal;
+            $igv   = 0;
+            $total = $subtotal;
+            if ($tipoOperacion === '01' && $incluyeIgv) {
+                $igv   = round($subtotal * 0.18, 2);
+                $total = $subtotal + $igv;
+            }
 
             // Aplicar tipo de cambio si es USD
             if ($validated['tipo_moneda'] === 'USD' && !empty($validated['tipo_cambio'])) {
@@ -181,7 +178,6 @@ class CompraController extends Controller
                 'subtotal' => $subtotal,
                 'igv' => $igv,
                 'tipo_operacion' => $validated['tipo_operacion'],
-                'tipo_operacion_texto' => Compra::TIPOS_OPERACION_SUNAT[$validated['tipo_operacion']] ?? null,
                 'total' => $total,
                 'total_pen' => $totalPEN,
                 'descuento_global' => $validated['descuento_global'] ?? 0,
@@ -413,6 +409,65 @@ public function importarIMEI(Request $request)
             });
         
         return response()->json($productos);
+    }
+
+    /**
+     * Crear un producto rápido desde el formulario de compra (AJAX)
+     */
+    public function crearProductoRapido(Request $request)
+    {
+        $validated = $request->validate([
+            'nombre'          => 'required|string|max:255',
+            'categoria_id'    => 'required|exists:categorias,id',
+            'marca_id'        => 'required|exists:marcas,id',
+            'modelo_id'       => 'required|exists:modelos,id',
+            'color_id'        => 'nullable|exists:colores,id',
+            'tipo_inventario' => 'required|in:serie,regular',
+        ], [
+            'nombre.required'       => 'El nombre del producto es obligatorio.',
+            'categoria_id.required' => 'Selecciona una categoría.',
+            'marca_id.required'     => 'Selecciona una marca.',
+            'modelo_id.required'    => 'Selecciona un modelo.',
+        ]);
+
+        try {
+            $producto = Producto::create([
+                'codigo'          => Producto::generarCodigo(),
+                'nombre'          => $validated['nombre'],
+                'categoria_id'    => $validated['categoria_id'],
+                'marca_id'        => $validated['marca_id'],
+                'modelo_id'       => $validated['modelo_id'],
+                'color_id'        => $validated['color_id'] ?? null,
+                'tipo_inventario' => $validated['tipo_inventario'],
+                'estado'          => 'activo',
+                'stock_actual'    => 0,
+                'stock_minimo'    => 0,
+                'stock_maximo'    => 0,
+                'creado_por'      => auth()->id(),
+            ]);
+
+            $producto->load('categoria', 'marca', 'modelo');
+
+            return response()->json([
+                'success'         => true,
+                'id'              => $producto->id,
+                'nombre'          => $producto->nombre,
+                'tipo_inventario' => $producto->tipo_inventario,
+                'categoria'       => $producto->categoria?->nombre,
+                'marca'           => $producto->marca?->nombre,
+                'marca_id'        => $producto->marca_id,
+                'modelo'          => $producto->modelo?->nombre,
+                'modelo_id'       => $producto->modelo_id,
+                'color_id'        => $producto->color_id,
+                'requiere_imei'   => $producto->tipo_inventario === 'serie',
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al crear el producto: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

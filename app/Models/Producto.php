@@ -36,12 +36,15 @@ class Producto extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'stock_actual' => 'integer',
-        'stock_minimo' => 'integer',
-        'stock_maximo' => 'integer',
-        'estado' => 'string',
-        'tipo_inventario' => 'string',
-        'tipo_garantia' => 'string'
+        'stock_actual'        => 'integer',
+        'stock_minimo'        => 'integer',
+        'stock_maximo'        => 'integer',
+        'estado'              => 'string',
+        'tipo_inventario'     => 'string',
+        'tipo_garantia'       => 'string',
+        'fecha_ultima_compra' => 'date',
+        'ultimo_costo_compra' => 'decimal:2',
+        'costo_promedio'      => 'decimal:2',
     ];
 
     /**

@@ -33,6 +33,8 @@ class MovimientoInventario extends Model
         'motivo',
         'observaciones',
         'documento_referencia',
+        'numero_factura',
+        'estado',
         'almacen_destino_id',
     ];
 

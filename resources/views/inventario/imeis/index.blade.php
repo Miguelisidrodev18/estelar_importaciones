@@ -215,8 +215,10 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         @forelse($imeis as $imei)
                         <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <input type="checkbox" name="imei_seleccionado" value="{{ $imei->id }}" class="imei-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                            <input type="checkbox" name="imei_seleccionado[]" value="{{ $imei->id }}" class="imei-checkbox">
                                 <span class="text-sm font-mono font-bold text-gray-900">{{ $imei->codigo_imei }}</span>
                             </td>
                             <td class="px-6 py-4">
@@ -385,6 +387,23 @@
 
     <script>
         let currentImeiId = null;
+
+        function toggleTodos() {
+            const master = document.getElementById('seleccionarTodos');
+            document.querySelectorAll('.imei-checkbox').forEach(cb => {
+                cb.checked = master.checked;
+            });
+        }
+
+        // Sincronizar checkbox maestro si se deselecciona uno individual
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('imei-checkbox')) {
+                const total = document.querySelectorAll('.imei-checkbox').length;
+                const checked = document.querySelectorAll('.imei-checkbox:checked').length;
+                document.getElementById('seleccionarTodos').checked = (total === checked);
+                document.getElementById('seleccionarTodos').indeterminate = (checked > 0 && checked < total);
+            }
+        });
 
         function filtrarPorEstado(estado) {
             document.getElementById('estadoFilter').value = estado;

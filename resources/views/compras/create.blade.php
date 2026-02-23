@@ -8,7 +8,10 @@
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
+
 <body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
 
@@ -41,6 +44,20 @@
             </div>
         @endif
 
+        @if($errors->any())
+            <div class="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
+                <div class="flex items-center mb-2">
+                    <i class="fas fa-exclamation-triangle mr-2 text-lg"></i>
+                    <strong>Por favor corrige los siguientes errores:</strong>
+                </div>
+                <ul class="list-disc list-inside space-y-1 text-sm">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <!-- Formulario principal -->
         <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
             <!-- Cabecera decorativa -->
@@ -64,23 +81,54 @@
                     </h3>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <!-- Proveedor -->
-                        <div class="relative">
-                            <label for="proveedor_id" class="block text-sm font-medium text-gray-700 mb-1.5">
+                        <!-- Proveedor (búsqueda en vivo) -->
+                        <div class="relative" id="proveedor_container">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
                                 Proveedor <span class="text-red-500">*</span>
                             </label>
-                            <div class="relative">
-                                <select name="proveedor_id" id="proveedor_id" required
-                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white">
-                                    <option value="">Seleccione un proveedor</option>
-                                    @foreach($proveedores as $proveedor)
-                                        <option value="{{ $proveedor->id }}" {{ old('proveedor_id') == $proveedor->id ? 'selected' : '' }}>
-                                            {{ $proveedor->nombre_comercial ?? $proveedor->razon_social }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
+                            {{-- Campo oculto que envía el ID al servidor --}}
+                            <input type="hidden" name="proveedor_id" id="proveedor_id" value="{{ old('proveedor_id') }}">
+
+                            {{-- Input de búsqueda --}}
+                            <div class="relative" id="proveedor_busqueda_wrap" style="{{ old('proveedor_id') ? 'display:none' : '' }}">
+                                <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 pointer-events-none"></i>
+                                <input type="text"
+                                       id="buscar_proveedor"
+                                       placeholder="Escribe RUC, razón social o nombre (mín. 3 caracteres)..."
+                                       autocomplete="off"
+                                       class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm">
                             </div>
+
+                            {{-- Dropdown de resultados --}}
+                            <div id="proveedor_resultados"
+                                 class="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 hidden max-h-64 overflow-y-auto">
+                            </div>
+
+                            {{-- Proveedor seleccionado (card) --}}
+                            @php
+                                $provSeleccionado = old('proveedor_id') ? $proveedores->firstWhere('id', old('proveedor_id')) : null;
+                            @endphp
+                            <div id="proveedor_seleccionado"
+                                 class="{{ $provSeleccionado ? '' : 'hidden' }} mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i class="fas fa-building text-blue-700 text-sm shrink-0"></i>
+                                    <div class="min-w-0">
+                                        <p id="proveedor_nombre_display" class="text-sm font-semibold text-blue-900 truncate">
+                                            {{ $provSeleccionado?->nombre_comercial ?? $provSeleccionado?->razon_social ?? '' }}
+                                        </p>
+                                        <p id="proveedor_ruc_display" class="text-xs text-blue-600">
+                                            @if($provSeleccionado)
+                                                {{ $provSeleccionado->razon_social !== $provSeleccionado->nombre_comercial ? $provSeleccionado->razon_social . ' · ' : '' }}RUC: {{ $provSeleccionado->ruc }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="limpiarProveedorSeleccionado()"
+                                        class="shrink-0 ml-2 text-xs text-blue-600 hover:text-red-600 transition flex items-center gap-1 border border-blue-300 hover:border-red-400 rounded-lg px-2 py-1">
+                                    <i class="fas fa-times"></i> Cambiar
+                                </button>
+                            </div>
+
                             @error('proveedor_id')
                                 <p class="mt-1 text-xs text-red-600 flex items-center">
                                     <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
@@ -205,25 +253,29 @@
                                    value="{{ old('tipo_cambio', '3.80') }}" min="0.001" step="0.001"
                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         </div>
+
+                        <!-- Tipo de Operación SUNAT (dentro del grid, fila completa) -->
+                        <div class="lg:col-span-3">
+                            <label for="tipo_operacion" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <i class="fas fa-file-invoice mr-1 text-blue-600"></i>
+                                Tipo de Operación SUNAT <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <select name="tipo_operacion" id="tipo_operacion" required
+                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white">
+                                    <option value="01" {{ old('tipo_operacion', '01') == '01' ? 'selected' : '' }}>01 — Gravado (aplica IGV 18%)</option>
+                                    <option value="02" {{ old('tipo_operacion') == '02' ? 'selected' : '' }}>02 — Exonerado (sin IGV)</option>
+                                    <option value="03" {{ old('tipo_operacion') == '03' ? 'selected' : '' }}>03 — Inafecto (sin IGV)</option>
+                                    <option value="04" {{ old('tipo_operacion') == '04' ? 'selected' : '' }}>04 — Exportación (sin IGV)</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1 flex items-center">
+                                <i class="fas fa-info-circle mr-1 text-blue-400"></i>
+                                Catálogo SUNAT. Solo operaciones gravadas (01) aplican IGV del 18%.
+                            </p>
+                        </div>
                     </div>
-                </div>
-                {{-- Tipo de Operación SUNAT --}}
-                <div class="md:col-span-2">
-                    <label for="tipo_operacion" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-file-invoice mr-1 text-blue-600"></i>
-                        Tipo de Operación SUNAT <span class="text-red-500">*</span>
-                    </label>
-                    <select name="tipo_operacion" id="tipo_operacion" required
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        <option value="01" {{ old('tipo_operacion', '01') == '01' ? 'selected' : '' }}>Gravado - Operación gravada (IGV 18%)</option>
-                        <option value="02" {{ old('tipo_operacion') == '02' ? 'selected' : '' }}>Exonerado - Operación exonerada</option>
-                        <option value="03" {{ old('tipo_operacion') == '03' ? 'selected' : '' }}>Inafecto - Operación inafecta</option>
-                        <option value="04" {{ old('tipo_operacion') == '04' ? 'selected' : '' }}>Exportación - Operación de exportación</option>
-                    </select>
-                    <p class="text-xs text-gray-500 mt-1 flex items-center">
-                        <i class="fas fa-info-circle mr-1 text-blue-400"></i>
-                        Según catálogo SUNAT: Código 01 = Gravado, 02 = Exonerado, 03 = Inafecto, 04 = Exportación
-                    </p>
                 </div>
 
                 <!-- SECCIÓN 2: PRODUCTOS (MEJORADA) -->
@@ -286,7 +338,8 @@
                                     </div>
                                     <div class="flex justify-between items-center text-sm">
                                         <label class="flex items-center space-x-2 cursor-pointer">
-                                            <input type="checkbox" id="incluir_igv" name="incluye_igv" checked
+                                            <input type="hidden" name="incluye_igv" value="0">
+                                            <input type="checkbox" id="incluir_igv" name="incluye_igv" value="1" checked
                                                    class="w-4 h-4 rounded border-gray-300 text-blue-900 focus:ring-blue-900">
                                             <span class="text-gray-600">IGV (18%):</span>
                                         </label>
@@ -377,12 +430,17 @@
                 </div>
 
                 <!-- Mensaje sin resultados -->
-                <div id="sinResultados" class="hidden text-center py-12">
+                <div id="sinResultados" class="hidden text-center py-10">
                     <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-box-open text-3xl text-gray-400"></i>
                     </div>
-                    <p class="text-gray-500 mb-2">No se encontraron productos</p>
-                    <p class="text-xs text-gray-400">Prueba con otros términos de búsqueda</p>
+                    <p class="text-gray-500 mb-1">No se encontraron productos</p>
+                    <p class="text-xs text-gray-400 mb-4">Prueba con otros términos o crea el producto ahora</p>
+                    <button type="button" onclick="abrirModalCrearProducto(document.getElementById('buscadorProductos').value)"
+                            class="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-700 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-500 transition shadow-md text-sm font-medium">
+                        <i class="fas fa-plus-circle mr-2"></i>
+                        Crear este producto en el catálogo
+                    </button>
                 </div>
             </div>
 
@@ -478,6 +536,7 @@
         </div>
     </div>
 <script>
+    
     // ============================================
     // VARIABLES GLOBALES
     // ============================================
@@ -489,9 +548,10 @@
 
 
     // Datos de catálogo (cargados desde PHP)
-    const catalogoProductos = @json($productos);
-    const marcasCatalogo = @json($marcas);
-    const coloresCatalogo = @json($colores);
+    const catalogoProductos   = @json($productos);
+    const marcasCatalogo      = @json($marcas);
+    const coloresCatalogo     = @json($colores);
+    const proveedoresCatalogo = {!! json_encode($proveedores->map(fn($p) => ['id' => $p->id, 'ruc' => $p->ruc, 'razon_social' => $p->razon_social, 'nombre_comercial' => $p->nombre_comercial])) !!};
 
     // Elementos del DOM
     const modalProductos = document.getElementById('modalProductos');
@@ -499,6 +559,102 @@
     const resultadosDiv = document.getElementById('resultadosProductos');
     const cargandoDiv = document.getElementById('cargandoProductos');
     const sinResultadosDiv = document.getElementById('sinResultados');
+
+    // ============================================
+    // BÚSQUEDA EN VIVO DE PROVEEDOR
+    // ============================================
+    (function initProveedorSearch() {
+        const provInput    = document.getElementById('buscar_proveedor');
+        const provResultados = document.getElementById('proveedor_resultados');
+        let timeoutProv;
+
+        if (!provInput) return;
+
+        provInput.addEventListener('input', function () {
+            clearTimeout(timeoutProv);
+            const termino = this.value.trim();
+
+            if (termino.length < 3) {
+                provResultados.classList.add('hidden');
+                provResultados.innerHTML = '';
+                return;
+            }
+
+            timeoutProv = setTimeout(() => {
+                const tl = termino.toLowerCase();
+                const resultados = proveedoresCatalogo.filter(p =>
+                    (p.ruc             && p.ruc.toLowerCase().includes(tl)) ||
+                    (p.razon_social    && p.razon_social.toLowerCase().includes(tl)) ||
+                    (p.nombre_comercial && p.nombre_comercial.toLowerCase().includes(tl))
+                );
+
+                if (resultados.length === 0) {
+                    provResultados.innerHTML =
+                        '<div class="px-4 py-3 text-sm text-gray-500 text-center">' +
+                        '<i class="fas fa-search mr-1"></i>No se encontraron proveedores</div>';
+                } else {
+                    provResultados.innerHTML = resultados.map(p => {
+                        const nombre = p.nombre_comercial || p.razon_social || '';
+                        const extra  = (p.nombre_comercial && p.nombre_comercial !== p.razon_social)
+                            ? p.razon_social : '';
+                        // Escape para el onclick
+                        const n  = nombre.replace(/\\/g,'\\\\').replace(/'/g, "\\'");
+                        const r  = (p.ruc || '').replace(/'/g, "\\'");
+                        const rs = (p.razon_social || '').replace(/\\/g,'\\\\').replace(/'/g, "\\'");
+                        return `
+                            <div onclick="seleccionarProveedor(${p.id},'${n}','${r}','${rs}')"
+                                 class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors">
+                                <div class="font-medium text-gray-900 text-sm">${nombre}</div>
+                                <div class="text-xs text-gray-500 mt-0.5 flex items-center gap-3">
+                                    ${extra ? `<span>${extra}</span>` : ''}
+                                    <span class="font-mono text-blue-600">RUC: ${p.ruc || '—'}</span>
+                                </div>
+                            </div>`;
+                    }).join('');
+                }
+                provResultados.classList.remove('hidden');
+            }, 300);
+        });
+
+        // Cerrar dropdown al hacer clic fuera
+        document.addEventListener('click', function (e) {
+            const container = document.getElementById('proveedor_container');
+            if (container && !container.contains(e.target)) {
+                provResultados.classList.add('hidden');
+            }
+        });
+
+        // Cerrar con Escape
+        provInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                provResultados.classList.add('hidden');
+                provResultados.innerHTML = '';
+            }
+        });
+    })();
+
+    function seleccionarProveedor(id, nombre, ruc, razonSocial) {
+        document.getElementById('proveedor_id').value = id;
+        document.getElementById('proveedor_nombre_display').textContent = nombre;
+        document.getElementById('proveedor_ruc_display').textContent =
+            (razonSocial && razonSocial !== nombre)
+                ? `${razonSocial} · RUC: ${ruc}`
+                : `RUC: ${ruc}`;
+
+        // Mostrar card, ocultar buscador
+        document.getElementById('proveedor_seleccionado').classList.remove('hidden');
+        document.getElementById('proveedor_busqueda_wrap').style.display = 'none';
+        document.getElementById('proveedor_resultados').classList.add('hidden');
+        document.getElementById('buscar_proveedor').value = '';
+    }
+
+    function limpiarProveedorSeleccionado() {
+        document.getElementById('proveedor_id').value = '';
+        document.getElementById('proveedor_seleccionado').classList.add('hidden');
+        document.getElementById('proveedor_busqueda_wrap').style.display = '';
+        document.getElementById('buscar_proveedor').value = '';
+        document.getElementById('buscar_proveedor').focus();
+    }
 
     // ============================================
     // FUNCIONES DE UTILIDAD
@@ -588,7 +744,11 @@
                     <span class="absolute left-3 top-2 text-gray-500 text-sm">S/</span>
                     <input type="number" name="detalles[${idx}][precio_unitario]"
                            id="precio_${idx}"
-                           value="0.00" min="0" step="0.01"
+                           value="" min="0.01" step="0.01"
+                           placeholder="0.00"
+                           onfocus="if(this.value==='0'||this.value==='0.00')this.value=''"
+                           onblur="if(this.value===''||parseFloat(this.value)===0){this.value='';}"
+                           oninput="calcularSubtotal(${idx})"
                            onchange="calcularSubtotal(${idx})"
                            class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
                            required>
@@ -654,16 +814,26 @@
         // Habilitar marca
         marcaSelect.disabled = false;
 
+        // Habilitar color para TODOS los productos (no solo tipo serie)
+        // El catálogo completo ya está cargado en el select
+        colorSelect.disabled = false;
+
         // Si el producto ya tiene marca asignada, pre-seleccionarla
+        // Se pasa también el modelo_id para que se pre-seleccione tras cargar las opciones
         if (producto.marca_id) {
             marcaSelect.value = producto.marca_id;
-            cambiarMarca(index);
+            cambiarMarca(index, producto.modelo_id || null);
+        }
+
+        // Pre-seleccionar color si el producto lo trae
+        if (producto.color_id) {
+            colorSelect.value = producto.color_id;
         }
 
         calcularSubtotal(index);
     }
 
-    function cambiarMarca(index) {
+    function cambiarMarca(index, preseleccionarModeloId = null) {
         const marcaSelect = document.getElementById(`marca_select_${index}`);
         const modeloSelect = document.getElementById(`modelo_select_${index}`);
         const colorSelect = document.getElementById(`color_${index}`);
@@ -671,7 +841,6 @@
 
         modeloSelect.innerHTML = '<option value="">— Modelo —</option>';
         modeloSelect.disabled = true;
-        colorSelect.disabled = true;
         btnIMEI.disabled = true;
 
         const marcaId = marcaSelect.value;
@@ -690,6 +859,12 @@
                     modeloSelect.innerHTML += `<option value="${m.id}">${m.nombre}</option>`;
                 });
                 modeloSelect.disabled = false;
+
+                // Pre-seleccionar modelo si se indicó (ej: al cargar producto existente)
+                if (preseleccionarModeloId) {
+                    modeloSelect.value = preseleccionarModeloId;
+                    modeloSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                }
             })
             .catch(() => {
                 modeloSelect.innerHTML = '<option value="">Error al cargar</option>';
@@ -703,22 +878,28 @@
         const productoSelect = document.getElementById(`producto_select_${index}`);
         const producto = catalogoProductos.find(p => p.id == productoSelect.value);
 
-        if (!producto || producto.tipo_inventario !== 'serie') return;
+        if (!producto) return;
 
-        if (modeloSelect.value) {
-            colorSelect.disabled = false;
-            colorSelect.required = true;
-        } else {
-            colorSelect.disabled = true;
-            colorSelect.required = false;
-            btnIMEI.disabled = true;
+        // El color ya está habilitado desde cargarDetallesProducto para todos los tipos
+        // Solo el botón de IMEIs requiere tipo 'serie' + modelo seleccionado + color seleccionado
+        if (producto.tipo_inventario === 'serie') {
+            btnIMEI.disabled = !(modeloSelect.value && colorSelect.value);
         }
     }
 
     function actualizarVistaIMEI(index) {
-        const colorSelect = document.getElementById(`color_${index}`);
-        const btnIMEI = document.getElementById(`btn_imei_${index}`);
-        btnIMEI.disabled = !colorSelect.value;
+        const colorSelect   = document.getElementById(`color_${index}`);
+        const btnIMEI       = document.getElementById(`btn_imei_${index}`);
+        const productoSelect = document.getElementById(`producto_select_${index}`);
+        const producto = catalogoProductos.find(p => p.id == productoSelect.value);
+
+        // Solo habilitar el botón IMEI si el producto es de tipo 'serie'
+        // y además tiene modelo y color seleccionados
+        if (producto && producto.tipo_inventario === 'serie') {
+            const modeloSelect = document.getElementById(`modelo_select_${index}`);
+            btnIMEI.disabled = !(colorSelect.value && modeloSelect.value);
+        }
+        // Para productos regulares el botón queda siempre deshabilitado
     }
 
     function actualizarCantidad(index) {
@@ -734,45 +915,44 @@
     }
 
     function calcularTotales() {
-    let subtotalGeneral = 0;
-    document.querySelectorAll('#detallesBody tr').forEach(row => {
-        const match = row.id.match(/producto_(\d+)/);
-        if (match) {
-            const el = document.getElementById(`subtotal_${match[1]}`);
-            if (el) subtotalGeneral += parseFloat(el.innerText.replace('S/ ', '')) || 0;
-        }
-    });
+        let subtotalGeneral = 0;
+        document.querySelectorAll('#detallesBody tr').forEach(row => {
+            const match = row.id.match(/producto_(\d+)/);
+            if (match) {
+                const el = document.getElementById(`subtotal_${match[1]}`);
+                if (el) subtotalGeneral += parseFloat(el.innerText.replace('S/ ', '')) || 0;
+            }
+        });
 
-    // Obtener tipo de operación SUNAT
-    const tipoOperacion = document.getElementById('tipo_operacion').value;
-    const incluyeIGV = document.getElementById('incluir_igv').checked;
-    
-    let igv = 0;
-    let total = subtotalGeneral;
+        // Tipo de operación SUNAT y checkbox IGV
+        const tipoOperacion = document.getElementById('tipo_operacion').value;
+        const incluyeIGV = document.getElementById('incluir_igv').checked;
 
-    // Solo aplicar IGV si es gravado (01)
-    if (tipoOperacion === '01') {
-        if (incluyeIGV) {
-            // Si el checkbox está marcado, el precio YA INCLUYE IGV
-            // Subtotal ya incluye IGV, así que separamos
-            igv = subtotalGeneral * (0.18 / 1.18); // IGV incluido
-            total = subtotalGeneral;
-        } else {
-            // Si no incluye IGV, lo agregamos
+        let igv = 0;
+        let total = subtotalGeneral;
+
+        // Gravado (01) + checkbox activo → se agrega IGV 18% sobre el subtotal
+        // Cualquier otro caso (02/03/04) o checkbox desactivado → sin IGV
+        if (tipoOperacion === '01' && incluyeIGV) {
             igv = subtotalGeneral * 0.18;
             total = subtotalGeneral + igv;
         }
-    } else {
-        // Exonerado, inafecto o exportación: No aplica IGV
-        igv = 0;
-        total = subtotalGeneral;
-    }
 
-    document.getElementById('subtotal').innerText = `S/ ${subtotalGeneral.toFixed(2)}`;
-    document.getElementById('igv').innerText = `S/ ${igv.toFixed(2)}`;
-    document.getElementById('total').innerText = `S/ ${total.toFixed(2)}`;
-    document.getElementById('tipo_operacion').addEventListener('change', calcularTotales);
-}
+        // Actualizar UI
+        document.getElementById('subtotal').innerText = `S/ ${subtotalGeneral.toFixed(2)}`;
+        document.getElementById('igv').innerText     = `S/ ${igv.toFixed(2)}`;
+        document.getElementById('total').innerText   = `S/ ${total.toFixed(2)}`;
+
+        // Deshabilitar visualmente el checkbox si no aplica IGV
+        const igvCheckbox = document.getElementById('incluir_igv');
+        const igvLabel    = igvCheckbox.parentElement;
+        if (tipoOperacion !== '01') {
+            igvCheckbox.checked = false;
+            igvLabel.classList.add('opacity-40', 'pointer-events-none');
+        } else {
+            igvLabel.classList.remove('opacity-40', 'pointer-events-none');
+        }
+    }
     // ============================================
     // FUNCIONES DEL MODAL DE PRODUCTOS
     // ============================================
@@ -783,13 +963,6 @@
             buscador.focus();
             buscarProductos('');
         }, 100);
-    }
-
-    function cerrarModalProductos() {
-        modalProductos.classList.add('hidden');
-        modalProductos.classList.remove('flex');
-        buscador.value = '';
-        resultadosDiv.innerHTML = '';
     }
 
     if (buscador) {
@@ -847,7 +1020,7 @@
             <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:shadow-lg transition-all group">
                 <div class="flex items-start gap-3">
                     <div class="flex items-center mt-1">
-                        <input type="checkbox" 
+                        <input type="checkbox"
                             class="producto-checkbox w-5 h-5 rounded border-gray-300 text-blue-900 focus:ring-blue-500"
                             value="${p.id}"
                             onchange="actualizarSeleccion(this, ${p.id})">
@@ -862,14 +1035,22 @@
                             <span class="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
                                 ${p.categoria || 'Sin categoría'}
                             </span>
-                            ${p.tipo_inventario === 'serie' ? 
-                                '<span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-microchip mr-1"></i>IMEI</span>' : 
+                            ${p.tipo_inventario === 'serie' ?
+                                '<span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-microchip mr-1"></i>IMEI</span>' :
                                 '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full"><i class="fas fa-boxes mr-1"></i>Stock</span>'}
                         </div>
                     </div>
                 </div>
             </div>
-        `).join('');
+        `).join('') + `
+            <div class="col-span-full mt-3 pt-3 border-t border-gray-200 text-center">
+                <button type="button"
+                        onclick="abrirModalCrearProducto(document.getElementById('buscadorProductos').value)"
+                        class="inline-flex items-center text-sm text-green-700 hover:text-green-900 transition font-medium">
+                    <i class="fas fa-plus-circle mr-1"></i>
+                    ¿No está el producto? Créalo aquí
+                </button>
+            </div>`;
     }
     // Función para actualizar selección
     function actualizarSeleccion(checkbox, productoId) {
@@ -893,25 +1074,38 @@
             return;
         }
 
+        // Capturar IDs y cerrar el modal INMEDIATAMENTE
+        // Esto limpia el DOM del modal (checkboxes incluidos) antes de seguir
+        const ids = Array.from(productosSeleccionadosIds);
+        const totalIds = ids.length;
+        cerrarModalProductos(); // limpia productosSeleccionadosIds, DOM y contador
+
         let procesados = 0;
-        productosSeleccionadosIds.forEach(id => {
+        ids.forEach(id => {
             fetch(`/compras/producto/${id}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error('Error al cargar producto');
+                    return response.json();
+                })
                 .then(producto => {
                     agregarProductoConDatos(producto);
                     procesados++;
-                    if (procesados === productosSeleccionadosIds.size) {
+                    if (procesados === totalIds) {
                         Swal.fire({
                             icon: 'success',
                             title: 'Productos agregados',
-                            text: `${procesados} producto(s) agregados correctamente`,
+                            text: `${totalIds} producto(s) agregados correctamente`,
                             timer: 1500,
                             showConfirmButton: false
                         });
-                        productosSeleccionadosIds.clear();
-                        document.getElementById('productosSeleccionadosCount').innerText = '0 productos seleccionados';
-                        cerrarModalProductos();
                     }
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se pudo cargar uno de los productos. Inténtalo nuevamente.'
+                    });
                 });
         });
     }
@@ -959,21 +1153,17 @@
         const index = contadorProductos - 1;
         
         const selectProducto = document.getElementById(`producto_select_${index}`);
+        const selectMarca = document.getElementById(`marca_select_${index}`);
+        const selectModelo = document.getElementById(`modelo_select_${index}`);
+        const selectColor = document.getElementById(`color_${index}`);
+        
         if (selectProducto) {
             selectProducto.value = producto.id;
-            
+
             const event = new Event('change', { bubbles: true });
+            // Disparar change en producto — esto llama a cargarDetallesProducto,
+            // que ya se encarga de seleccionar marca, cargar modelos y pre-seleccionar modelo/color
             selectProducto.dispatchEvent(event);
-            
-            if (producto.marca_id) {
-                setTimeout(() => {
-                    const selectMarca = document.getElementById(`marca_select_${index}`);
-                    if (selectMarca) {
-                        selectMarca.value = producto.marca_id;
-                        selectMarca.dispatchEvent(event);
-                    }
-                }, 500);
-            }
         }
     }
 
@@ -1029,7 +1219,17 @@
         
         document.getElementById('imeiModal').classList.remove('hidden');
         document.getElementById('imeiModal').classList.add('flex');
-        
+        const toolbar = document.querySelector('#imeiModal .bg-gray-50 .flex-wrap');
+            if (toolbar && !document.getElementById('btnImportarArchivo')) {
+                toolbar.innerHTML += `
+                    <button type="button" onclick="importarIMEIDesdeArchivo(${index})" 
+                            class="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 text-sm flex items-center">
+                        <i class="fas fa-file-import mr-1"></i>
+                        Importar archivo
+                    </button>
+                `;
+            }
+                
         actualizarContadorIMEI();
     }
 
@@ -1090,6 +1290,7 @@
         let valido = true;
         let primerError = null;
 
+        // Validar IMEIs
         inputs.forEach((input, index) => {
             const valor = input.value.trim();
             if (valor.length !== 15) {
@@ -1117,10 +1318,13 @@
         if (productoEnEdicion !== null) {
             const idx = productoEnEdicion;
 
+            // Eliminar inputs ocultos anteriores
             document.querySelectorAll(`[data-imei-row="${idx}"]`).forEach(el => el.remove());
 
+            // Guardar en objeto
             imeisPorFila[idx] = imeis;
 
+            // Crear inputs ocultos con estructura correcta
             imeis.forEach((imei, i) => {
                 const input = document.createElement('input');
                 input.type = 'hidden';
@@ -1130,18 +1334,26 @@
                 document.getElementById('compraForm').appendChild(input);
             });
 
+            // Actualizar info en la tabla
             actualizarInfoIMEI(idx);
             
+            // CERRAR MODAL
+            cerrarModalIMEI();
+            
+            // MOSTRAR MENSAJE DE ÉXITO
             Swal.fire({
                 icon: 'success',
-                title: 'IMEIs guardados',
+                title: '¡IMEIs guardados!',
                 text: `${imeis.length} IMEI(s) registrados correctamente`,
-                timer: 1500,
-                showConfirmButton: false
+                timer: 2000,
+                showConfirmButton: false,
+                position: 'center',
+                background: '#ffffff',
+                iconColor: '#10b981'
             });
+        } else {
+            cerrarModalIMEI();
         }
-
-        cerrarModalIMEI();
     }
 
     function generarIMEIsAleatorios() {
@@ -1219,6 +1431,57 @@
         
         fileInput.click();
     }
+    function importarIMEIDesdeArchivo(index) {
+        // Crear input file oculto
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.txt,.csv';
+        
+        fileInput.onchange = function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const contenido = e.target.result;
+                const lineas = contenido.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+                
+                const inputs = document.querySelectorAll('.imei-input');
+                let importados = 0;
+                
+                lineas.forEach((linea, idx) => {
+                    if (idx < inputs.length) {
+                        const partes = linea.split(',');
+                        const imei = partes[0].trim().substring(0, 15);
+                        
+                        if (imei.length === 15 && /^\d+$/.test(imei)) {
+                            inputs[idx].value = imei;
+                            validarIMEIInput(inputs[idx]);
+                            importados++;
+                            
+                            // Si hay serie, guardarla (opcional)
+                            if (partes[1]) {
+                                // Aquí podrías guardar la serie si tienes campo para eso
+                            }
+                        }
+                    }
+                });
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Importación completada',
+                    text: `Se importaron ${importados} de ${inputs.length} IMEIs válidos`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            };
+            
+            reader.readAsText(file);
+        };
+        
+        fileInput.click();
+    }
 
     function limpiarIMEIs() {
         Swal.fire({
@@ -1272,10 +1535,328 @@
         // Agregar un producto por defecto al cargar la página
         agregarProducto();
 
-        // Event listeners para toggles
+        // Recalcular totales al cambiar checkbox IGV
         document.getElementById('incluir_igv').addEventListener('change', calcularTotales);
+
+        // Recalcular totales al cambiar tipo de operación SUNAT
+        document.getElementById('tipo_operacion').addEventListener('change', calcularTotales);
+
+        // Ejecutar cálculo inicial para reflejar el tipo de operación por defecto
+        calcularTotales();
+
+        // Validación del proveedor al enviar el formulario
+        document.getElementById('compraForm').addEventListener('submit', function(e) {
+            if (!document.getElementById('proveedor_id').value) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Proveedor requerido',
+                    text: 'Selecciona un proveedor antes de continuar.',
+                    confirmButtonColor: '#1e3a8a'
+                });
+                document.getElementById('buscar_proveedor')?.focus();
+                return false;
+            }
+            // Validar que haya al menos un producto
+            if (contadorProductos === 0 || !document.querySelector('#detallesBody tr')) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Productos requeridos',
+                    text: 'Debes agregar al menos un producto a la compra.',
+                    confirmButtonColor: '#1e3a8a'
+                });
+                return false;
+            }
+            
+            return true; // Todo OK, se envía
+        });
     });
+
+// ============================================
+// MODAL CREAR PRODUCTO RÁPIDO
+// ============================================
+function abrirModalCrearProducto(terminoBusqueda) {
+    document.getElementById('np_nombre').value = terminoBusqueda || '';
+    document.getElementById('np_categoria').value = '';
+    document.getElementById('np_tipo').value = 'regular';
+    const marcaSelect = document.getElementById('np_marca');
+    marcaSelect.innerHTML = '<option value="">Seleccionar categoría primero...</option>';
+    marcaSelect.disabled = true;
+    const modeloSelect = document.getElementById('np_modelo');
+    modeloSelect.innerHTML = '<option value="">Seleccionar marca primero...</option>';
+    modeloSelect.disabled = true;
+    document.getElementById('np_color').value = '';
+
+    const modal = document.getElementById('modalCrearProducto');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => document.getElementById('np_nombre').focus(), 100);
+}
+
+function cerrarModalCrearProducto() {
+    const modal = document.getElementById('modalCrearProducto');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function cargarMarcasNuevoProducto() {
+    const categoriaId = document.getElementById('np_categoria').value;
+    const marcaSelect = document.getElementById('np_marca');
+    const modeloSelect = document.getElementById('np_modelo');
+
+    modeloSelect.innerHTML = '<option value="">Seleccionar marca primero...</option>';
+    modeloSelect.disabled = true;
+
+    if (!categoriaId) {
+        marcaSelect.innerHTML = '<option value="">Seleccionar categoría primero...</option>';
+        marcaSelect.disabled = true;
+        return;
+    }
+
+    marcaSelect.innerHTML = '<option value="">Cargando...</option>';
+    marcaSelect.disabled = true;
+
+    fetch(`/catalogo/marcas-por-categoria/${categoriaId}`)
+        .then(r => r.json())
+        .then(marcas => {
+            marcaSelect.disabled = false;
+            marcaSelect.innerHTML = '<option value="">Seleccionar marca...</option>' +
+                marcas.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+        })
+        .catch(() => {
+            marcaSelect.disabled = false;
+            marcaSelect.innerHTML = '<option value="">Error al cargar</option>';
+        });
+}
+
+function cargarModelosNuevoProducto() {
+    const marcaId = document.getElementById('np_marca').value;
+    const modeloSelect = document.getElementById('np_modelo');
+
+    if (!marcaId) {
+        modeloSelect.innerHTML = '<option value="">Seleccionar marca primero...</option>';
+        modeloSelect.disabled = true;
+        return;
+    }
+
+    modeloSelect.innerHTML = '<option value="">Cargando...</option>';
+    modeloSelect.disabled = true;
+
+    fetch(`/catalogo/modelos-por-marca/${marcaId}`)
+        .then(r => r.json())
+        .then(modelos => {
+            modeloSelect.disabled = false;
+            modeloSelect.innerHTML = '<option value="">Seleccionar modelo...</option>' +
+                modelos.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+        })
+        .catch(() => {
+            modeloSelect.disabled = false;
+            modeloSelect.innerHTML = '<option value="">Error al cargar</option>';
+        });
+}
+
+function guardarNuevoProducto() {
+    const nombre      = document.getElementById('np_nombre').value.trim();
+    const categoriaId = document.getElementById('np_categoria').value;
+    const marcaId     = document.getElementById('np_marca').value;
+    const modeloId    = document.getElementById('np_modelo').value;
+    const colorId     = document.getElementById('np_color').value;
+    const tipo        = document.getElementById('np_tipo').value;
+
+    if (!nombre) {
+        Swal.fire({ icon: 'warning', title: 'Falta el nombre', text: 'Ingresa el nombre del producto.', confirmButtonColor: '#1e3a8a' });
+        document.getElementById('np_nombre').focus();
+        return;
+    }
+    if (!categoriaId) {
+        Swal.fire({ icon: 'warning', title: 'Falta la categoría', text: 'Selecciona una categoría.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
+    if (!marcaId) {
+        Swal.fire({ icon: 'warning', title: 'Falta la marca', text: 'Selecciona una marca.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
+    if (!modeloId) {
+        Swal.fire({ icon: 'warning', title: 'Falta el modelo', text: 'Selecciona un modelo.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
+
+    const btn = document.getElementById('btn_guardar_nuevo_producto');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creando...';
+
+    fetch('{{ route("compras.crear-producto-rapido") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify({
+            nombre,
+            categoria_id: categoriaId,
+            marca_id: marcaId,
+            modelo_id: modeloId,
+            color_id: colorId || null,
+            tipo_inventario: tipo,
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save mr-2"></i>Crear y Agregar';
+
+        if (!data.success) {
+            Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo crear el producto.', confirmButtonColor: '#d33' });
+            return;
+        }
+
+        // Agregar al catálogo local para que agregarProductoConDatos lo encuentre
+        catalogoProductos.push({
+            id: data.id,
+            nombre: data.nombre,
+            tipo_inventario: data.tipo_inventario,
+            categoria: data.categoria,
+            marca_id: data.marca_id,
+            marca: data.marca,
+            modelo_id: data.modelo_id,
+            modelo: data.modelo,
+            requiere_imei: data.requiere_imei,
+        });
+
+        cerrarModalCrearProducto();
+        cerrarModalProductos();
+        agregarProductoConDatos(data);
+
+        Swal.fire({
+            icon: 'success',
+            title: '¡Producto creado!',
+            text: `"${data.nombre}" fue creado y agregado a la compra.`,
+            timer: 2000,
+            showConfirmButton: false,
+        });
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save mr-2"></i>Crear y Agregar';
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar al servidor.', confirmButtonColor: '#d33' });
+    });
+}
 </script>
-    
+
+<!-- ============================================================ -->
+<!-- MODAL: CREAR PRODUCTO RÁPIDO                                 -->
+<!-- ============================================================ -->
+<div id="modalCrearProducto"
+     class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-700 to-green-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+            <h3 class="text-lg font-bold text-white flex items-center">
+                <i class="fas fa-plus-circle mr-2"></i>
+                Crear Producto Rápido
+            </h3>
+            <button type="button" onclick="cerrarModalCrearProducto()"
+                    class="text-white hover:text-green-200 transition">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 space-y-4">
+
+            <!-- Nombre -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre del producto <span class="text-red-500">*</span>
+                </label>
+                <input type="text" id="np_nombre"
+                       class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition"
+                       placeholder="Ej: iPhone 15 Pro Max">
+            </div>
+
+            <!-- Categoría + Tipo inventario -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Categoría <span class="text-red-500">*</span>
+                    </label>
+                    <select id="np_categoria" onchange="cargarMarcasNuevoProducto()"
+                            class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                        <option value="">Seleccionar...</option>
+                        @foreach($categorias as $cat)
+                            <option value="{{ $cat->id }}">{{ $cat->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo <span class="text-red-500">*</span>
+                    </label>
+                    <select id="np_tipo"
+                            class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                        <option value="regular">Regular (stock)</option>
+                        <option value="serie">Serie (IMEI)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Marca + Modelo -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Marca <span class="text-red-500">*</span>
+                    </label>
+                    <select id="np_marca" onchange="cargarModelosNuevoProducto()"
+                            class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                        <option value="">Seleccionar categoría primero...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Modelo <span class="text-red-500">*</span>
+                    </label>
+                    <select id="np_modelo"
+                            class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                        <option value="">Seleccionar marca primero...</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Color (opcional) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Color
+                    <span class="text-gray-400 text-xs font-normal">(opcional)</span>
+                </label>
+                <select id="np_color"
+                        class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                    <option value="">Sin color</option>
+                    @foreach($colores as $c)
+                        <option value="{{ $c->id }}">{{ $c->nombre }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+        </div><!-- /body -->
+
+        <!-- Footer -->
+        <div class="px-6 pb-6 flex justify-end gap-3">
+            <button type="button" onclick="cerrarModalCrearProducto()"
+                    class="px-5 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
+                Cancelar
+            </button>
+            <button type="button" onclick="guardarNuevoProducto()"
+                    id="btn_guardar_nuevo_producto"
+                    class="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-green-700 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-500 transition shadow-md font-medium">
+                <i class="fas fa-save mr-2"></i>
+                Crear y Agregar
+            </button>
+        </div>
+
+    </div>
+</div>
+
 </body>
 </html>

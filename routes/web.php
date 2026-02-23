@@ -280,6 +280,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [CompraController::class, 'store'])->name('store');
         Route::get('buscar-productos', [CompraController::class, 'buscarProductos'])->name('buscar-productos');
         Route::get('producto/{id}', [CompraController::class, 'getProductoDetalle'])->name('producto-detalle');
+        Route::post('crear-producto-rapido', [CompraController::class, 'crearProductoRapido'])->name('crear-producto-rapido');
         Route::get('/{compra}', [CompraController::class, 'show'])->name('show');
 
         // Rutas para importación de IMEI (AHORA ESTÁN EN EL LUGAR CORRECTO)
