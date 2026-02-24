@@ -105,7 +105,6 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logo</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categorías</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sitio Web</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                     </tr>
@@ -136,16 +135,6 @@
                                 </div>
                             @else
                                 <span class="text-gray-400 text-sm">-</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            @if($marca->sitio_web)
-                                <a href="{{ $marca->sitio_web }}" target="_blank" class="text-blue-600 hover:underline">
-                                    <i class="fas fa-external-link-alt text-xs mr-1"></i>
-                                    {{ parse_url($marca->sitio_web, PHP_URL_HOST) ?? $marca->sitio_web }}
-                                </a>
-                            @else
-                                -
                             @endif
                         </td>
                         <td class="px-6 py-4">

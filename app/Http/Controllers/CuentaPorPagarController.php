@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CuentaPorPagar;
+use App\Models\Cuota;
 use App\Models\Proveedor;
 use App\Models\Pago;
 use Illuminate\Http\Request;
@@ -65,8 +66,136 @@ class CuentaPorPagarController extends Controller
      */
     public function show(CuentaPorPagar $cuenta)
     {
-        $cuenta->load(['proveedor', 'compra', 'pagos']);
+        $cuenta->load(['proveedor', 'compra', 'pagos.usuario', 'cuotas.pago']);
         return view('compras.cuentas-por-pagar.show', compact('cuenta'));
+    }
+
+    /**
+     * Generar cuadro de cuotas automático
+     */
+    public function generarCuotas(Request $request, CuentaPorPagar $cuenta)
+    {
+        $request->validate([
+            'num_cuotas' => 'required|integer|min:1|max:48',
+        ]);
+
+        if ($cuenta->saldo_pendiente <= 0) {
+            return response()->json(['success' => false, 'message' => 'La cuenta ya está completamente pagada.'], 422);
+        }
+
+        $numCuotas  = (int) $request->num_cuotas;
+        $saldo      = (float) $cuenta->saldo_pendiente;
+        $diasCredito = max(1, (int) ($cuenta->dias_credito ?? 30));
+        $intervalo  = max(1, (int) round($diasCredito / $numCuotas));
+
+        // Monto por cuota (la última absorbe el redondeo)
+        $montoCuota = round($saldo / $numCuotas, 2);
+        $montoUltima = round($saldo - $montoCuota * ($numCuotas - 1), 2);
+
+        try {
+            DB::beginTransaction();
+
+            // Eliminar cuotas pendientes previas
+            $cuenta->cuotas()->where('estado', 'pendiente')->delete();
+
+            $fechaBase = $cuenta->fecha_emision;
+            for ($i = 1; $i <= $numCuotas; $i++) {
+                Cuota::create([
+                    'cuenta_por_pagar_id' => $cuenta->id,
+                    'numero_cuota'        => $i,
+                    'total_cuotas'        => $numCuotas,
+                    'monto'               => $i === $numCuotas ? $montoUltima : $montoCuota,
+                    'fecha_vencimiento'   => $fechaBase->copy()->addDays($intervalo * $i),
+                    'estado'              => 'pendiente',
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Se generaron {$numCuotas} cuotas correctamente.",
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Registrar pago de una cuota específica con voucher
+     */
+    public function pagarCuota(Request $request, Cuota $cuota)
+    {
+        $cuenta = $cuota->cuentaPorPagar;
+
+        $request->validate([
+            'monto'         => 'required|numeric|min:0.01',
+            'fecha_pago'    => 'required|date',
+            'metodo_pago'   => 'required|in:transferencia,cheque,efectivo,tarjeta',
+            'referencia'    => 'nullable|string|max:100',
+            'observaciones' => 'nullable|string|max:255',
+            'comprobante'   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+        ]);
+
+        if ($cuota->estado === 'pagado') {
+            return response()->json(['success' => false, 'message' => 'Esta cuota ya fue pagada.'], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $comprobantePath = null;
+            $comprobanteOriginalName = null;
+
+            if ($request->hasFile('comprobante')) {
+                $file = $request->file('comprobante');
+                $comprobanteOriginalName = $file->getClientOriginalName();
+                $comprobantePath = $file->store('comprobantes/pagos', 'public');
+            }
+
+            $pago = Pago::create([
+                'cuenta_por_pagar_id'       => $cuenta->id,
+                'monto'                     => $request->monto,
+                'fecha_pago'                => $request->fecha_pago,
+                'metodo_pago'               => $request->metodo_pago,
+                'referencia'                => $request->referencia,
+                'usuario_id'                => auth()->id(),
+                'estado'                    => 'procesado',
+                'observaciones'             => $request->observaciones,
+                'numero_cuota'              => $cuota->numero_cuota,
+                'total_cuotas'              => $cuota->total_cuotas,
+                'comprobante_path'          => $comprobantePath,
+                'comprobante_original_name' => $comprobanteOriginalName,
+            ]);
+
+            // Marcar cuota como pagada
+            $cuota->update(['estado' => 'pagado', 'pago_id' => $pago->id]);
+
+            // Actualizar saldo de la cuenta
+            $nuevoPagado    = $cuenta->monto_pagado + $request->monto;
+            $saldoPendiente = $cuenta->monto_total - $nuevoPagado;
+            $nuevoEstado    = $saldoPendiente <= 0 ? 'pagado' : 'parcial';
+
+            if ($saldoPendiente > 0 && $cuenta->fecha_vencimiento && now()->greaterThan($cuenta->fecha_vencimiento)) {
+                $nuevoEstado = 'vencido';
+            }
+
+            $cuenta->update([
+                'monto_pagado'      => $nuevoPagado,
+                'estado'            => $nuevoEstado,
+                'fecha_ultimo_pago' => $request->fecha_pago,
+            ]);
+
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Cuota registrada como pagada.']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
     }
 
     /**

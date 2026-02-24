@@ -21,6 +21,9 @@ class Pago extends Model
         'usuario_id',
         'observaciones',
         'comprobante_path',
+        'comprobante_original_name',
+        'numero_cuota',
+        'total_cuotas',
     ];
 
     protected $casts = [

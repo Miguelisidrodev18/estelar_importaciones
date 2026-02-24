@@ -250,9 +250,24 @@
                             <label for="tipo_cambio" class="block text-sm font-medium text-gray-700 mb-1.5">
                                 Tipo de Cambio (S/ por $)
                             </label>
-                            <input type="number" name="tipo_cambio" id="tipo_cambio"
-                                   value="{{ old('tipo_cambio', '3.80') }}" min="0.001" step="0.001"
-                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                            <div class="flex gap-2 items-center">
+                                <input type="number" name="tipo_cambio" id="tipo_cambio"
+                                       value="{{ old('tipo_cambio', '') }}" min="0.001" step="0.001"
+                                       placeholder="Ej: 3.750"
+                                       oninput="calcularTotales()"
+                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                <button type="button" id="btnCargarTC" onclick="cargarTipoCambioSUNAT()"
+                                        title="Cargar tipo de cambio desde SUNAT"
+                                        class="flex-shrink-0 px-3 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl border-2 border-blue-200 transition text-sm font-medium whitespace-nowrap">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <div id="tcInfo" class="hidden mt-1.5 px-3 py-2 bg-green-50 rounded-lg text-xs text-gray-600 flex flex-wrap gap-3">
+                                <span>Compra: <strong id="tcCompra" class="text-gray-800"></strong></span>
+                                <span>Venta: <strong id="tcVenta" class="text-gray-800"></strong></span>
+                                <span class="text-gray-400 italic" id="tcFecha"></span>
+                                <span class="text-green-600 font-medium"><i class="fas fa-check-circle mr-0.5"></i>SUNAT</span>
+                            </div>
                         </div>
 
                         <!-- Tipo de Operación SUNAT (dentro del grid, fila completa) -->
@@ -306,8 +321,8 @@
                                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Modelo</th>
                                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Color</th>
                                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cant.</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Precio Unit.</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Subtotal</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" id="thPrecioUnit">Precio Unit. (S/)</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" id="thSubtotal">Subtotal</th>
                                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">IMEIs</th>
                                         <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-20">Acciones</th>
                                     </tr>
@@ -349,6 +364,17 @@
                                     <div class="flex justify-between font-bold text-base pt-3 border-t-2 border-gray-200">
                                         <span class="text-gray-900">Total:</span>
                                         <span id="total" class="text-blue-900">S/ 0.00</span>
+                                    </div>
+                                    <!-- Equivalente en PEN (solo visible cuando moneda = USD) -->
+                                    <div id="equivalentePEN" class="hidden pt-2 border-t border-dashed border-blue-200">
+                                        <div class="flex justify-between items-center text-sm">
+                                            <span class="text-gray-500 flex items-center gap-1">
+                                                <i class="fas fa-exchange-alt text-xs text-blue-500"></i>
+                                                Equivalente en soles:
+                                            </span>
+                                            <span id="totalPEN" class="font-semibold text-blue-900">S/ 0.00</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 text-right mt-0.5">TC: <span id="tcUsado">—</span></p>
                                     </div>
                                 </div>
                             </div>
@@ -676,7 +702,64 @@
 
     function toggleTipoCambio(valor) {
         const div = document.getElementById('tipo_cambio_div');
-        div.style.display = valor === 'USD' ? 'block' : 'none';
+        if (valor === 'USD') {
+            div.style.display = 'block';
+            // Si el campo está vacío, cargar automáticamente
+            const tc = document.getElementById('tipo_cambio');
+            if (!tc.value) cargarTipoCambioSUNAT();
+        } else {
+            div.style.display = 'none';
+        }
+        actualizarSimbolosMoneda(valor);
+        calcularTotales();
+    }
+
+    async function cargarTipoCambioSUNAT() {
+        const btn = document.getElementById('btnCargarTC');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('{{ route("compras.tipo-cambio") }}').then(r => r.json());
+            if (res.success) {
+                // Usamos el precio de venta: es lo que pagamos al comprar dólares
+                document.getElementById('tipo_cambio').value = res.venta;
+                document.getElementById('tcCompra').textContent = res.compra;
+                document.getElementById('tcVenta').textContent = res.venta;
+                document.getElementById('tcFecha').textContent = res.fecha ? `(${res.fecha})` : '';
+                document.getElementById('tcInfo').classList.remove('hidden');
+                calcularTotales();
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sin conexión a SUNAT',
+                    text: res.message,
+                    confirmButtonColor: '#1e3a8a',
+                });
+            }
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'Error de red', text: 'Ingresa el tipo de cambio manualmente.', confirmButtonColor: '#d33' });
+        } finally {
+            btn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            btn.disabled = false;
+        }
+    }
+
+    function actualizarSimbolosMoneda(moneda) {
+        const simbolo = moneda === 'USD' ? '$' : 'S/';
+        const thPrecio = document.getElementById('thPrecioUnit');
+        if (thPrecio) thPrecio.textContent = `Precio Unit. (${simbolo})`;
+
+        // Actualizar prefijos en filas existentes
+        document.querySelectorAll('[id^="precio_prefix_"]').forEach(el => {
+            el.textContent = simbolo;
+        });
+
+        // Recalcular subtotales con nuevo símbolo
+        document.querySelectorAll('#detallesBody tr').forEach(row => {
+            const match = row.id?.match(/producto_(\d+)/);
+            if (match) calcularSubtotal(parseInt(match[1]));
+        });
     }
 
     // ============================================
@@ -751,7 +834,7 @@
             </td>
             <td class="px-4 py-3">
                 <div class="relative">
-                    <span class="absolute left-3 top-2 text-gray-500 text-sm">S/</span>
+                    <span class="absolute left-3 top-2 text-gray-500 text-sm" id="precio_prefix_${idx}">${document.getElementById('tipo_moneda').value === 'USD' ? '$' : 'S/'}</span>
                     <input type="number" name="detalles[${idx}][precio_unitario]"
                            id="precio_${idx}"
                            value="" min="0.01" step="0.01"
@@ -764,7 +847,7 @@
                            required>
                 </div>
             </td>
-            <td class="px-4 py-3 font-semibold text-sm" id="subtotal_${idx}">S/ 0.00</td>
+            <td class="px-4 py-3 font-semibold text-sm" id="subtotal_${idx}">${document.getElementById('tipo_moneda').value === 'USD' ? '$' : 'S/'} 0.00</td>
             <td class="px-4 py-3">
                 <div id="imei_info_${idx}" class="hidden text-xs text-gray-500 mb-1">
                     <span id="imei_count_${idx}">0</span> IMEI(s)
@@ -919,39 +1002,54 @@
 
     function calcularSubtotal(index) {
         const cantidad = parseFloat(document.getElementById(`cantidad_${index}`).value) || 0;
-        const precio = parseFloat(document.getElementById(`precio_${index}`).value) || 0;
-        document.getElementById(`subtotal_${index}`).innerText = `S/ ${(cantidad * precio).toFixed(2)}`;
+        const precio   = parseFloat(document.getElementById(`precio_${index}`).value) || 0;
+        const moneda   = document.getElementById('tipo_moneda').value;
+        const simbolo  = moneda === 'USD' ? '$' : 'S/';
+        document.getElementById(`subtotal_${index}`).innerText = `${simbolo} ${(cantidad * precio).toFixed(2)}`;
         calcularTotales();
     }
 
     function calcularTotales() {
+        const moneda  = document.getElementById('tipo_moneda').value;
+        const simbolo = moneda === 'USD' ? '$' : 'S/';
+        const tc      = parseFloat(document.getElementById('tipo_cambio')?.value) || 0;
+
         let subtotalGeneral = 0;
         document.querySelectorAll('#detallesBody tr').forEach(row => {
-            const match = row.id.match(/producto_(\d+)/);
+            const match = row.id?.match(/producto_(\d+)/);
             if (match) {
                 const el = document.getElementById(`subtotal_${match[1]}`);
-                if (el) subtotalGeneral += parseFloat(el.innerText.replace('S/ ', '')) || 0;
+                if (el) subtotalGeneral += parseFloat(el.innerText.replace(/[^\d.]/g, '')) || 0;
             }
         });
 
-        // Tipo de operación SUNAT y checkbox IGV
+        // IGV y tipo de operación SUNAT
         const tipoOperacion = document.getElementById('tipo_operacion').value;
-        const incluyeIGV = document.getElementById('incluir_igv').checked;
+        const incluyeIGV    = document.getElementById('incluir_igv').checked;
 
-        let igv = 0;
+        let igv   = 0;
         let total = subtotalGeneral;
 
-        // Gravado (01) + checkbox activo → se agrega IGV 18% sobre el subtotal
-        // Cualquier otro caso (02/03/04) o checkbox desactivado → sin IGV
         if (tipoOperacion === '01' && incluyeIGV) {
-            igv = subtotalGeneral * 0.18;
+            igv   = subtotalGeneral * 0.18;
             total = subtotalGeneral + igv;
         }
 
-        // Actualizar UI
-        document.getElementById('subtotal').innerText = `S/ ${subtotalGeneral.toFixed(2)}`;
-        document.getElementById('igv').innerText     = `S/ ${igv.toFixed(2)}`;
-        document.getElementById('total').innerText   = `S/ ${total.toFixed(2)}`;
+        // Mostrar en la moneda seleccionada
+        document.getElementById('subtotal').innerText = `${simbolo} ${subtotalGeneral.toFixed(2)}`;
+        document.getElementById('igv').innerText      = `${simbolo} ${igv.toFixed(2)}`;
+        document.getElementById('total').innerText    = `${simbolo} ${total.toFixed(2)}`;
+
+        // Equivalente en PEN solo si moneda es USD y hay tipo de cambio
+        const eqDiv = document.getElementById('equivalentePEN');
+        if (moneda === 'USD' && tc > 0) {
+            const totalPEN = total * tc;
+            document.getElementById('totalPEN').textContent = `S/ ${totalPEN.toFixed(2)}`;
+            document.getElementById('tcUsado').textContent  = `1 $ = S/ ${tc.toFixed(3)}`;
+            eqDiv.classList.remove('hidden');
+        } else {
+            eqDiv.classList.add('hidden');
+        }
 
         // Deshabilitar visualmente el checkbox si no aplica IGV
         const igvCheckbox = document.getElementById('incluir_igv');
@@ -1542,8 +1640,6 @@
     // INICIALIZACIÓN
     // ============================================
     document.addEventListener('DOMContentLoaded', function() {
-        // Agregar un producto por defecto al cargar la página
-        agregarProducto();
 
         // Recalcular totales al cambiar checkbox IGV
         document.getElementById('incluir_igv').addEventListener('change', calcularTotales);
@@ -1597,11 +1693,128 @@ function abrirModalCrearProducto(terminoBusqueda) {
     modeloSelect.innerHTML = '<option value="">Seleccionar marca primero...</option>';
     modeloSelect.disabled = true;
     document.getElementById('np_color').value = '';
+    toggleModeloLabel();
 
     const modal = document.getElementById('modalCrearProducto');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => document.getElementById('np_nombre').focus(), 100);
+}
+
+function toggleModeloLabel() {
+    const tipo = document.getElementById('np_tipo')?.value;
+    const req  = document.getElementById('np_modelo_req_label');
+    const opt  = document.getElementById('np_modelo_opt_label');
+    if (tipo === 'serie') {
+        req?.classList.remove('hidden');
+        opt?.classList.add('hidden');
+    } else {
+        req?.classList.add('hidden');
+        opt?.classList.remove('hidden');
+    }
+}
+
+async function crearMarcaRapida() {
+    const categoriaId = document.getElementById('np_categoria').value;
+    if (!categoriaId) {
+        Swal.fire({ icon: 'warning', title: 'Selecciona categoría', text: 'Primero selecciona una categoría antes de crear una marca.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
+    const { value: nombre } = await Swal.fire({
+        title: 'Nueva Marca',
+        input: 'text',
+        inputPlaceholder: 'Nombre de la marca...',
+        showCancelButton: true,
+        confirmButtonText: 'Crear',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#1e3a8a',
+        inputValidator: v => !v.trim() ? 'El nombre es obligatorio' : null,
+    });
+    if (!nombre) return;
+
+    const res = await fetch('{{ route("catalogo.marcas.rapida") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({ nombre: nombre.trim(), categoria_id: categoriaId }),
+    }).then(r => r.json());
+
+    if (!res.success) {
+        Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo crear la marca.', confirmButtonColor: '#d33' });
+        return;
+    }
+    const marcaSelect = document.getElementById('np_marca');
+    const opt = document.createElement('option');
+    opt.value = res.id; opt.text = res.nombre; opt.selected = true;
+    marcaSelect.appendChild(opt);
+    marcaSelect.disabled = false;
+    cargarModelosNuevoProducto();
+    Swal.fire({ icon: 'success', title: `Marca "${res.nombre}" creada`, timer: 1500, showConfirmButton: false });
+}
+
+async function crearModeloRapido() {
+    const marcaId = document.getElementById('np_marca').value;
+    if (!marcaId) {
+        Swal.fire({ icon: 'warning', title: 'Selecciona marca', text: 'Primero selecciona una marca antes de crear un modelo.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
+    const { value: nombre } = await Swal.fire({
+        title: 'Nuevo Modelo',
+        input: 'text',
+        inputPlaceholder: 'Nombre del modelo...',
+        showCancelButton: true,
+        confirmButtonText: 'Crear',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#1e3a8a',
+        inputValidator: v => !v.trim() ? 'El nombre es obligatorio' : null,
+    });
+    if (!nombre) return;
+
+    const res = await fetch('{{ route("catalogo.modelos.rapida") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({ nombre: nombre.trim(), marca_id: marcaId }),
+    }).then(r => r.json());
+
+    if (!res.success) {
+        Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo crear el modelo.', confirmButtonColor: '#d33' });
+        return;
+    }
+    const modeloSelect = document.getElementById('np_modelo');
+    const opt = document.createElement('option');
+    opt.value = res.id; opt.text = res.nombre; opt.selected = true;
+    modeloSelect.appendChild(opt);
+    modeloSelect.disabled = false;
+    Swal.fire({ icon: 'success', title: `Modelo "${res.nombre}" creado`, timer: 1500, showConfirmButton: false });
+}
+
+async function crearColorRapido() {
+    const { value: nombre } = await Swal.fire({
+        title: 'Nuevo Color',
+        input: 'text',
+        inputPlaceholder: 'Nombre del color...',
+        showCancelButton: true,
+        confirmButtonText: 'Crear',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#1e3a8a',
+        inputValidator: v => !v.trim() ? 'El nombre es obligatorio' : null,
+    });
+    if (!nombre) return;
+
+    const res = await fetch('{{ route("catalogo.colores.rapida") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({ nombre: nombre.trim() }),
+    }).then(r => r.json());
+
+    if (!res.success) {
+        Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo crear el color.', confirmButtonColor: '#d33' });
+        return;
+    }
+    const colorSelect = document.getElementById('np_color');
+    const opt = document.createElement('option');
+    opt.value = res.id; opt.text = res.nombre; opt.selected = true;
+    colorSelect.appendChild(opt);
+    Swal.fire({ icon: 'success', title: `Color "${res.nombre}" creado`, timer: 1500, showConfirmButton: false });
 }
 
 function cerrarModalCrearProducto() {
@@ -1687,8 +1900,8 @@ function guardarNuevoProducto() {
         Swal.fire({ icon: 'warning', title: 'Falta la marca', text: 'Selecciona una marca.', confirmButtonColor: '#1e3a8a' });
         return;
     }
-    if (!modeloId) {
-        Swal.fire({ icon: 'warning', title: 'Falta el modelo', text: 'Selecciona un modelo.', confirmButtonColor: '#1e3a8a' });
+    if (tipo === 'serie' && !modeloId) {
+        Swal.fire({ icon: 'warning', title: 'Falta el modelo', text: 'Para productos con IMEI el modelo es obligatorio.', confirmButtonColor: '#1e3a8a' });
         return;
     }
 
@@ -1804,7 +2017,7 @@ function guardarNuevoProducto() {
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Tipo <span class="text-red-500">*</span>
                     </label>
-                    <select id="np_tipo"
+                    <select id="np_tipo" onchange="toggleModeloLabel()"
                             class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
                         <option value="regular">Regular (stock)</option>
                         <option value="serie">Serie (IMEI)</option>
@@ -1812,25 +2025,41 @@ function guardarNuevoProducto() {
                 </div>
             </div>
 
-            <!-- Marca + Modelo -->
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Marca <span class="text-red-500">*</span>
-                    </label>
+            <!-- Marca -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Marca <span class="text-red-500">*</span>
+                </label>
+                <div class="flex gap-2">
                     <select id="np_marca" onchange="cargarModelosNuevoProducto()"
-                            class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                            class="flex-1 px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
                         <option value="">Seleccionar categoría primero...</option>
                     </select>
+                    <button type="button" onclick="crearMarcaRapida()"
+                            title="Nueva marca"
+                            class="px-3 py-2 bg-blue-50 text-blue-700 border-2 border-blue-200 rounded-xl hover:bg-blue-100 transition shrink-0">
+                        <i class="fas fa-plus text-sm"></i>
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Modelo <span class="text-red-500">*</span>
-                    </label>
+            </div>
+
+            <!-- Modelo -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Modelo
+                    <span id="np_modelo_req_label" class="text-red-500">*</span>
+                    <span id="np_modelo_opt_label" class="text-gray-400 text-xs font-normal hidden">(opcional)</span>
+                </label>
+                <div class="flex gap-2">
                     <select id="np_modelo"
-                            class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                            class="flex-1 px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
                         <option value="">Seleccionar marca primero...</option>
                     </select>
+                    <button type="button" onclick="crearModeloRapido()"
+                            title="Nuevo modelo"
+                            class="px-3 py-2 bg-indigo-50 text-indigo-700 border-2 border-indigo-200 rounded-xl hover:bg-indigo-100 transition shrink-0">
+                        <i class="fas fa-plus text-sm"></i>
+                    </button>
                 </div>
             </div>
 
@@ -1840,13 +2069,20 @@ function guardarNuevoProducto() {
                     Color
                     <span class="text-gray-400 text-xs font-normal">(opcional)</span>
                 </label>
-                <select id="np_color"
-                        class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
-                    <option value="">Sin color</option>
-                    @foreach($colores as $c)
-                        <option value="{{ $c->id }}">{{ $c->nombre }}</option>
-                    @endforeach
-                </select>
+                <div class="flex gap-2">
+                    <select id="np_color"
+                            class="flex-1 px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                        <option value="">Sin color</option>
+                        @foreach($colores as $c)
+                            <option value="{{ $c->id }}">{{ $c->nombre }}</option>
+                        @endforeach
+                    </select>
+                    <button type="button" onclick="crearColorRapido()"
+                            title="Nuevo color"
+                            class="px-3 py-2 bg-pink-50 text-pink-700 border-2 border-pink-200 rounded-xl hover:bg-pink-100 transition shrink-0">
+                        <i class="fas fa-plus text-sm"></i>
+                    </button>
+                </div>
             </div>
 
         </div><!-- /body -->

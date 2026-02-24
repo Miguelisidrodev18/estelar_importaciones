@@ -38,9 +38,23 @@
                             <span x-show="cargando"><i class="fas fa-spinner fa-spin mr-2"></i>Buscando...</span>
                         </button>
                     </div>
-                    <p x-show="mensajeSunat" x-text="mensajeSunat"
-                       class="text-sm mt-3 font-medium"
-                       :class="sunatExito ? 'text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg' : 'text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg'"></p>
+                    <div x-show="mensajeSunat" class="mt-3">
+                        <p x-text="mensajeSunat"
+                           class="text-sm font-medium px-3 py-2 rounded-lg"
+                           :class="sunatExito ? 'text-green-700 bg-green-50 border border-green-200' : 'text-red-700 bg-red-50 border border-red-200'"></p>
+                        <div x-show="sunatExito" class="mt-2 flex flex-wrap gap-2 text-xs">
+                            <span x-show="estadoRuc" class="px-2 py-1 rounded-full font-medium"
+                                  :class="estadoRuc === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+                                <i class="fas fa-circle mr-1"></i>
+                                Estado: <span x-text="estadoRuc"></span>
+                            </span>
+                            <span x-show="condicionRuc" class="px-2 py-1 rounded-full font-medium"
+                                  :class="condicionRuc === 'HABIDO' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'">
+                                <i class="fas fa-check-circle mr-1"></i>
+                                <span x-text="condicionRuc"></span>
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Información del Proveedor --}}
@@ -157,15 +171,20 @@
             cargando: false,
             mensajeSunat: '',
             sunatExito: false,
+            estadoRuc: '',
+            condicionRuc: '',
 
             async consultarSunat() {
-                if (this.rucBuscar.length !== 11) {
-                    this.mensajeSunat = 'El RUC debe tener 11 dígitos';
+                const rucLimpio = this.rucBuscar.trim();
+                if (rucLimpio.length !== 11 || !/^\d{11}$/.test(rucLimpio)) {
+                    this.mensajeSunat = 'El RUC debe tener exactamente 11 dígitos numéricos.';
                     this.sunatExito = false;
                     return;
                 }
                 this.cargando = true;
                 this.mensajeSunat = '';
+                this.estadoRuc   = '';
+                this.condicionRuc = '';
                 try {
                     const response = await fetch('{{ route("proveedores.consultar-sunat") }}', {
                         method: 'POST',
@@ -173,23 +192,25 @@
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                         },
-                        body: JSON.stringify({ ruc: this.rucBuscar })
+                        body: JSON.stringify({ ruc: rucLimpio })
                     });
                     const data = await response.json();
                     if (data.success) {
-                        this.ruc = data.data.ruc;
-                        this.razonSocial = data.data.razon_social;
+                        this.ruc            = data.data.ruc;
+                        this.razonSocial    = data.data.razon_social;
                         this.nombreComercial = data.data.nombre_comercial || '';
-                        this.direccion = data.data.direccion || '';
-                        this.mensajeSunat = 'Datos encontrados en SUNAT';
-                        this.sunatExito = true;
+                        this.direccion      = data.data.direccion || '';
+                        this.estadoRuc    = data.data.estado     || '';
+                        this.condicionRuc = data.data.condicion || '';
+                        this.mensajeSunat   = '✓ Datos encontrados en SUNAT';
+                        this.sunatExito     = true;
                     } else {
-                        this.mensajeSunat = data.message;
-                        this.sunatExito = false;
+                        this.mensajeSunat = data.message || 'RUC no encontrado.';
+                        this.sunatExito   = false;
                     }
                 } catch (e) {
-                    this.mensajeSunat = 'Error de conexión';
-                    this.sunatExito = false;
+                    this.mensajeSunat = 'Error de conexión con el servicio de consulta.';
+                    this.sunatExito   = false;
                 }
                 this.cargando = false;
             }

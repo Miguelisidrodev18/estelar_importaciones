@@ -281,6 +281,7 @@ Route::middleware('auth')->group(function () {
         Route::get('buscar-productos', [CompraController::class, 'buscarProductos'])->name('buscar-productos');
         Route::get('producto/{id}', [CompraController::class, 'getProductoDetalle'])->name('producto-detalle');
         Route::post('crear-producto-rapido', [CompraController::class, 'crearProductoRapido'])->name('crear-producto-rapido');
+        Route::get('tipo-cambio', [CompraController::class, 'tipoCambio'])->name('tipo-cambio');
         Route::get('/{compra}', [CompraController::class, 'show'])->name('show');
         Route::get('/{compra}/edit', [CompraController::class, 'edit'])->name('edit');
         Route::put('/{compra}', [CompraController::class, 'update'])->name('update');
@@ -294,14 +295,15 @@ Route::middleware('auth')->group(function () {
     // ========================================
     Route::prefix('cuentas-por-pagar')->name('cuentas-por-pagar.')->middleware('auth')->group(function () {
         Route::get('/', [App\Http\Controllers\CuentaPorPagarController::class, 'index'])->name('index');
-        
-        // 🔴 CAMBIADO: {cuenta} en lugar de {cuentas_por_pagar}
+
+        // Rutas de cuotas (antes de /{cuenta} para evitar conflicto)
+        Route::post('/cuotas/{cuota}/pagar', [App\Http\Controllers\CuentaPorPagarController::class, 'pagarCuota'])->name('cuotas.pagar');
+
         Route::get('/{cuenta}', [App\Http\Controllers\CuentaPorPagarController::class, 'show'])->name('show');
         Route::post('/{cuenta}/registrar-pago', [App\Http\Controllers\CuentaPorPagarController::class, 'registrarPago'])->name('registrar-pago');
+        Route::post('/{cuenta}/generar-cuotas', [App\Http\Controllers\CuentaPorPagarController::class, 'generarCuotas'])->name('generar-cuotas');
         Route::get('/{cuenta}/programar-pago', [App\Http\Controllers\CuentaPorPagarController::class, 'programarPago'])->name('programar-pago');
         Route::post('/{cuenta}/programar-pago', [App\Http\Controllers\CuentaPorPagarController::class, 'guardarProgramacion'])->name('guardar-programacion');
-        
-        Route::get('/reportes/vencimientos', [App\Http\Controllers\CuentaPorPagarController::class, 'reporteVencimientos'])->name('reporte.vencimientos');
     });
 
     // También puedes agregar una ruta para el dashboard financiero

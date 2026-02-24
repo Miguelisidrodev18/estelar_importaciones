@@ -47,6 +47,11 @@ class CuentaPorPagar extends Model
         return $this->hasMany(Pago::class, 'cuenta_por_pagar_id');
     }
 
+    public function cuotas()
+    {
+        return $this->hasMany(Cuota::class, 'cuenta_por_pagar_id')->orderBy('numero_cuota');
+    }
+
     public function getSaldoPendienteAttribute()
     {
         return $this->monto_total - $this->monto_pagado;

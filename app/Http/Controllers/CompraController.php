@@ -211,10 +211,40 @@ class CompraController extends Controller
         }
     }
 
+    /**
+     * Obtener tipo de cambio actual desde SUNAT (vía api.apis.net.pe)
+     */
+    public function tipoCambio()
+    {
+        try {
+            $fecha = now()->format('Y-m-d');
+            $response = \Illuminate\Support\Facades\Http::timeout(6)
+                ->withHeaders(['Accept' => 'application/json'])
+                ->get('https://api.apis.net.pe/v1/tipo-cambio-sunat', ['fecha' => $fecha]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return response()->json([
+                    'success' => true,
+                    'compra'  => $data['compra']  ?? null,
+                    'venta'   => $data['venta']   ?? null,
+                    'fecha'   => $data['fecha']   ?? $fecha,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // silenciar y devolver error amigable
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No se pudo conectar al servicio de tipo de cambio. Ingresa el valor manualmente.',
+        ]);
+    }
+
     public function show(Compra $compra)
     {
         $compra->load(['proveedor', 'usuario', 'almacen', 'detalles.producto']);
-        
+
         return view('compras.show', compact('compra'));
     }
 

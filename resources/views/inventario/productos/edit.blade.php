@@ -193,9 +193,17 @@
 
                             <!-- Modelo (filtrado por marca) -->
                             <div>
-                                <label for="modelo_id" class="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
+                                <label for="modelo_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Modelo
+                                    @if($producto->tipo_inventario == 'serie')
+                                        <span class="text-red-500">*</span>
+                                    @else
+                                        <span class="text-gray-400 text-xs font-normal">(opcional)</span>
+                                    @endif
+                                </label>
                                 <select name="modelo_id" id="modelo_id"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        {{ $producto->tipo_inventario == 'serie' ? 'required' : '' }}>
                                     <option value="">Cargando modelos...</option>
                                 </select>
                                 @error('modelo_id')
@@ -203,19 +211,6 @@
                                 @enderror
                             </div>
 
-                            <!-- Color -->
-                            <div>
-                                <label for="color_id" class="block text-sm font-medium text-gray-700 mb-2">Color</label>
-                                <select name="color_id" id="color_id"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Sin color</option>
-                                    @foreach($colores as $color)
-                                        <option value="{{ $color->id }}" {{ old('color_id', $producto->color_id) == $color->id ? 'selected' : '' }}>
-                                            {{ $color->nombre }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
 
                             <!-- Unidad de Medida -->
                             <div>
@@ -281,7 +276,7 @@
                             Control de Stock
                         </h3>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label for="stock_minimo" class="block text-sm font-medium text-gray-700 mb-2">
                                     Stock Mínimo <span class="text-red-500">*</span>
@@ -306,14 +301,6 @@
                                 @error('stock_maximo')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
-                            </div>
-
-                            <div>
-                                <label for="ubicacion" class="block text-sm font-medium text-gray-700 mb-2">Ubicación Física</label>
-                                <input type="text" name="ubicacion" id="ubicacion"
-                                       value="{{ old('ubicacion', $producto->ubicacion) }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Ej: Estante A-5">
                             </div>
                         </div>
                     </div>
@@ -459,21 +446,19 @@
                 });
         }
 
-        // Sugerir nombre desde marca + modelo + color
+        // Sugerir nombre desde marca + modelo
         function sugerirNombre() {
             const marca = document.getElementById('marca_id').selectedOptions[0]?.text || '';
             const modelo = document.getElementById('modelo_id').selectedOptions[0]?.text || '';
-            const color = document.getElementById('color_id').selectedOptions[0]?.text || '';
 
             let partes = [];
             if (marca && marca !== 'Sin marca') partes.push(marca);
             if (modelo && modelo !== 'Sin modelo') partes.push(modelo);
-            if (color && color !== 'Sin color') partes.push(color);
 
             if (partes.length > 0) {
                 document.getElementById('nombre').value = partes.join(' ');
             } else {
-                alert('Selecciona al menos marca y modelo para generar una sugerencia');
+                alert('Selecciona al menos marca o modelo para generar una sugerencia');
             }
         }
 

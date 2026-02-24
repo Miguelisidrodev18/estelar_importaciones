@@ -195,7 +195,9 @@
                             <!-- 🔴 MODELO (se filtra por marca) -->
                             <div>
                                 <label for="modelo_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Modelo <span class="text-red-500">*</span>
+                                    Modelo
+                                    <span id="modeloRequeridoLabel" class="text-red-500">*</span>
+                                    <span id="modeloOpcionalLabel" class="text-gray-400 text-xs font-normal hidden">(opcional)</span>
                                 </label>
                                 <div class="flex gap-2">
                                     <select name="modelo_id" id="modelo_id"
@@ -215,29 +217,6 @@
                                 @enderror
                             </div>
 
-                            <!-- Color -->
-                            <div>
-                                <label for="color_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Color
-                                </label>
-                                <div class="flex gap-2">
-                                    <select name="color_id" id="color_id"
-                                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                        <option value="">Seleccione un color</option>
-                                        @foreach($colores as $color)
-                                            <option value="{{ $color->id }}" {{ old('color_id') == $color->id ? 'selected' : '' }}>
-                                                {{ $color->nombre }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <button type="button" onclick="abrirModalColor()"
-                                            title="Crear nuevo color"
-                                            class="px-3 py-2 bg-pink-100 text-pink-700 border border-pink-300
-                                                   rounded-lg hover:bg-pink-200 transition shrink-0">
-                                        <i class="fas fa-plus text-sm"></i>
-                                    </button>
-                                </div>
-                            </div>
 
                             <!-- SECCIÓN DE UNIDADES DE MEDIDA -->
                             <div class="md:col-span-2 bg-gray-50 rounded-xl border border-gray-200 p-5">
@@ -411,20 +390,6 @@
                                        required>
                             </div>
 
-                            <div>
-                                <label for="ubicacion" class="block text-sm font-medium text-gray-700 mb-2">Ubicación Física</label>
-                                <input type="text" name="ubicacion" id="ubicacion" value="{{ old('ubicacion') }}"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Ej: Estante A-5, Pasillo 3">
-                            </div>
-
-                            <!-- Stock Inicial (SOLO PARA TIPO CANTIDAD) -->
-                            <div id="stockInicialDiv">
-                                <label for="stock_inicial" class="block text-sm font-medium text-gray-700 mb-2">Stock Inicial</label>
-                                <input type="number" name="stock_inicial" id="stock_inicial" value="{{ old('stock_inicial') }}" min="0"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Cantidad inicial">
-                            </div>
 
                             <!-- Almacén -->
                             <div id="almacenInicialDiv" class="md:col-span-2">
@@ -510,18 +475,24 @@
         // Función para alternar campos según tipo de inventario
         function toggleFieldsByType() {
             const tipo = document.querySelector('input[name="tipo_inventario"]:checked')?.value;
-            const stockInicialDiv = document.getElementById('stockInicialDiv');
             const almacenInicialDiv = document.getElementById('almacenInicialDiv');
             const garantiaSection = document.getElementById('garantiaSection');
-            
+            const modeloSelect = document.getElementById('modelo_id');
+            const modeloRequeridoLabel = document.getElementById('modeloRequeridoLabel');
+            const modeloOpcionalLabel = document.getElementById('modeloOpcionalLabel');
+
             if (tipo === 'serie') {
-                stockInicialDiv?.style.setProperty('display', 'none');
                 almacenInicialDiv?.style.setProperty('display', 'none');
                 garantiaSection?.style.setProperty('display', 'block');
+                if (modeloSelect) modeloSelect.required = true;
+                modeloRequeridoLabel?.classList.remove('hidden');
+                modeloOpcionalLabel?.classList.add('hidden');
             } else {
-                stockInicialDiv?.style.setProperty('display', 'block');
                 almacenInicialDiv?.style.setProperty('display', 'block');
                 garantiaSection?.style.setProperty('display', 'none');
+                if (modeloSelect) modeloSelect.required = false;
+                modeloRequeridoLabel?.classList.add('hidden');
+                modeloOpcionalLabel?.classList.remove('hidden');
             }
         }
 
@@ -649,11 +620,7 @@
                 nombreEditadoManual = true;
             });
 
-            // Auto-sugerir al cambiar color
-            document.getElementById('color_id')?.addEventListener('change', sugerirNombreAuto);
-
-            // Auto-sugerir al cambiar modelo (el select se rellena dinámicamente,
-            // pero el listener sobre el elemento ya existente funciona igual)
+            // Auto-sugerir al cambiar modelo
             document.getElementById('modelo_id')?.addEventListener('change', sugerirNombreAuto);
         });
         // Bandera: true cuando el usuario editó el nombre manualmente
@@ -662,16 +629,13 @@
         function sugerirNombre() {
             const marcaOpt  = document.getElementById('marca_id').selectedOptions[0];
             const modeloOpt = document.getElementById('modelo_id').selectedOptions[0];
-            const colorOpt  = document.getElementById('color_id').selectedOptions[0];
 
             const marca  = (marcaOpt  && marcaOpt.value)  ? marcaOpt.text  : '';
             const modelo = (modeloOpt && modeloOpt.value)  ? modeloOpt.text : '';
-            const color  = (colorOpt  && colorOpt.value)  ? colorOpt.text  : '';
 
             let partes = [];
             if (marca)  partes.push(marca);
             if (modelo) partes.push(modelo);
-            if (color)  partes.push(color);
 
             if (partes.length > 0) {
                 document.getElementById('nombre').value = partes.join(' ');
@@ -686,16 +650,13 @@
             if (!nombreEditadoManual) {
                 const marcaOpt  = document.getElementById('marca_id').selectedOptions[0];
                 const modeloOpt = document.getElementById('modelo_id').selectedOptions[0];
-                const colorOpt  = document.getElementById('color_id').selectedOptions[0];
 
                 const marca  = (marcaOpt  && marcaOpt.value)  ? marcaOpt.text  : '';
                 const modelo = (modeloOpt && modeloOpt.value)  ? modeloOpt.text : '';
-                const color  = (colorOpt  && colorOpt.value)  ? colorOpt.text  : '';
 
                 let partes = [];
                 if (marca)  partes.push(marca);
                 if (modelo) partes.push(modelo);
-                if (color)  partes.push(color);
 
                 if (partes.length > 0) {
                     document.getElementById('nombre').value = partes.join(' ');
