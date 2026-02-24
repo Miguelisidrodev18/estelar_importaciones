@@ -16,27 +16,48 @@ class VentaController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $query = Venta::with('vendedor', 'cliente', 'almacen');
 
-        if ($user->role->nombre === 'Vendedor') {
-            $query->where('user_id', $user->id);
-        }
+        $ventas = Venta::with('vendedor', 'cliente', 'almacen')
+            ->when($user->role->nombre === 'Vendedor', fn($q) => $q->where('user_id', $user->id))
+            ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
 
-        $ventas = $query->orderBy('created_at', 'desc')->get();
-        $ventas = Venta::when($user->almacen_id, function($query) use ($user) {
-        // Si tiene almacén asignado, filtrar por ese almacén
-        return $query->where('almacen_id', $user->almacen_id);
-    })->paginate(15);
+        $statsBase = Venta::query()
+            ->when($user->role->nombre === 'Vendedor', fn($q) => $q->where('user_id', $user->id))
+            ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id));
 
-        return view('ventas.index', compact('ventas'));
+        $stats = [
+            'hoy'        => (clone $statsBase)->whereDate('fecha', today())->sum('total'),
+            'mes_total'  => (clone $statsBase)->whereMonth('fecha', now()->month)->whereYear('fecha', now()->year)->sum('total'),
+            'mes_count'  => (clone $statsBase)->whereMonth('fecha', now()->month)->whereYear('fecha', now()->year)->count(),
+            'pendientes' => (clone $statsBase)->where('estado_pago', 'pendiente')->count(),
+        ];
+
+        return view('ventas.index', compact('ventas', 'stats'));
     }
 
     public function create()
     {
-        $clientes = Cliente::activos()->orderBy('nombre')->get();
-        $productos = Producto::where('estado', 'activo')->with('categoria')->orderBy('nombre')->get();
+        $clientes  = Cliente::activos()->orderBy('nombre')->get();
         $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
         $categorias = Categoria::activas()->orderBy('nombre')->get();
+
+        $productos = Producto::where('estado', 'activo')
+            ->with('categoria')
+            ->orderBy('nombre')
+            ->get()
+            ->map(fn($p) => [
+                'id'              => $p->id,
+                'nombre'          => $p->nombre,
+                'codigo'          => $p->codigo,
+                'codigo_barras'   => $p->codigo_barras ?? null,
+                'categoria_id'    => $p->categoria_id,
+                'tipo_inventario' => $p->tipo_inventario,
+                'stock_actual'    => (int) $p->stock_actual,
+                'precio_venta'    => (float) $p->precio_venta,
+                'imagen'          => $p->imagen_url ?? null,
+            ]);
 
         return view('ventas.create', compact('clientes', 'productos', 'almacenes', 'categorias'));
     }

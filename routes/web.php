@@ -382,4 +382,42 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });
 
+// ========================================
+// API INTERNAS (para AJAX del POS y escáner)
+// ========================================
+Route::prefix('api')->name('api.')->middleware('auth')->group(function () {
+
+    // Búsqueda de productos por código (para escáner)
+    Route::get('/productos/buscar', [App\Http\Controllers\Api\ProductoController::class, 'buscarPorCodigo'])
+        ->name('productos.buscar');
+
+    // Obtener precios de un producto (con lógica rotativa)
+    Route::get('/productos/{producto}/precios', [App\Http\Controllers\Api\ProductoController::class, 'obtenerPrecios'])
+        ->name('productos.precios');
+
+    // Verificar disponibilidad de IMEI
+    Route::get('/imeis/verificar', [App\Http\Controllers\Api\ImeiController::class, 'verificarDisponibilidad'])
+        ->name('imeis.verificar');
+
+    // Obtener IMEIs disponibles para un producto
+    Route::get('/imeis/disponibles', [App\Http\Controllers\Api\ImeiController::class, 'disponibles'])
+        ->name('imeis.disponibles');
+
+    // Obtener stock de producto por almacén
+    Route::get('/productos/{producto}/stock', [App\Http\Controllers\Api\ProductoController::class, 'obtenerStock'])
+        ->name('productos.stock');
+
+    // Buscar cliente por documento
+    Route::get('/clientes/buscar', [App\Http\Controllers\Api\ClienteController::class, 'buscarPorDocumento'])
+        ->name('clientes.buscar');
+
+    // Obtener tipo de cambio del día
+    Route::get('/tipo-cambio', [App\Http\Controllers\Api\TipoCambioController::class, 'obtener'])
+        ->name('tipo-cambio');
+
+    // Validar código de barras (para creación de productos)
+    Route::get('/validar-codigo-barras', [App\Http\Controllers\Api\ProductoController::class, 'validarCodigoBarras'])
+        ->name('validar-codigo-barras');
+});
+
 
