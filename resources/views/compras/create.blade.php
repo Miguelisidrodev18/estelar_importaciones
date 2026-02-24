@@ -412,7 +412,7 @@
         </div>
     </div>
 
-   <!-- MODAL DE SELECCIÓN DE PRODUCTOS (MÚLTIPLE) -->
+    <!-- MODAL DE SELECCIÓN DE PRODUCTOS (MEJORADO) -->
     <div id="modalProductos" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="cerrarModalProductos()"></div>
         
@@ -445,7 +445,27 @@
                     </p>
                 </div>
 
-                <!-- Grid de resultados con checkboxes -->
+                <!-- FILTROS POR CATEGORÍA (NUEVO) -->
+                <div class="mb-6 overflow-x-auto pb-2">
+                    <div class="flex gap-2 min-w-max">
+                        <button type="button" 
+                                class="categoria-filter active px-4 py-2 rounded-full text-sm font-medium transition-all"
+                                data-categoria="todos"
+                                style="background-color: #1e3a8a; color: white;">
+                            <i class="fas fa-boxes mr-1"></i>Todos
+                        </button>
+                        
+                        @foreach($categorias as $categoria)
+                            <button type="button" 
+                                    class="categoria-filter px-4 py-2 rounded-full text-sm font-medium transition-all bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    data-categoria="{{ $categoria->id }}">
+                                <i class="fas fa-tag mr-1"></i>{{ $categoria->nombre }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                <!-- Grid de resultados mejorado -->
                 <div id="resultadosProductos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <!-- Los resultados se cargarán dinámicamente -->
                 </div>
@@ -471,10 +491,11 @@
                 </div>
             </div>
 
-            <!-- Footer con acciones -->
+            <!-- Footer con acciones (mejorado) -->
             <div class="border-t border-gray-200 px-6 py-4 bg-gray-50 flex justify-between items-center">
                 <div>
                     <span id="productosSeleccionadosCount" class="text-sm font-medium text-blue-900">0 productos seleccionados</span>
+                    <span id="totalUnidadesCount" class="ml-2 text-sm text-gray-500">(0 unidades)</span>
                 </div>
                 <div class="flex space-x-3">
                     <button onclick="cerrarModalProductos()"
@@ -490,7 +511,6 @@
             </div>
         </div>
     </div>
-
     {{-- MODAL DE IMEIs MEJORADO --}}
     <div id="imeiModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="cerrarModalIMEI()"></div>
@@ -572,9 +592,16 @@
     let imeisPorFila = {}; // { rowIndex: ['imei1', 'imei2', ...] }
     let productoEnEdicion = null;
     let productosSeleccionadosIds = new Set();
+    let categoriaActual = 'todos';
+    let productosFiltrados = [];
+    let productosOriginales = []; // Para mantener la lista completa
+    let cantidadesSeleccionadas = {}; // { productoId: cantidad }
+
+
 
 
     // Datos de catálogo (cargados desde PHP)
+    const categoriasDisponibles = @json($categorias);
     const catalogoProductos   = @json($productos);
     const marcasCatalogo      = @json($marcas);
     const coloresCatalogo     = @json($colores);
@@ -699,6 +726,49 @@
             input.value = ''; // Limpiar valor cuando no es crédito
         }
     }
+    // ============================================
+    // FILTRO POR CATEGORÍA
+    // ============================================
+    function filtrarPorCategoria(categoriaId) {
+        categoriaActual = categoriaId;
+        
+        // Actualizar estilos de los botones
+        document.querySelectorAll('.categoria-filter').forEach(btn => {
+            const btnCategoria = btn.dataset.categoria;
+            if (btnCategoria == categoriaId) {
+                btn.style.backgroundColor = '#1e3a8a';
+                btn.style.color = 'white';
+            } else {
+                btn.style.backgroundColor = '#f3f4f6';
+                btn.style.color = '#374151';
+            }
+        });
+        
+        // Filtrar productos según categoría
+        if (productosOriginales && productosOriginales.length > 0) {
+            let productosFiltrados = productosOriginales;
+            if (categoriaId !== 'todos') {
+                productosFiltrados = productosOriginales.filter(p => p.categoria_id == categoriaId);
+            }
+            
+            if (productosFiltrados.length === 0) {
+                resultadosDiv.innerHTML = '';
+                sinResultadosDiv.classList.remove('hidden');
+            } else {
+                sinResultadosDiv.classList.add('hidden');
+                mostrarResultadosConSeleccion(productosFiltrados);
+            }   
+        }
+    }
+
+    // Asignar eventos a los botones de categoría
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.categoria-filter').forEach(btn => {
+            btn.addEventListener('click', function() {
+                filtrarPorCategoria(this.dataset.categoria);
+            });
+        });
+    });
 
     function toggleTipoCambio(valor) {
         const div = document.getElementById('tipo_cambio_div');
@@ -999,6 +1069,13 @@
         calcularSubtotal(index);
         actualizarInfoIMEI(index);
     }
+    function actualizarCantidadProducto(productoId, cantidad) {
+        if (productosSeleccionadosIds.has(productoId)) {
+            cantidadesSeleccionadas[productoId] = parseInt(cantidad) || 1;
+        }
+        actualizarContadorUnidades();
+    }
+
 
     function calcularSubtotal(index) {
         const cantidad = parseFloat(document.getElementById(`cantidad_${index}`).value) || 0;
@@ -1094,20 +1171,28 @@
 
         fetch(`/compras/buscar-productos?q=${encodeURIComponent(termino)}`)
             .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error en la respuesta del servidor');
-                }
+                if (!response.ok) throw new Error('Error en la respuesta del servidor');
                 return response.json();
             })
             .then(productos => {
                 cargandoDiv.classList.add('hidden');
                 
-                if (productos.length === 0) {
+                // Guardar TODOS los productos originales
+                productosOriginales = productos;
+                
+                // Filtrar por categoría si no es 'todos'
+                let productosFiltrados = productos;
+                if (categoriaActual !== 'todos') {
+                    productosFiltrados = productos.filter(p => p.categoria_id == categoriaActual);
+                }
+                
+                if (productosFiltrados.length === 0) {
                     sinResultadosDiv.classList.remove('hidden');
                     return;
                 }
                 
-                mostrarResultados(productos);
+                // Mostrar resultados manteniendo selecciones
+                mostrarResultadosConSeleccion(productosFiltrados);
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -1121,36 +1206,58 @@
                 `;
             });
     }
-
     // Actualizar la función mostrarResultados para incluir checkboxes
+    // Actualizar la función mostrarResultados para incluir checkboxes y cantidad
     function mostrarResultados(productos) {
-        resultadosDiv.innerHTML = productos.map(p => `
-            <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:shadow-lg transition-all group">
-                <div class="flex items-start gap-3">
-                    <div class="flex items-center mt-1">
-                        <input type="checkbox"
-                            class="producto-checkbox w-5 h-5 rounded border-gray-300 text-blue-900 focus:ring-blue-500"
-                            value="${p.id}"
-                            onchange="actualizarSeleccion(this, ${p.id})">
-                    </div>
-                    <div class="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition">
-                        <i class="fas fa-box text-blue-900"></i>
-                    </div>
-                    <div class="flex-1">
-                        <h4 class="font-semibold text-gray-900">${p.nombre}</h4>
-                        <p class="text-sm text-gray-600">${p.marca || ''} ${p.modelo || ''}</p>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
-                                ${p.categoria || 'Sin categoría'}
-                            </span>
-                            ${p.tipo_inventario === 'serie' ?
-                                '<span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-microchip mr-1"></i>IMEI</span>' :
-                                '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full"><i class="fas fa-boxes mr-1"></i>Stock</span>'}
+        productosFiltrados = productos;
+        
+        resultadosDiv.innerHTML = productos.map(p => {
+            const cantidadGuardada = cantidadesSeleccionadas[p.id] || 1;
+            
+            return `
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:shadow-lg transition-all group">
+                    <div class="flex items-start gap-3">
+                        <div class="flex items-center mt-1">
+                            <input type="checkbox"
+                                class="producto-checkbox w-5 h-5 rounded border-gray-300 text-blue-900 focus:ring-blue-500"
+                                value="${p.id}"
+                                data-producto-id="${p.id}"
+                                onchange="actualizarSeleccion(this, ${p.id})"
+                                ${productosSeleccionadosIds.has(p.id) ? 'checked' : ''}>
+                        </div>
+                        <div class="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition">
+                            <i class="fas fa-box text-blue-900"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900">${p.nombre}</h4>
+                            <p class="text-sm text-gray-600">${p.marca || ''} ${p.modelo || ''}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
+                                    ${p.categoria || 'Sin categoría'}
+                                </span>
+                                ${p.tipo_inventario === 'serie' ?
+                                    '<span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-microchip mr-1"></i>IMEI</span>' :
+                                    '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full"><i class="fas fa-boxes mr-1"></i>Stock</span>'}
+                            </div>
+                            <!-- NUEVO: Selector de cantidad -->
+                            <div class="mt-2 flex items-center gap-2">
+                                <span class="text-xs text-gray-500">Cantidad:</span>
+                                <input type="number" 
+                                    class="cantidad-input w-20 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    value="${cantidadGuardada}"
+                                    min="1"
+                                    data-producto-id="${p.id}"
+                                    onchange="actualizarCantidadProducto(${p.id}, this.value)"
+                                    ${productosSeleccionadosIds.has(p.id) ? '' : 'disabled'}>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        `).join('') + `
+            `;
+        }).join('');
+        
+        // Agregar el botón de crear producto al final
+        resultadosDiv.innerHTML += `
             <div class="col-span-full mt-3 pt-3 border-t border-gray-200 text-center">
                 <button type="button"
                         onclick="abrirModalCrearProducto(document.getElementById('buscadorProductos').value)"
@@ -1160,15 +1267,81 @@
                 </button>
             </div>`;
     }
-    // Función para actualizar selección
+    function mostrarResultadosConSeleccion(productos) {
+        resultadosDiv.innerHTML = productos.map(p => {
+            const estaSeleccionado = productosSeleccionadosIds.has(p.id);
+            const cantidadGuardada = cantidadesSeleccionadas[p.id] || 1;
+            
+            return `
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:shadow-lg transition-all group">
+                    <div class="flex items-start gap-3">
+                        <div class="flex items-center mt-1">
+                            <input type="checkbox"
+                                class="producto-checkbox w-5 h-5 rounded border-gray-300 text-blue-900 focus:ring-blue-500"
+                                value="${p.id}"
+                                data-producto-id="${p.id}"
+                                onchange="actualizarSeleccion(this, ${p.id})"
+                                ${estaSeleccionado ? 'checked' : ''}>
+                        </div>
+                        <div class="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition">
+                            <i class="fas fa-box text-blue-900"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900">${p.nombre}</h4>
+                            <p class="text-sm text-gray-600">${p.marca || ''} ${p.modelo || ''}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
+                                    ${p.categoria || 'Sin categoría'}
+                                </span>
+                                ${p.tipo_inventario === 'serie' ?
+                                    '<span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-microchip mr-1"></i>IMEI</span>' :
+                                    '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full"><i class="fas fa-boxes mr-1"></i>Stock</span>'}
+                            </div>
+                            <!-- Selector de cantidad (siempre visible) -->
+                            <div class="mt-2 flex items-center gap-2">
+                                <span class="text-xs text-gray-500">Cantidad:</span>
+                                <input type="number" 
+                                    class="cantidad-input w-20 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    value="${cantidadGuardada}"
+                                    min="1"
+                                    data-producto-id="${p.id}"
+                                    onchange="actualizarCantidadProducto(${p.id}, this.value)"
+                                    ${estaSeleccionado ? '' : 'disabled'}>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Agregar el botón de crear producto al final
+        resultadosDiv.innerHTML += `
+            <div class="col-span-full mt-3 pt-3 border-t border-gray-200 text-center">
+                <button type="button"
+                        onclick="abrirModalCrearProducto(document.getElementById('buscadorProductos').value)"
+                        class="inline-flex items-center text-sm text-green-700 hover:text-green-900 transition font-medium">
+                    <i class="fas fa-plus-circle mr-1"></i>
+                    ¿No está el producto? Créalo aquí
+                </button>
+            </div>`;
+    }
     function actualizarSeleccion(checkbox, productoId) {
+        const cantidadInput = document.querySelector(`.cantidad-input[data-producto-id="${productoId}"]`);
+        
         if (checkbox.checked) {
             productosSeleccionadosIds.add(productoId);
+            cantidadInput.disabled = false;
+            const cantidad = parseInt(cantidadInput.value) || 1;
+            cantidadesSeleccionadas[productoId] = cantidad;
         } else {
             productosSeleccionadosIds.delete(productoId);
+            cantidadInput.disabled = true;
+            delete cantidadesSeleccionadas[productoId];
         }
+        
         document.getElementById('productosSeleccionadosCount').innerText = 
             `${productosSeleccionadosIds.size} productos seleccionados`;
+        actualizarContadorUnidades();
     }
 
     // Función para agregar productos seleccionados
@@ -1182,13 +1355,25 @@
             return;
         }
 
-        // Capturar IDs y cerrar el modal INMEDIATAMENTE
-        // Esto limpia el DOM del modal (checkboxes incluidos) antes de seguir
+        // Mostrar loading
+        Swal.fire({
+            title: 'Agregando productos...',
+            text: 'Por favor espera',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
         const ids = Array.from(productosSeleccionadosIds);
         const totalIds = ids.length;
-        cerrarModalProductos(); // limpia productosSeleccionadosIds, DOM y contador
-
         let procesados = 0;
+        let errores = false;
+
+        // Capturar cantidades antes de que cerrarModalProductos las borre
+        const cantidadesCapturadas = { ...cantidadesSeleccionadas };
+
+        // Procesar cada producto
         ids.forEach(id => {
             fetch(`/compras/producto/${id}`)
                 .then(response => {
@@ -1196,9 +1381,20 @@
                     return response.json();
                 })
                 .then(producto => {
-                    agregarProductoConDatos(producto);
+                    // Obtener la cantidad seleccionada (de la copia capturada)
+                    const cantidad = cantidadesCapturadas[id] || 1;
+                    
+                    // Agregar producto con la cantidad específica
+                    agregarProductoConCantidad(producto, cantidad);
+                    
                     procesados++;
+                    
                     if (procesados === totalIds) {
+                        Swal.close();
+                        // Limpiar selecciones después de agregar
+                        productosSeleccionadosIds.clear();
+                        cantidadesSeleccionadas = {};
+                        
                         Swal.fire({
                             icon: 'success',
                             title: 'Productos agregados',
@@ -1208,16 +1404,69 @@
                         });
                     }
                 })
-                .catch(() => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'No se pudo cargar uno de los productos. Inténtalo nuevamente.'
-                    });
+                .catch(error => {
+                    console.error('Error:', error);
+                    procesados++;
+                    errores = true;
+                    if (procesados === totalIds) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'No se pudieron agregar algunos productos'
+                        });
+                    }
                 });
         });
+        
+        // Cerrar modal
+        cerrarModalProductos();
     }
 
+ // NUEVA FUNCIÓN para agregar producto con cantidad específica (N filas)
+    function agregarProductoConCantidad(producto, cantidad) {
+        const filas = parseInt(cantidad) || 1;
+        
+        // Validar que la cantidad sea válida
+        if (filas < 1) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Cantidad inválida',
+                text: 'La cantidad debe ser al menos 1',
+                confirmButtonColor: '#1e3a8a'
+            });
+            return;
+        }
+        
+        // Crear las filas
+        for (let i = 0; i < filas; i++) {
+            agregarProducto();
+            const index = contadorProductos - 1;
+
+            const selectProducto = document.getElementById(`producto_select_${index}`);
+            const inputCantidad = document.getElementById(`cantidad_${index}`);
+            const inputPrecio = document.getElementById(`precio_${index}`);
+
+            if (selectProducto) {
+                selectProducto.value = producto.id;
+                inputCantidad.value = 1; // Cada fila es 1 unidad
+
+                const event = new Event('change', { bubbles: true });
+                selectProducto.dispatchEvent(event);
+            }
+        }
+        
+        // Mostrar mensaje de éxito
+        Swal.fire({
+            icon: 'success',
+            title: `${filas} unidades agregadas`,
+            text: `Se agregaron ${filas} filas para ${producto.nombre}`,
+            timer: 1500,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
+        });
+    }
     // Limpiar selección al cerrar modal
     function cerrarModalProductos() {
         modalProductos.classList.add('hidden');
@@ -1225,7 +1474,14 @@
         buscador.value = '';
         resultadosDiv.innerHTML = '';
         productosSeleccionadosIds.clear();
+        cantidadesSeleccionadas = {};
         document.getElementById('productosSeleccionadosCount').innerText = '0 productos seleccionados';
+        document.getElementById('totalUnidadesCount').innerText = '(0 unidades)';
+        
+        // Resetear filtro a 'todos'
+        if (document.querySelector('.categoria-filter.active')) {
+            filtrarPorCategoria('todos');
+        }
     }
 
     function seleccionarProductoModal(id) {
@@ -1368,6 +1624,10 @@
         
         container.innerHTML = html;
         actualizarContadorIMEI();
+    }
+    function actualizarContadorUnidades() {
+        const totalUnidades = Object.values(cantidadesSeleccionadas).reduce((a, b) => a + b, 0);
+        document.getElementById('totalUnidadesCount').innerText = `(${totalUnidades} unidades)`;
     }
 
     function validarIMEIInput(input) {

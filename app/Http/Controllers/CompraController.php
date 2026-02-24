@@ -462,6 +462,7 @@ public function importarIMEI(Request $request)
                     'marca' => $producto->marca?->nombre,
                     'modelo' => $producto->modelo?->nombre,
                     'categoria' => $producto->categoria?->nombre,
+                    'categoria_id' => $producto->categoria_id,
                     'tipo_inventario' => $producto->tipo_inventario,
                     'marca_id' => $producto->marca_id,
                     'modelo_id' => $producto->modelo_id,
