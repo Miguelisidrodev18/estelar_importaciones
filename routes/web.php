@@ -289,7 +289,23 @@ Route::middleware('auth')->group(function () {
         Route::get('/importar-imei', [CompraController::class, 'importarIMEI'])->name('importar-imei');
         Route::post('/importar-imei/procesar', [CompraController::class, 'procesarImportacionIMEI'])->name('procesar-importacion');
     });
+   // ========================================
+    // MÓDULO DE CUENTAS POR PAGAR
+    // ========================================
+    Route::prefix('cuentas-por-pagar')->name('cuentas-por-pagar.')->middleware('auth')->group(function () {
+        Route::get('/', [App\Http\Controllers\CuentaPorPagarController::class, 'index'])->name('index');
+        
+        // 🔴 CAMBIADO: {cuenta} en lugar de {cuentas_por_pagar}
+        Route::get('/{cuenta}', [App\Http\Controllers\CuentaPorPagarController::class, 'show'])->name('show');
+        Route::post('/{cuenta}/registrar-pago', [App\Http\Controllers\CuentaPorPagarController::class, 'registrarPago'])->name('registrar-pago');
+        Route::get('/{cuenta}/programar-pago', [App\Http\Controllers\CuentaPorPagarController::class, 'programarPago'])->name('programar-pago');
+        Route::post('/{cuenta}/programar-pago', [App\Http\Controllers\CuentaPorPagarController::class, 'guardarProgramacion'])->name('guardar-programacion');
+        
+        Route::get('/reportes/vencimientos', [App\Http\Controllers\CuentaPorPagarController::class, 'reporteVencimientos'])->name('reporte.vencimientos');
+    });
 
+    // También puedes agregar una ruta para el dashboard financiero
+    Route::get('/finanzas', [App\Http\Controllers\CuentaPorPagarController::class, 'dashboard'])->name('finanzas.dashboard');
     // ========================================
     // MÓDULO DE VENTAS
     // ========================================

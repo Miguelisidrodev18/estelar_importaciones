@@ -22,10 +22,10 @@
             class="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-xl z-50 transition-transform duration-300 ease-in-out"
             x-data="{
                 inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }},
-                comprasOpen: {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') ? 'true' : 'false' }},
+                comprasOpen: {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') || request()->routeIs('cuentas-por-pagar.*') ? 'true' : 'false' }},
                 ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') ? 'true' : 'false' }},
                 trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
-                cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }}, // <-- AGREGAR COMA AQUÍ
+                cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }},
                 catalogoOpen: {{ request()->routeIs('catalogo.*') ? 'true' : 'false' }}
             }">
 
@@ -109,7 +109,7 @@
 
                     <li>
                         <button @click="comprasOpen = !comprasOpen"
-                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') ? 'bg-blue-700' : '' }}">
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') || request()->routeIs('cuentas-por-pagar.*') ? 'bg-blue-700' : '' }}">
                             <span class="flex items-center">
                                 <i class="fas fa-shopping-bag mr-3"></i>Compras
                             </span>
@@ -126,6 +126,12 @@
                                 <a href="{{ route('compras.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-file-invoice mr-3 text-sm"></i>Registrar Compras
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('cuentas-por-pagar.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cuentas-por-pagar.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-credit-card mr-3 text-sm"></i>Cuentas por Pagar
                                 </a>
                             </li>
                             <li>
@@ -174,6 +180,7 @@
                             <i class="fas fa-cash-register mr-3"></i>Caja
                         </a>
                     </li>
+
                     <li>
                         <button @click="catalogoOpen = !catalogoOpen"
                                 class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.*') ? 'bg-blue-700' : '' }}">
@@ -268,7 +275,7 @@
 
                     <li>
                         <button @click="comprasOpen = !comprasOpen"
-                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') ? 'bg-blue-700' : '' }}">
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') || request()->routeIs('cuentas-por-pagar.*') ? 'bg-blue-700' : '' }}">
                             <span class="flex items-center">
                                 <i class="fas fa-shopping-bag mr-3"></i>Compras
                             </span>
@@ -288,6 +295,12 @@
                                 </a>
                             </li>
                             <li>
+                                <a href="{{ route('cuentas-por-pagar.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cuentas-por-pagar.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-credit-card mr-3 text-sm"></i>Cuentas por Pagar
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ route('pedidos.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('pedidos.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-clipboard-list mr-3 text-sm"></i>Pedidos a Proveedor
@@ -302,6 +315,7 @@
                             <i class="fas fa-truck-loading mr-3"></i>Traslados
                         </a>
                     </li>
+
                     <li>
                         <button @click="catalogoOpen = !catalogoOpen"
                                 class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.*') ? 'bg-blue-700' : '' }}">

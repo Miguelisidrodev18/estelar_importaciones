@@ -172,8 +172,9 @@ class CompraController extends Controller
                 'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? null,
                 'forma_pago' => $validated['forma_pago'],
                 'condicion_pago' => $validated['forma_pago'] === 'credito' 
-                    ? ($validated['condicion_pago'] ?? null) 
-                    : null,                'tipo_moneda' => $validated['tipo_moneda'],
+                    ? (int)($validated['condicion_pago'] ?? 0) 
+                    : null,
+                'tipo_moneda' => $validated['tipo_moneda'],
                 'tipo_cambio' => $validated['tipo_cambio'] ?? 1,
                 'incluye_igv' => $incluyeIgv,
                 'subtotal' => $subtotal,

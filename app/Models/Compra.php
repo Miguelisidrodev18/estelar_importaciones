@@ -71,10 +71,8 @@ class Compra extends Model
     ];
 
     const ESTADOS = [
-        'borrador' => 'Borrador',
-        'pendiente' => 'Pendiente',
-        'completado' => 'Completado',
-        'anulado' => 'Anulado',
+        'registrado' => 'Registrado',
+        'anulado' => 'Anulado'
     ];
     const TIPOS_OPERACION_SUNAT = [
     '01' => 'Gravado - Operación gravada (IGV 18%)',
@@ -277,7 +275,7 @@ class Compra extends Model
                 $compra->codigo = self::generarCodigo();
             }
             if (empty($compra->estado)) {
-                $compra->estado = 'pendiente';
+                $compra->estado = 'registrado';
             }
             if (empty($compra->tipo_moneda)) {
                 $compra->tipo_moneda = 'PEN';
@@ -344,5 +342,9 @@ class Compra extends Model
                 ];
                 return [$meses[$item->mes] => $item];
             });
+    }
+    public function cuentaPorPagar()
+    {
+        return $this->hasOne(CuentaPorPagar::class);
     }
 }

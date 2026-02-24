@@ -10,6 +10,7 @@ use App\Models\Imei;
 use App\Models\Producto;
 use App\Models\Catalogo\Modelo;
 use App\Models\Catalogo\Color;
+use App\Models\CuentaPorPagar;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -31,7 +32,7 @@ class CompraService
             $subtotalGeneral = 0;
             
             // 3. Procesar cada detalle
-            foreach ($detalles as $detalle) {
+            foreach ($detalles as $detalle) {   
                 $productoBase = Producto::findOrFail($detalle['producto_id']);
 
                 // Resolver variante: si el detalle tiene modelo/color distintos al producto base,
@@ -65,7 +66,6 @@ class CompraService
                     'descuento'       => $detalle['descuento'] ?? 0,
                     'subtotal'        => $subtotalDetalle,
                 ]);
-
                 // 3.2 Actualizar stock
                 $this->actualizarStock($producto, $compra, $detalle);
 
@@ -82,7 +82,38 @@ class CompraService
                 // 3.5 Actualizar precio de compra del producto
                 $this->actualizarPrecioProducto($producto, $detalle['precio_unitario']);
             }
-            
+
+            // 🔴 CREAR CUENTA POR PAGAR
+            $fechaVencimiento = $compra->fecha;
+
+            if ($compra->forma_pago === 'credito' && !is_null($compra->condicion_pago) && $compra->condicion_pago > 0) {
+                $dias = (int)$compra->condicion_pago;
+                $fechaVencimiento = $compra->fecha->copy()->addDays($dias);
+            }
+
+            $estadoInicial = $compra->forma_pago === 'contado' ? 'pagado' : 'pendiente';
+            $montoPagadoInicial = $compra->forma_pago === 'contado' ? $compra->total : 0;
+
+            try {
+                CuentaPorPagar::create([
+                    'compra_id' => $compra->id,
+                    'proveedor_id' => $compra->proveedor_id,
+                    'numero_factura' => $compra->numero_factura,
+                    'fecha_emision' => $compra->fecha,
+                    'fecha_vencimiento' => $fechaVencimiento,
+                    'monto_total' => $compra->total,
+                    'monto_pagado' => $montoPagadoInicial,
+                    'moneda' => $compra->tipo_moneda,
+                    'tipo_cambio' => $compra->tipo_cambio,
+                    'estado' => $estadoInicial,
+                    'dias_credito' => $compra->condicion_pago,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Error al crear cuenta por pagar', [
+                    'compra_id' => $compra->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
             // 4. Registrar movimiento de caja si aplica
             if ($compra->forma_pago === 'contado' && $compra->estado === 'completado') {
                 $this->registrarMovimientoCaja($compra);
