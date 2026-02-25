@@ -28,6 +28,7 @@ use App\Http\Controllers\CompraController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\TrasladoController;
 use App\Http\Controllers\CajaController;
+use App\Http\Controllers\PrecioController;
 
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
@@ -169,9 +170,9 @@ Route::middleware('auth')->group(function () {
             });
 
             Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
-            Route::get('/productos/{producto}', [ProductoController::class, 'show'])->name('productos.show');
             Route::get('/productos/buscar', [ProductoController::class, 'buscarAjax'])->name('productos.buscar-ajax');
             Route::get('/productos/consulta-tienda', [ProductoController::class, 'consultaTienda'])->middleware('role:Tienda')->name('productos.consulta-tienda');
+            Route::get('/productos/{producto}', [ProductoController::class, 'show'])->name('productos.show');
         // MOVIMIENTOS DE INVENTARIO
         Route::middleware('role:Administrador,Almacenero')->group(function () {
             Route::get('/movimientos', [MovimientoInventarioController::class, 'index'])->name('movimientos.index');
@@ -223,10 +224,6 @@ Route::middleware('auth')->group(function () {
             Route::post('/imeis/{imei}/estado', [ImeiController::class, 'cambiarEstado'])->name('imeis.cambiar-estado');
         });
 
-        // CONSULTA PARA TIENDA
-        Route::middleware('role:Tienda')->group(function () {
-            Route::get('/consulta', [ProductoController::class, 'consultaTienda'])->name('consulta-tienda');
-        });
     });
 
     // ========================================
@@ -307,7 +304,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // También puedes agregar una ruta para el dashboard financiero
-    Route::get('/finanzas', [App\Http\Controllers\CuentaPorPagarController::class, 'dashboard'])->name('finanzas.dashboard');
+    Route::get('/finanzas', [App\Http\Controllers\CuentaPorPagarController::class, 'dashboard'])->middleware('role:Administrador,Almacenero')->name('finanzas.dashboard');
     // ========================================
     // MÓDULO DE VENTAS
     // ========================================
@@ -319,7 +316,17 @@ Route::middleware('auth')->group(function () {
         Route::post('/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->middleware('role:Administrador,Tienda')->name('confirmar-pago');
         Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
     });
-
+    // ========================================
+    // MÓDULO DE TIENDA (Inventario entre tiendas)
+    // ========================================
+    Route::middleware(['auth', 'role:Tienda'])->prefix('tienda')->name('tienda.')->group(function () {
+        Route::get('/inventario', [TiendaController::class, 'inventario'])->name('inventario.ver');
+        Route::get('/solicitudes', [TiendaController::class, 'solicitudes'])->name('inventario.solicitudes');
+        Route::post('/solicitar-traslado', [TiendaController::class, 'solicitarTraslado'])->name('inventario.solicitar-traslado');
+        Route::post('/solicitudes/{traslado}/cancelar', [TiendaController::class, 'cancelarSolicitud'])->name('inventario.cancelar-solicitud');
+        Route::get('/producto/{producto}', [TiendaController::class, 'verProducto'])->name('producto.ver');
+        Route::get('/get-stock', [TiendaController::class, 'getStockProducto'])->name('get-stock');
+    });
     // ========================================
     // MÓDULO DE TRASLADOS
     // ========================================
@@ -372,6 +379,18 @@ Route::middleware('auth')->group(function () {
         Route::resource('modelos', App\Http\Controllers\Catalogo\ModeloController::class)->parameters(['modelos' => 'modelo']);
         Route::get('modelos-por-marca/{marcaId}', [App\Http\Controllers\Catalogo\ModeloController::class, 'getModelosPorMarca'])->name('modelos.por-marca');
         Route::get('marcas-por-categoria/{categoriaId}', [App\Http\Controllers\Catalogo\MarcaController::class, 'getMarcasPorCategoria'])->name('marcas.por-categoria');
+    });
+
+    // ========================================
+    // MÓDULO DE PRECIOS
+    // ========================================
+    Route::prefix('precios')->name('precios.')->middleware('role:Administrador,Almacenero')->group(function () {
+        Route::get('/', [PrecioController::class, 'index'])->name('index');
+        Route::get('/producto/{producto}', [PrecioController::class, 'show'])->name('show');
+        Route::post('/producto/{producto}/calcular', [PrecioController::class, 'calcular'])->name('calcular');
+        Route::get('/producto/{producto}/precio/{precio}/edit', [PrecioController::class, 'edit'])->name('edit');
+        Route::put('/producto/{producto}/precio/{precio}', [PrecioController::class, 'update'])->name('update');
+        Route::get('/producto/{producto}/historial', [PrecioController::class, 'historial'])->name('historial');
     });
 
     /*
