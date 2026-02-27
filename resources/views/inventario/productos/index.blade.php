@@ -121,9 +121,9 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
                         <select name="estado" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="">Todos los estados</option>
-                            <option value="activo" {{ request('estado') == 'activo' ? 'selected' : '' }}>Activo</option>
-                            <option value="inactivo" {{ request('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                            <option value="todos"       {{ request('estado') == 'todos'        ? 'selected' : '' }}>Todos los estados</option>
+                            <option value="activo"      {{ request('estado', 'activo') == 'activo'      ? 'selected' : '' }}>Activo</option>
+                            <option value="inactivo"    {{ request('estado') == 'inactivo'    ? 'selected' : '' }}>Inactivo</option>
                             <option value="descontinuado" {{ request('estado') == 'descontinuado' ? 'selected' : '' }}>Descontinuado</option>
                         </select>
                     </div>
@@ -214,6 +214,12 @@
                                         @if($producto->codigo_barras)
                                             <p class="text-xs text-gray-500">CB: {{ $producto->codigo_barras }}</p>
                                         @endif
+                                        @if($producto->variantesActivas->count() > 0)
+                                            <span class="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
+                                                <i class="fas fa-layer-group text-indigo-500"></i>
+                                                {{ $producto->variantesActivas->count() }} variante(s)
+                                            </span>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
@@ -234,13 +240,40 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                    @if($producto->estado_stock == 'sin_stock') bg-red-100 text-red-800
-                                    @elseif($producto->estado_stock == 'bajo') bg-yellow-100 text-yellow-800
-                                    @else bg-green-100 text-green-800
-                                    @endif">
-                                    {{ $producto->stock_actual }} {{ $producto->unidadMedida->abreviatura ?? 'unid' }}
-                                </span>
+                                @if($producto->variantesActivas->count() > 0)
+                                    @php
+                                        $stockTotal = $producto->variantesActivas->sum('stock_actual');
+                                        $colorClass = $stockTotal == 0 ? 'bg-red-100 text-red-800'
+                                                    : ($stockTotal <= 5 ? 'bg-yellow-100 text-yellow-800'
+                                                    : 'bg-green-100 text-green-800');
+                                    @endphp
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $colorClass }}">
+                                        {{ $stockTotal }} unt
+                                    </span>
+                                    <div class="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                                        @foreach($producto->variantesActivas as $v)
+                                            <span title="{{ $v->nombre_completo }}: {{ $v->stock_actual }} unt"
+                                                  class="inline-flex items-center gap-1 text-xs text-gray-500">
+                                                @if($v->color?->codigo_hex)
+                                                    <span class="w-2.5 h-2.5 rounded-full border border-gray-300 shrink-0"
+                                                          style="background-color:{{ $v->color->codigo_hex }}"></span>
+                                                @endif
+                                                {{ $v->stock_actual }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    @php
+                                        $stockClass = $producto->estado_stock == 'sin_stock'
+                                            ? 'bg-red-100 text-red-800'
+                                            : ($producto->estado_stock == 'bajo'
+                                                ? 'bg-yellow-100 text-yellow-800'
+                                                : 'bg-green-100 text-green-800');
+                                    @endphp
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $stockClass }}">
+                                        {{ $producto->stock_actual }} {{ $producto->unidadMedida->abreviatura ?? 'unid' }}
+                                    </span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 @if($producto->tipo_inventario === 'serie')
@@ -274,25 +307,34 @@
                                     <a href="{{ route('inventario.productos.show', $producto) }}" class="text-gray-600 hover:text-gray-900" title="Ver detalles">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    
+
                                     @if($canEdit)
                                         <a href="{{ route('inventario.productos.edit', $producto) }}" class="text-blue-600 hover:text-blue-900" title="Editar">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                     @endif
 
+                                    <!-- Botón Gestionar Variantes -->
+                                    @if($producto->variantesActivas->count() > 0)
+                                        <a href="{{ route('inventario.productos.variantes', $producto) }}"
+                                           class="text-indigo-600 hover:text-indigo-900"
+                                           title="Gestionar variantes ({{ $producto->variantesActivas->count() }})">
+                                            <i class="fas fa-layer-group"></i>
+                                        </a>
+                                    @endif
+
                                     <!-- Botón para gestionar IMEIs (solo para tipo serie) -->
                                     @if($producto->tipo_inventario === 'serie')
-                                        <a href="{{ route('inventario.imeis.index', ['producto_id' => $producto->id]) }}" 
-                                           class="text-purple-600 hover:text-purple-900" 
+                                        <a href="{{ route('inventario.imeis.index', ['producto_id' => $producto->id]) }}"
+                                           class="text-purple-600 hover:text-purple-900"
                                            title="Gestionar IMEIs">
                                             <i class="fas fa-sim-card"></i>
                                         </a>
                                     @endif
 
                                     <!-- Botón para gestionar códigos de barras adicionales -->
-                                    <a href="{{ route('inventario.productos.codigos-barras', $producto) }}" 
-                                       class="text-indigo-600 hover:text-indigo-900" 
+                                    <a href="{{ route('inventario.productos.codigos-barras', $producto) }}"
+                                       class="text-indigo-600 hover:text-indigo-900"
                                        title="Códigos de barras">
                                         <i class="fas fa-barcode"></i>
                                     </a>

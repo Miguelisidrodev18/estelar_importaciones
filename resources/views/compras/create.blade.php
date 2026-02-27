@@ -591,6 +591,9 @@
     let productosFiltrados = [];
     let productosOriginales = []; // Para mantener la lista completa
     let cantidadesSeleccionadas = {}; // { productoId: cantidad }
+    let variantesSeleccionadas  = {}; // { "prodId_varId": { productoId, varianteId, cantidad, producto, variante } }
+    let productosModal  = {};  // prodId → producto (registro para handlers sin JSON inline)
+    let variantesModal  = {};  // "prodId_varId" → variante
 
 
 
@@ -860,6 +863,7 @@
                     <option value="">Seleccione producto</option>
                     ${opcionesProductos}
                 </select>
+                <div id="variante_container_${idx}"></div>
             </td>
             <td class="px-4 py-3">
                 <select id="marca_select_${idx}"
@@ -964,31 +968,124 @@
         colorSelect.disabled = true;
         btnIMEI.disabled = true;
 
+        // Limpiar selector de variante si existe
+        const varianteContainer = document.getElementById(`variante_container_${index}`);
+        if (varianteContainer) varianteContainer.innerHTML = '';
+
+        // Asegurarse de restaurar el colspan cuando se deselecciona un producto
+        const _productTd = select.closest('td');
+        if (_productTd) _productTd.removeAttribute('colspan');
+        const _marcaTd = marcaSelect.closest('td');
+        const _modeloTd = modeloSelect.closest('td');
+        const _colorTd = colorSelect.closest('td');
+        if (_marcaTd)  _marcaTd.style.display  = '';
+        if (_modeloTd) _modeloTd.style.display = '';
+        if (_colorTd)  _colorTd.style.display  = '';
+
         if (!producto) {
             calcularSubtotal(index);
             return;
         }
 
-        // Habilitar marca
-        marcaSelect.disabled = false;
+        // ── LÓGICA DE VARIANTES ────────────────────────────────────────────────
+        const productTd   = select.closest('td');
+        const marcaTd     = marcaSelect.closest('td');
+        const modeloTd    = modeloSelect.closest('td');
+        const colorTd     = colorSelect.closest('td');
 
-        // Habilitar color para TODOS los productos (no solo tipo serie)
-        // El catálogo completo ya está cargado en el select
-        colorSelect.disabled = false;
+        if (producto.tiene_variantes && producto.variantes && producto.variantes.length > 0) {
+            renderVarianteSelector(index, producto.variantes, producto.tipo_inventario);
 
-        // Si el producto ya tiene marca asignada, pre-seleccionarla
-        // Se pasa también el modelo_id para que se pre-seleccione tras cargar las opciones
-        if (producto.marca_id) {
-            marcaSelect.value = producto.marca_id;
-            cambiarMarca(index, producto.modelo_id || null);
-        }
+            // Expandir celda de Producto para cubrir MARCA + MODELO + COLOR
+            if (productTd) productTd.setAttribute('colspan', '4');
+            // Ocultar las 3 celdas → con colspan=4 el layout queda alineado
+            if (marcaTd)  marcaTd.style.display  = 'none';
+            if (modeloTd) modeloTd.style.display = 'none';
+            if (colorTd)  colorTd.style.display  = 'none';
+        } else {
+            // Restaurar celda de Producto a tamaño normal
+            if (productTd) productTd.removeAttribute('colspan');
+            if (marcaTd)  marcaTd.style.display  = '';
+            if (modeloTd) modeloTd.style.display = '';
+            if (colorTd)  colorTd.style.display  = '';
 
-        // Pre-seleccionar color si el producto lo trae
-        if (producto.color_id) {
-            colorSelect.value = producto.color_id;
+            marcaSelect.disabled = false;
+            colorSelect.disabled = false;
+
+            if (producto.marca_id) {
+                marcaSelect.value = producto.marca_id;
+                cambiarMarca(index, producto.modelo_id || null);
+            }
+            if (producto.color_id) colorSelect.value = producto.color_id;
         }
 
         calcularSubtotal(index);
+    }
+
+    /**
+     * Renderiza el selector de variante dentro de la celda `variante_container_{index}`.
+     */
+    function renderVarianteSelector(index, variantes, tipoInventario) {
+        const container = document.getElementById(`variante_container_${index}`);
+        if (!container) return;
+
+        const opciones = variantes.map(v => {
+            const partes = [];
+            if (v.color_nombre) partes.push(v.color_nombre);
+            if (v.capacidad)    partes.push(v.capacidad);
+            const label = partes.join(' / ') || 'Base';
+            return `<option value="${v.id}"
+                             data-color="${v.color_id || ''}"
+                             data-color-nombre="${v.color_nombre || ''}"
+                             data-capacidad="${v.capacidad || ''}"
+                             data-stock="${v.stock_actual}"
+                             data-tipo="${tipoInventario}">
+                        ${label} — Stock: ${v.stock_actual}
+                    </option>`;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="mt-2">
+                <label class="block text-xs text-gray-500 mb-1 font-medium">
+                    <i class="fas fa-layer-group mr-1 text-indigo-500"></i>Variante
+                </label>
+                <select name="detalles[${index}][variante_id]"
+                        id="variante_select_${index}"
+                        onchange="seleccionarVariante(${index})"
+                        class="w-full px-2 py-1.5 border border-indigo-300 rounded-lg text-sm bg-indigo-50 focus:ring-2 focus:ring-indigo-400"
+                        required>
+                    <option value="">— Seleccione variante —</option>
+                    ${opciones}
+                </select>
+                <p id="variante_stock_badge_${index}" class="text-xs mt-1 hidden"></p>
+            </div>`;
+    }
+
+    function seleccionarVariante(index) {
+        const varianteSelect = document.getElementById(`variante_select_${index}`);
+        const opt = varianteSelect.selectedOptions[0];
+        if (!opt || !opt.value) return;
+
+        const stock  = parseInt(opt.dataset.stock) || 0;
+        const tipo   = opt.dataset.tipo;
+        const badge  = document.getElementById(`variante_stock_badge_${index}`);
+        const btnIMEI = document.getElementById(`btn_imei_${index}`);
+
+        // Actualizar campo color_id oculto si existe
+        const colorHidden = document.querySelector(`[name="detalles[${index}][color_id]"]`);
+        if (colorHidden) colorHidden.value = opt.dataset.color || '';
+
+        // Badge de stock
+        if (badge) {
+            badge.classList.remove('hidden');
+            badge.className = `text-xs mt-1 font-semibold ${stock > 0 ? 'text-green-600' : 'text-red-600'}`;
+            badge.textContent = stock > 0 ? `✓ ${stock} en stock` : '✗ Sin stock';
+        }
+
+        // Habilitar IMEIs si aplica
+        if (btnIMEI && tipo === 'serie') {
+            btnIMEI.disabled = !opt.value;
+        }
     }
 
     function cambiarMarca(index, preseleccionarModeloId = null) {
@@ -1166,7 +1263,13 @@
 
         fetch(`/compras/buscar-productos?q=${encodeURIComponent(termino)}`)
             .then(response => {
-                if (!response.ok) throw new Error('Error en la respuesta del servidor');
+                if (!response.ok) throw new Error(`Error ${response.status} del servidor`);
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    // La sesión expiró y el servidor redirigió a la página de login
+                    window.location.href = '/login';
+                    throw new Error('Sesión expirada. Redirigiendo al login...');
+                }
                 return response.json();
             })
             .then(productos => {
@@ -1174,18 +1277,28 @@
                 
                 // Guardar TODOS los productos originales
                 productosOriginales = productos;
-                
+
+                // Actualizar el catálogo local con los datos frescos (variantes incluidas)
+                productos.forEach(p => {
+                    const idx = catalogoProductos.findIndex(c => c.id === p.id);
+                    if (idx !== -1) {
+                        catalogoProductos[idx] = { ...catalogoProductos[idx], ...p };
+                    } else {
+                        catalogoProductos.push(p);
+                    }
+                });
+
                 // Filtrar por categoría si no es 'todos'
                 let productosFiltrados = productos;
                 if (categoriaActual !== 'todos') {
                     productosFiltrados = productos.filter(p => p.categoria_id == categoriaActual);
                 }
-                
+
                 if (productosFiltrados.length === 0) {
                     sinResultadosDiv.classList.remove('hidden');
                     return;
                 }
-                
+
                 // Mostrar resultados manteniendo selecciones
                 mostrarResultadosConSeleccion(productosFiltrados);
             })
@@ -1264,59 +1377,111 @@
     }
     function mostrarResultadosConSeleccion(productos) {
         resultadosDiv.innerHTML = productos.map(p => {
-            const estaSeleccionado = productosSeleccionadosIds.has(p.id);
-            const cantidadGuardada = cantidadesSeleccionadas[p.id] || 1;
-            
-            return `
-                <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:shadow-lg transition-all group">
-                    <div class="flex items-start gap-3">
-                        <div class="flex items-center mt-1">
+            // ── Producto CON variantes ────────────────────────────────────────
+            if (p.tiene_variantes && p.variantes && p.variantes.length > 0) {
+                // Registrar producto en el registry (evita JSON en handlers inline)
+                productosModal[p.id] = p;
+                const variantesHTML = p.variantes.map(v => {
+                    const key  = `${p.id}_${v.id}`;
+                    variantesModal[key] = v;  // registrar variante
+                    const sel  = !!variantesSeleccionadas[key];
+                    const cant = sel ? variantesSeleccionadas[key].cantidad : 1;
+                    const label = [v.color_nombre, v.capacidad].filter(Boolean).join(' / ') || 'Base';
+                    const dot = v.color_hex
+                        ? `<span class="w-3 h-3 rounded-full border border-white shadow shrink-0 inline-block" style="background-color:${v.color_hex}"></span>`
+                        : '<i class="fas fa-circle text-gray-300 text-xs shrink-0"></i>';
+                    const stockClr = v.stock_actual > 0 ? 'text-green-600' : 'text-red-500';
+                    const stockTxt = v.stock_actual > 0 ? `${v.stock_actual} u.` : 'Sin stock';
+                    const bordClr  = sel ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 bg-gray-50';
+                    return `
+                        <div id="vcard_${key}" class="flex items-center gap-2 px-2 py-1.5 rounded-lg border ${bordClr} transition-all">
                             <input type="checkbox"
-                                class="producto-checkbox w-5 h-5 rounded border-gray-300 text-blue-900 focus:ring-blue-500"
-                                value="${p.id}"
-                                data-producto-id="${p.id}"
-                                onchange="actualizarSeleccion(this, ${p.id})"
-                                ${estaSeleccionado ? 'checked' : ''}>
-                        </div>
-                        <div class="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition">
-                            <i class="fas fa-box text-blue-900"></i>
-                        </div>
-                        <div class="flex-1">
-                            <h4 class="font-semibold text-gray-900">${p.nombre}</h4>
-                            <p class="text-sm text-gray-600">${p.marca || ''} ${p.modelo || ''}</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
-                                    ${p.categoria || 'Sin categoría'}
+                                   class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+                                   ${sel ? 'checked' : ''}
+                                   onchange="actualizarSeleccionVariante(this,${p.id},${v.id})">
+                            ${dot}
+                            <span class="text-xs font-medium text-gray-800 flex-1 truncate">${label}</span>
+                            <span class="text-xs ${stockClr} font-medium shrink-0">${stockTxt}</span>
+                            <input type="number"
+                                   class="w-12 px-1 py-0.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-400"
+                                   value="${cant}" min="1"
+                                   onchange="actualizarCantidadVariante('${key}', this.value)"
+                                   ${sel ? '' : 'disabled'}>
+                        </div>`;
+                }).join('');
+
+                const totalSelVariantes = p.variantes.filter(v => !!variantesSeleccionadas[`${p.id}_${v.id}`]).length;
+                const badgeSel = totalSelVariantes > 0
+                    ? `<span class="text-xs px-2 py-0.5 bg-indigo-600 text-white rounded-full font-semibold">${totalSelVariantes} sel.</span>` : '';
+
+                return `
+                    <div class="bg-white border-2 border-gray-200 rounded-xl p-3 hover:border-indigo-300 hover:shadow-lg transition-all">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-9 h-9 bg-indigo-50 rounded-lg flex items-center justify-center shrink-0">
+                                <i class="fas fa-mobile-alt text-indigo-600 text-sm"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-gray-900 text-sm truncate">${p.nombre}</h4>
+                                <p class="text-xs text-gray-500">${p.marca || ''} ${p.modelo ? '· ' + p.modelo : ''}</p>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
+                                    <i class="fas fa-layer-group mr-1"></i>${p.variantes.length} var.
                                 </span>
-                                ${p.tipo_inventario === 'serie' ?
-                                    '<span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-microchip mr-1"></i>IMEI</span>' :
-                                    '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full"><i class="fas fa-boxes mr-1"></i>Stock</span>'}
-                            </div>
-                            <!-- Selector de cantidad (siempre visible) -->
-                            <div class="mt-2 flex items-center gap-2">
-                                <span class="text-xs text-gray-500">Cantidad:</span>
-                                <input type="number" 
-                                    class="cantidad-input w-20 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    value="${cantidadGuardada}"
-                                    min="1"
-                                    data-producto-id="${p.id}"
-                                    onchange="actualizarCantidadProducto(${p.id}, this.value)"
-                                    ${estaSeleccionado ? '' : 'disabled'}>
+                                ${badgeSel}
                             </div>
                         </div>
-                    </div>
-                </div>
-            `;
+                        <div class="space-y-1 border-t border-gray-100 pt-2">
+                            ${variantesHTML}
+                        </div>
+                    </div>`;
+
+            // ── Producto SIN variantes ────────────────────────────────────────
+            } else {
+                const sel  = productosSeleccionadosIds.has(p.id);
+                const cant = cantidadesSeleccionadas[p.id] || 1;
+                return `
+                    <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:shadow-lg transition-all group">
+                        <div class="flex items-start gap-3">
+                            <input type="checkbox"
+                                   class="w-5 h-5 rounded border-gray-300 text-blue-900 focus:ring-blue-500 mt-1 shrink-0"
+                                   value="${p.id}"
+                                   onchange="actualizarSeleccion(this, ${p.id})"
+                                   ${sel ? 'checked' : ''}>
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center shrink-0">
+                                <i class="fas fa-box text-blue-900"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-gray-900 text-sm truncate">${p.nombre}</h4>
+                                <p class="text-xs text-gray-500">${p.marca || ''} ${p.modelo ? '· ' + p.modelo : ''}</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">${p.categoria || '—'}</span>
+                                    ${p.tipo_inventario === 'serie'
+                                        ? '<span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"><i class="fas fa-microchip mr-1"></i>IMEI</span>'
+                                        : '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full"><i class="fas fa-boxes mr-1"></i>Stock</span>'}
+                                </div>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="text-xs text-gray-500">Cant.:</span>
+                                    <input type="number"
+                                           class="cantidad-input w-16 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                           value="${cant}" min="1"
+                                           data-producto-id="${p.id}"
+                                           onchange="actualizarCantidadProducto(${p.id}, this.value)"
+                                           ${sel ? '' : 'disabled'}>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
         }).join('');
-        
-        // Agregar el botón de crear producto al final
+
+        // Botón crear producto
         resultadosDiv.innerHTML += `
             <div class="col-span-full mt-3 pt-3 border-t border-gray-200 text-center">
                 <button type="button"
                         onclick="abrirModalCrearProducto(document.getElementById('buscadorProductos').value)"
                         class="inline-flex items-center text-sm text-green-700 hover:text-green-900 transition font-medium">
-                    <i class="fas fa-plus-circle mr-1"></i>
-                    ¿No está el producto? Créalo aquí
+                    <i class="fas fa-plus-circle mr-1"></i>¿No está el producto? Créalo aquí
                 </button>
             </div>`;
     }
@@ -1339,36 +1504,57 @@
         actualizarContadorUnidades();
     }
 
-    // Función para agregar productos seleccionados
+    // Función para agregar productos seleccionados (simples + variantes)
     function agregarProductosSeleccionados() {
-        if (productosSeleccionadosIds.size === 0) {
+        const tieneSimples   = productosSeleccionadosIds.size > 0;
+        const tieneVariantes = Object.keys(variantesSeleccionadas).length > 0;
+
+        if (!tieneSimples && !tieneVariantes) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Atención',
-                text: 'Selecciona al menos un producto'
+                text: 'Selecciona al menos un producto o variante'
             });
             return;
         }
 
-        // Mostrar loading
+        // Capturar estado antes de cerrar el modal
+        const cantidadesCapturadas = { ...cantidadesSeleccionadas };
+        const variantesCapturadas  = { ...variantesSeleccionadas };
+        const ids = Array.from(productosSeleccionadosIds);
+
+        // Cerrar modal (limpia cantidadesSeleccionadas y variantesSeleccionadas)
+        cerrarModalProductos();
+
+        // ── Agregar variantes directamente (sin fetch — datos ya disponibles) ──
+        Object.values(variantesCapturadas).forEach(({ producto, varianteId, cantidad }) => {
+            agregarFilaConVariante(producto, varianteId, cantidad);
+        });
+
+        // Si no hay productos simples, mostrar éxito de inmediato
+        if (ids.length === 0) {
+            const total = Object.keys(variantesCapturadas).length;
+            Swal.fire({
+                icon: 'success',
+                title: 'Variantes agregadas',
+                text: `${total} variante(s) agregadas correctamente`,
+                timer: 1500,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        // ── Agregar productos simples (requiere fetch) ──
         Swal.fire({
             title: 'Agregando productos...',
             text: 'Por favor espera',
             allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+            didOpen: () => { Swal.showLoading(); }
         });
 
-        const ids = Array.from(productosSeleccionadosIds);
-        const totalIds = ids.length;
-        let procesados = 0;
-        let errores = false;
+        const totalIds   = ids.length;
+        let procesados   = 0;
 
-        // Capturar cantidades antes de que cerrarModalProductos las borre
-        const cantidadesCapturadas = { ...cantidadesSeleccionadas };
-
-        // Procesar cada producto
         ids.forEach(id => {
             fetch(`/compras/producto/${id}`)
                 .then(response => {
@@ -1376,24 +1562,16 @@
                     return response.json();
                 })
                 .then(producto => {
-                    // Obtener la cantidad seleccionada (de la copia capturada)
                     const cantidad = cantidadesCapturadas[id] || 1;
-                    
-                    // Agregar producto con la cantidad específica
                     agregarProductoConCantidad(producto, cantidad);
-                    
                     procesados++;
-                    
                     if (procesados === totalIds) {
                         Swal.close();
-                        // Limpiar selecciones después de agregar
-                        productosSeleccionadosIds.clear();
-                        cantidadesSeleccionadas = {};
-                        
+                        const total = totalIds + Object.keys(variantesCapturadas).length;
                         Swal.fire({
                             icon: 'success',
                             title: 'Productos agregados',
-                            text: `${totalIds} producto(s) agregados correctamente`,
+                            text: `${total} elemento(s) agregados correctamente`,
                             timer: 1500,
                             showConfirmButton: false
                         });
@@ -1402,7 +1580,6 @@
                 .catch(error => {
                     console.error('Error:', error);
                     procesados++;
-                    errores = true;
                     if (procesados === totalIds) {
                         Swal.close();
                         Swal.fire({
@@ -1413,9 +1590,6 @@
                     }
                 });
         });
-        
-        // Cerrar modal
-        cerrarModalProductos();
     }
 
  // NUEVA FUNCIÓN para agregar producto con cantidad específica (N filas)
@@ -1469,10 +1643,13 @@
         buscador.value = '';
         resultadosDiv.innerHTML = '';
         productosSeleccionadosIds.clear();
-        cantidadesSeleccionadas = {};
+        cantidadesSeleccionadas  = {};
+        variantesSeleccionadas   = {};
+        productosModal           = {};
+        variantesModal           = {};
         document.getElementById('productosSeleccionadosCount').innerText = '0 productos seleccionados';
         document.getElementById('totalUnidadesCount').innerText = '(0 unidades)';
-        
+
         // Resetear filtro a 'todos'
         if (document.querySelector('.categoria-filter.active')) {
             filtrarPorCategoria('todos');
@@ -1530,45 +1707,47 @@
     // FUNCIONES DEL MODAL DE IMEIs
     // ============================================
     function gestionarIMEIs(index) {
-        const select = document.getElementById(`producto_select_${index}`);
-        const modeloSelect = document.getElementById(`modelo_select_${index}`);
-        const colorSelect = document.getElementById(`color_${index}`);
-        const cantidad = parseInt(document.getElementById(`cantidad_${index}`).value) || 1;
+        const select        = document.getElementById(`producto_select_${index}`);
+        const modeloSelect  = document.getElementById(`modelo_select_${index}`);
+        const colorSelect   = document.getElementById(`color_${index}`);
+        const varianteSelect = document.getElementById(`variante_select_${index}`);
+        const cantidad      = parseInt(document.getElementById(`cantidad_${index}`).value) || 1;
 
         if (!select.value) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Atención',
-                text: 'Primero seleccione un producto'
-            });
-            return;
-        }
-        
-        if (!modeloSelect.value) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Atención',
-                text: 'Primero seleccione un modelo'
-            });
-            return;
-        }
-        
-        if (!colorSelect.value) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Atención',
-                text: 'Primero seleccione un color'
-            });
+            Swal.fire({ icon: 'warning', title: 'Atención', text: 'Primero seleccione un producto' });
             return;
         }
 
         const producto = catalogoProductos.find(p => p.id == select.value);
-        const modeloNombre = modeloSelect.options[modeloSelect.selectedIndex].text;
-        const colorNombre = colorSelect.options[colorSelect.selectedIndex].text;
+        let subtitulo = '';
+
+        // ── Producto CON variantes ────────────────────────────────────────
+        if (varianteSelect) {
+            if (!varianteSelect.value) {
+                Swal.fire({ icon: 'warning', title: 'Atención', text: 'Primero seleccione una variante' });
+                return;
+            }
+            const opt = varianteSelect.selectedOptions[0];
+            subtitulo = opt.text.split('—')[0].trim();   // "Negro / 128GB" parte del label
+
+        // ── Producto SIN variantes (flujo clásico) ────────────────────────
+        } else {
+            if (!modeloSelect.value) {
+                Swal.fire({ icon: 'warning', title: 'Atención', text: 'Primero seleccione un modelo' });
+                return;
+            }
+            if (!colorSelect.value) {
+                Swal.fire({ icon: 'warning', title: 'Atención', text: 'Primero seleccione un color' });
+                return;
+            }
+            const modeloNombre = modeloSelect.options[modeloSelect.selectedIndex].text;
+            const colorNombre  = colorSelect.options[colorSelect.selectedIndex].text;
+            subtitulo = `${modeloNombre} · ${colorNombre}`;
+        }
 
         document.getElementById('imeiModalTitle').innerHTML = `
             <i class="fas fa-microchip mr-3"></i>
-            ${producto.nombre} · ${modeloNombre} · ${colorNombre}
+            ${producto?.nombre || ''} · ${subtitulo}
         `;
 
         productoEnEdicion = index;
@@ -1610,8 +1789,78 @@
         actualizarContadorIMEI();
     }
     function actualizarContadorUnidades() {
-        const totalUnidades = Object.values(cantidadesSeleccionadas).reduce((a, b) => a + b, 0);
-        document.getElementById('totalUnidadesCount').innerText = `(${totalUnidades} unidades)`;
+        const simplesTotal   = Object.values(cantidadesSeleccionadas).reduce((a, b) => a + b, 0);
+        const variantesTotal = Object.values(variantesSeleccionadas).reduce((a, s) => a + (s.cantidad || 1), 0);
+        document.getElementById('totalUnidadesCount').innerText = `(${simplesTotal + variantesTotal} unidades)`;
+    }
+
+    function actualizarSeleccionVariante(checkbox, prodId, varId) {
+        const key     = `${prodId}_${varId}`;
+        const producto = productosModal[prodId];
+        const variante = variantesModal[key];
+        const card = document.getElementById(`vcard_${key}`);
+        const cantidadInput = card ? card.querySelector('input[type="number"]') : null;
+
+        if (checkbox.checked) {
+            variantesSeleccionadas[key] = {
+                productoId: producto.id,
+                varianteId: variante.id,
+                cantidad:   parseInt(cantidadInput?.value) || 1,
+                producto,
+                variante,
+            };
+            if (cantidadInput) cantidadInput.disabled = false;
+            if (card) {
+                card.classList.replace('border-gray-200', 'border-indigo-400');
+                card.classList.replace('bg-gray-50',    'bg-indigo-50');
+            }
+        } else {
+            delete variantesSeleccionadas[key];
+            if (cantidadInput) cantidadInput.disabled = true;
+            if (card) {
+                card.classList.replace('border-indigo-400', 'border-gray-200');
+                card.classList.replace('bg-indigo-50',     'bg-gray-50');
+            }
+        }
+        actualizarContadorUnidades();
+    }
+
+    function actualizarCantidadVariante(key, cantidad) {
+        if (variantesSeleccionadas[key]) {
+            variantesSeleccionadas[key].cantidad = parseInt(cantidad) || 1;
+        }
+        actualizarContadorUnidades();
+    }
+
+    /**
+     * Agrega `cantidad` filas en la tabla de detalles, pre-seleccionando
+     * el producto y la variante indicados.
+     */
+    function agregarFilaConVariante(producto, varianteId, cantidad) {
+        const filas = parseInt(cantidad) || 1;
+        for (let i = 0; i < filas; i++) {
+            agregarProducto();
+            const index = contadorProductos - 1;
+
+            const selectProducto = document.getElementById(`producto_select_${index}`);
+            if (!selectProducto) continue;
+
+            selectProducto.value = producto.id;
+            // Disparar change → cargarDetallesProducto (síncrono) renderiza el selector de variante
+            selectProducto.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // Pre-seleccionar la variante en el dropdown recién renderizado
+            const varianteSelect = document.getElementById(`variante_select_${index}`);
+            if (varianteSelect) {
+                varianteSelect.value = varianteId;
+                seleccionarVariante(index);   // actualiza badge de stock y botón IMEI
+            }
+
+            const inputCantidad = document.getElementById(`cantidad_${index}`);
+            if (inputCantidad) inputCantidad.value = 1;   // cada fila = 1 unidad
+
+            calcularSubtotal(index);
+        }
     }
 
     function validarIMEIInput(input) {
@@ -1937,12 +2186,20 @@ function abrirModalCrearProducto(terminoBusqueda) {
     modeloSelect.innerHTML = '<option value="">Seleccionar marca primero...</option>';
     modeloSelect.disabled = true;
     document.getElementById('np_color').value = '';
+    document.getElementById('np_tiene_variantes').checked = false;
+    document.getElementById('np_codigo_barras').value = '';
+    document.getElementById('np_color_section').classList.remove('hidden');
     toggleModeloLabel();
 
     const modal = document.getElementById('modalCrearProducto');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => document.getElementById('np_nombre').focus(), 100);
+}
+
+function toggleVariantesNuevoProducto() {
+    const tieneVariantes = document.getElementById('np_tiene_variantes').checked;
+    document.getElementById('np_color_section').classList.toggle('hidden', tieneVariantes);
 }
 
 function toggleModeloLabel() {
@@ -2124,12 +2381,14 @@ function cargarModelosNuevoProducto() {
 }
 
 function guardarNuevoProducto() {
-    const nombre      = document.getElementById('np_nombre').value.trim();
-    const categoriaId = document.getElementById('np_categoria').value;
-    const marcaId     = document.getElementById('np_marca').value;
-    const modeloId    = document.getElementById('np_modelo').value;
-    const colorId     = document.getElementById('np_color').value;
-    const tipo        = document.getElementById('np_tipo').value;
+    const nombre          = document.getElementById('np_nombre').value.trim();
+    const categoriaId     = document.getElementById('np_categoria').value;
+    const marcaId         = document.getElementById('np_marca').value;
+    const modeloId        = document.getElementById('np_modelo').value;
+    const colorId         = document.getElementById('np_color').value;
+    const tipo            = document.getElementById('np_tipo').value;
+    const tieneVariantes  = document.getElementById('np_tiene_variantes').checked;
+    const codigoBarras    = document.getElementById('np_codigo_barras').value.trim();
 
     if (!nombre) {
         Swal.fire({ icon: 'warning', title: 'Falta el nombre', text: 'Ingresa el nombre del producto.', confirmButtonColor: '#1e3a8a' });
@@ -2161,11 +2420,13 @@ function guardarNuevoProducto() {
         },
         body: JSON.stringify({
             nombre,
-            categoria_id: categoriaId,
-            marca_id: marcaId,
-            modelo_id: modeloId,
-            color_id: colorId || null,
+            categoria_id:    categoriaId,
+            marca_id:        marcaId,
+            modelo_id:       modeloId,
+            color_id:        tieneVariantes ? null : (colorId || null),
             tipo_inventario: tipo,
+            tiene_variantes: tieneVariantes,
+            codigo_barras:   codigoBarras || null,
         }),
     })
     .then(r => r.json())
@@ -2180,15 +2441,17 @@ function guardarNuevoProducto() {
 
         // Agregar al catálogo local para que agregarProductoConDatos lo encuentre
         catalogoProductos.push({
-            id: data.id,
-            nombre: data.nombre,
+            id:              data.id,
+            nombre:          data.nombre,
             tipo_inventario: data.tipo_inventario,
-            categoria: data.categoria,
-            marca_id: data.marca_id,
-            marca: data.marca,
-            modelo_id: data.modelo_id,
-            modelo: data.modelo,
-            requiere_imei: data.requiere_imei,
+            categoria:       data.categoria,
+            marca_id:        data.marca_id,
+            marca:           data.marca,
+            modelo_id:       data.modelo_id,
+            modelo:          data.modelo,
+            requiere_imei:   data.requiere_imei,
+            tiene_variantes: data.tiene_variantes || false,
+            variantes:       data.variantes || [],
         });
 
         cerrarModalCrearProducto();
@@ -2307,8 +2570,21 @@ function guardarNuevoProducto() {
                 </div>
             </div>
 
-            <!-- Color (opcional) -->
-            <div>
+            <!-- ¿Tiene variantes? -->
+            <div class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                <input type="checkbox" id="np_tiene_variantes"
+                       onchange="toggleVariantesNuevoProducto()"
+                       class="w-4 h-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-400">
+                <div>
+                    <label for="np_tiene_variantes" class="text-sm font-medium text-indigo-800 cursor-pointer">
+                        <i class="fas fa-layer-group mr-1"></i>Este producto tiene variantes (colores / capacidades)
+                    </label>
+                    <p class="text-xs text-indigo-500 mt-0.5">Podrás definir las variantes desde Inventario → Variantes después de crearlo.</p>
+                </div>
+            </div>
+
+            <!-- Color (opcional, ocultar si tiene_variantes) -->
+            <div id="np_color_section">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
                     Color
                     <span class="text-gray-400 text-xs font-normal">(opcional)</span>
@@ -2327,6 +2603,17 @@ function guardarNuevoProducto() {
                         <i class="fas fa-plus text-sm"></i>
                     </button>
                 </div>
+            </div>
+
+            <!-- Código de barras -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Código de barras
+                    <span class="text-gray-400 text-xs font-normal">(dejar vacío para generar automáticamente)</span>
+                </label>
+                <input type="text" id="np_codigo_barras"
+                       class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 font-mono transition"
+                       placeholder="Ej: 7501234567890">
             </div>
 
         </div><!-- /body -->

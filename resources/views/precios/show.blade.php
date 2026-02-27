@@ -91,6 +91,56 @@
                      margen: 30,
                      impuestos: 0,
                      resultado: null,
+
+                     busquedaProv: '',
+                     resultadosProv: [],
+                     abiertoDropdown: false,
+                     buscandoProv: false,
+
+                     ultimaCompra: null,
+                     cargandoCompra: false,
+
+                     async buscarProveedor() {
+                         if (this.busquedaProv.length < 2) {
+                             this.resultadosProv = [];
+                             this.abiertoDropdown = false;
+                             return;
+                         }
+                         this.buscandoProv = true;
+                         const res = await fetch('{{ route('precios.proveedores.buscar') }}?q=' + encodeURIComponent(this.busquedaProv));
+                         this.resultadosProv = await res.json();
+                         this.abiertoDropdown = this.resultadosProv.length > 0;
+                         this.buscandoProv = false;
+                     },
+
+                     async seleccionarProveedor(prov) {
+                         this.proveedorId = prov.id;
+                         this.busquedaProv = prov.razon_social;
+                         this.abiertoDropdown = false;
+                         this.resultadosProv = [];
+                         this.resultado = null;
+                         this.cargandoCompra = true;
+                         const res = await fetch('{{ route('precios.ultimo-precio-compra', $producto) }}?proveedor_id=' + prov.id);
+                         const data = await res.json();
+                         this.ultimaCompra = data.found ? data : null;
+                         if (data.found) {
+                             this.precioCompra = data.precio_unitario;
+                         } else {
+                             this.precioCompra = '';
+                         }
+                         this.cargandoCompra = false;
+                     },
+
+                     limpiarProveedor() {
+                         this.proveedorId = '';
+                         this.busquedaProv = '';
+                         this.abiertoDropdown = false;
+                         this.resultadosProv = [];
+                         this.ultimaCompra = null;
+                         this.precioCompra = '';
+                         this.resultado = null;
+                     },
+
                      async calcular() {
                          if (!this.proveedorId || !this.precioCompra) return;
                          const res = await fetch('{{ route('precios.calcular', $producto) }}', {
@@ -108,21 +158,78 @@
                     </h2>
                 </div>
                 <div class="p-5 space-y-4">
+
+                    {{-- Búsqueda dinámica de proveedor --}}
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Proveedor</label>
-                        <select x-model="proveedorId"
-                                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                            <option value="">Seleccionar...</option>
-                            @foreach($proveedores as $prov)
-                                <option value="{{ $prov->id }}">{{ $prov->razon_social }}</option>
-                            @endforeach
-                        </select>
+                        <div class="relative" @click.away="abiertoDropdown = false">
+                            <div class="relative">
+                                <input type="text"
+                                       x-model="busquedaProv"
+                                       @input.debounce.400ms="buscarProveedor()"
+                                       @focus="if (resultadosProv.length) abiertoDropdown = true"
+                                       placeholder="Buscar por nombre o RUC..."
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                                <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <i x-show="buscandoProv || cargandoCompra" class="fas fa-spinner fa-spin text-gray-400 text-xs"></i>
+                                    <i x-show="!buscandoProv && !cargandoCompra && proveedorId"
+                                       @click="limpiarProveedor()"
+                                       class="fas fa-times text-gray-400 text-xs cursor-pointer hover:text-red-500 transition-colors"></i>
+                                    <i x-show="!buscandoProv && !cargandoCompra && !proveedorId"
+                                       class="fas fa-search text-gray-400 text-xs"></i>
+                                </div>
+                            </div>
+                            {{-- Dropdown resultados --}}
+                            <div x-show="abiertoDropdown"
+                                 x-transition:enter="transition ease-out duration-100"
+                                 x-transition:enter-start="opacity-0 -translate-y-1"
+                                 x-transition:enter-end="opacity-100 translate-y-0"
+                                 class="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                <template x-for="prov in resultadosProv" :key="prov.id">
+                                    <button type="button" @click="seleccionarProveedor(prov)"
+                                            class="w-full text-left px-3 py-2.5 hover:bg-emerald-50 transition-colors border-b border-gray-50 last:border-0">
+                                        <div class="text-sm font-medium text-gray-800" x-text="prov.razon_social"></div>
+                                        <div class="text-xs text-gray-400" x-text="'RUC: ' + prov.ruc"></div>
+                                    </button>
+                                </template>
+                            </div>
+                            {{-- Badge seleccionado --}}
+                            <div x-show="proveedorId && !abiertoDropdown" class="mt-1.5">
+                                <span class="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                    <i class="fas fa-check-circle text-[9px]"></i>
+                                    <span x-text="busquedaProv"></span>
+                                </span>
+                            </div>
+                        </div>
                     </div>
+
+                    {{-- Precio compra (jalado de compras) --}}
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Precio compra (S/)</label>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                            Precio Compra (S/)
+                        </label>
                         <input type="number" x-model="precioCompra" step="0.01" min="0.01"
+                               placeholder="0.00"
                                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+                        {{-- Referencia de última compra --}}
+                        <div x-show="ultimaCompra" class="mt-1.5 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1.5 rounded-lg">
+                            <i class="fas fa-shopping-cart mt-0.5 shrink-0"></i>
+                            <div>
+                                <span>Precio de última compra: <strong x-text="'S/ ' + Number(ultimaCompra?.precio_unitario).toFixed(2)"></strong></span>
+                                <span class="text-blue-400 mx-1">·</span>
+                                <span x-text="ultimaCompra?.compra_codigo"></span>
+                                <span class="text-blue-400 mx-1">·</span>
+                                <span x-text="ultimaCompra?.fecha_compra"></span>
+                            </div>
+                        </div>
+                        <div x-show="proveedorId && !cargandoCompra && !ultimaCompra" class="mt-1.5">
+                            <span class="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>Sin compras registradas para este proveedor
+                            </span>
+                        </div>
                     </div>
+
+                    {{-- Margen e impuestos --}}
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Margen %</label>
@@ -136,6 +243,7 @@
                         </div>
                     </div>
 
+                    {{-- Resultado --}}
                     <template x-if="resultado">
                         <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
                             <div class="flex justify-between text-sm">
@@ -239,12 +347,10 @@
                 @endif
             </div>
 
-            {{-- Vigencia visual --}}
+            {{-- KPI cards --}}
             @if($producto->precios->count())
             <div class="grid grid-cols-3 gap-4">
-                @php
-                    $precioActivo = $producto->precios->where('activo', true)->first();
-                @endphp
+                @php $precioActivo = $producto->precios->where('activo', true)->first(); @endphp
                 <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
                     <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Venta</p>
                     <p class="text-xl font-bold text-blue-700">

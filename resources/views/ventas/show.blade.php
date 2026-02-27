@@ -271,8 +271,18 @@
                             <td class="px-6 py-4 text-sm text-gray-400 font-medium">{{ $i + 1 }}</td>
                             <td class="px-6 py-4">
                                 <span class="text-sm font-semibold text-gray-900">{{ $detalle->producto->nombre }}</span>
-                                @if($detalle->producto->categoria)
-                                    <span class="block text-xs text-gray-400 mt-0.5">{{ $detalle->producto->categoria->nombre ?? '' }}</span>
+                                {{-- Variante (color + capacidad) --}}
+                                @if($detalle->variante)
+                                    <span class="flex items-center gap-1.5 mt-1">
+                                        @if($detalle->variante->color?->codigo_hex)
+                                            <span class="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                                  style="background-color: {{ $detalle->variante->color->codigo_hex }}"></span>
+                                        @endif
+                                        <span class="text-xs text-indigo-600 font-medium">{{ $detalle->variante->nombre_completo }}</span>
+                                        <span class="text-xs text-gray-400 font-mono">({{ $detalle->variante->sku }})</span>
+                                    </span>
+                                @elseif($detalle->producto->categoria)
+                                    <span class="block text-xs text-gray-400 mt-0.5">{{ $detalle->producto->categoria->nombre }}</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4">

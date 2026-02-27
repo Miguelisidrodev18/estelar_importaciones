@@ -7,8 +7,10 @@ use App\Models\Compra;
 use App\Models\Proveedor;
 use App\Models\Almacen;
 use App\Models\Producto;
+use App\Models\ProductoVariante;
 use App\Models\Categoria;
 use App\Services\CompraService;
+use App\Services\VarianteService;
 use App\Models\Catalogo\Color;
 use App\Models\Catalogo\Marca;
 use App\Services\CodigoBarrasService;
@@ -104,12 +106,14 @@ class CompraController extends Controller
             // Detalles de productos
             'detalles' => 'required|array|min:1',
             'detalles.*.producto_id' => 'required|exists:productos,id',
+            'detalles.*.variante_id' => 'nullable|exists:producto_variantes,id',
             'detalles.*.cantidad' => 'required|integer|min:1',
             'detalles.*.precio_unitario' => 'required|numeric|min:0.01',
             'detalles.*.descuento' => 'nullable|numeric|min:0|max:100',
             'detalles.*.codigo_barras' => 'nullable|string|max:50',
             'detalles.*.modelo_id' => 'nullable|exists:modelos,id',
             'detalles.*.color_id'  => 'nullable|exists:colores,id',
+            'detalles.*.capacidad' => 'nullable|string|max:50',
             'detalles.*.imeis' => 'nullable|array',
             'detalles.*.imeis.*.codigo_imei' => 'required_with:detalles.*.imeis|string|size:15|distinct',
             'detalles.*.imeis.*.serie' => 'nullable|string|max:50',
@@ -435,42 +439,54 @@ public function importarIMEI(Request $request)
 
     /**
      * Buscar productos para el modal de selección (AJAX)
+     * Incluye variantes agrupadas por producto base.
      */
     public function buscarProductos(Request $request)
     {
         $termino = $request->get('q', '');
-        
-        $productos = Producto::with(['marca', 'modelo', 'categoria'])
+
+        $query = Producto::with(['marca', 'modelo', 'categoria', 'variantesActivas.color'])
             ->where('estado', 'activo')
-            ->where(function($query) use ($termino) {
-                $query->where('nombre', 'like', "%{$termino}%")
-                    ->orWhere('codigo', 'like', "%{$termino}%")
-                    ->orWhereHas('marca', function($q) use ($termino) {
-                        $q->where('nombre', 'like', "%{$termino}%");
-                    })
-                    ->orWhereHas('modelo', function($q) use ($termino) {
-                        $q->where('nombre', 'like', "%{$termino}%");
-                    });
+            ->where(function($q) use ($termino) {
+                $q->where('nombre', 'like', "%{$termino}%")
+                  ->orWhere('codigo', 'like', "%{$termino}%")
+                  ->orWhereHas('marca',  fn($m) => $m->where('nombre', 'like', "%{$termino}%"))
+                  ->orWhereHas('modelo', fn($m) => $m->where('nombre', 'like', "%{$termino}%"))
+                  ->orWhereHas('variantesActivas', fn($v) => $v->where('sku', 'like', "%{$termino}%"));
             })
             ->limit(20)
             ->get()
             ->map(function($producto) {
+                $variantes = $producto->variantesActivas->map(fn($v) => [
+                    'id'              => $v->id,
+                    'sku'             => $v->sku,
+                    'color_id'        => $v->color_id,
+                    'color_nombre'    => $v->color?->nombre,
+                    'color_hex'       => $v->color?->codigo_hex,
+                    'capacidad'       => $v->capacidad,
+                    'sobreprecio'     => (float)$v->sobreprecio,
+                    'stock_actual'    => (int)$v->stock_actual,
+                    'nombre_completo' => $v->nombre_completo,
+                ]);
+
                 return [
-                    'id' => $producto->id,
-                    'nombre' => $producto->nombre,
-                    'codigo' => $producto->codigo,
-                    'marca' => $producto->marca?->nombre,
-                    'modelo' => $producto->modelo?->nombre,
-                    'categoria' => $producto->categoria?->nombre,
-                    'categoria_id' => $producto->categoria_id,
+                    'id'              => $producto->id,
+                    'nombre'          => $producto->nombre,
+                    'codigo'          => $producto->codigo,
+                    'marca'           => $producto->marca?->nombre,
+                    'modelo'          => $producto->modelo?->nombre,
+                    'categoria'       => $producto->categoria?->nombre,
+                    'categoria_id'    => $producto->categoria_id,
                     'tipo_inventario' => $producto->tipo_inventario,
-                    'marca_id' => $producto->marca_id,
-                    'modelo_id' => $producto->modelo_id,
-                    'imagen' => $producto->imagen_url ?? null,
+                    'marca_id'        => $producto->marca_id,
+                    'modelo_id'       => $producto->modelo_id,
+                    'imagen'          => $producto->imagen_url ?? null,
+                    'tiene_variantes' => $variantes->isNotEmpty(),
+                    'variantes'       => $variantes,
                 ];
             });
-        
-        return response()->json($productos);
+
+        return response()->json($query);
     }
 
     /**
@@ -482,14 +498,15 @@ public function importarIMEI(Request $request)
             'nombre'          => 'required|string|max:255',
             'categoria_id'    => 'required|exists:categorias,id',
             'marca_id'        => 'required|exists:marcas,id',
-            'modelo_id'       => 'required|exists:modelos,id',
+            'modelo_id'       => 'nullable|exists:modelos,id',
             'color_id'        => 'nullable|exists:colores,id',
             'tipo_inventario' => 'required|in:serie,regular',
+            'tiene_variantes' => 'boolean',
+            'codigo_barras'   => 'nullable|string|max:100',
         ], [
             'nombre.required'       => 'El nombre del producto es obligatorio.',
             'categoria_id.required' => 'Selecciona una categoría.',
             'marca_id.required'     => 'Selecciona una marca.',
-            'modelo_id.required'    => 'Selecciona un modelo.',
         ]);
 
         try {
@@ -498,9 +515,10 @@ public function importarIMEI(Request $request)
                 'nombre'          => $validated['nombre'],
                 'categoria_id'    => $validated['categoria_id'],
                 'marca_id'        => $validated['marca_id'],
-                'modelo_id'       => $validated['modelo_id'],
+                'modelo_id'       => $validated['modelo_id'] ?? null,
                 'color_id'        => $validated['color_id'] ?? null,
                 'tipo_inventario' => $validated['tipo_inventario'],
+                'codigo_barras'   => $validated['codigo_barras'] ?? null,
                 'estado'          => 'activo',
                 'stock_actual'    => 0,
                 'stock_minimo'    => 0,
@@ -521,7 +539,10 @@ public function importarIMEI(Request $request)
                 'modelo'          => $producto->modelo?->nombre,
                 'modelo_id'       => $producto->modelo_id,
                 'color_id'        => $producto->color_id,
+                'codigo_barras'   => $producto->codigo_barras,
                 'requiere_imei'   => $producto->tipo_inventario === 'serie',
+                'tiene_variantes' => false,   // recién creado, sin variantes aún
+                'variantes'       => [],
             ]);
 
         } catch (\Exception $e) {
@@ -538,30 +559,43 @@ public function importarIMEI(Request $request)
 public function getProductoDetalle($id)
 {
     try {
-        $producto = Producto::with(['marca', 'modelo', 'categoria', 'color'])
+        $producto = Producto::with(['marca', 'modelo', 'categoria', 'variantesActivas.color'])
             ->findOrFail($id);
-        
+
+        $variantes = $producto->variantesActivas->map(fn($v) => [
+            'id'              => $v->id,
+            'sku'             => $v->sku,
+            'color_id'        => $v->color_id,
+            'color_nombre'    => $v->color?->nombre,
+            'color_hex'       => $v->color?->codigo_hex,
+            'capacidad'       => $v->capacidad,
+            'sobreprecio'     => (float)$v->sobreprecio,
+            'stock_actual'    => (int)$v->stock_actual,
+            'nombre_completo' => $v->nombre_completo,
+            'tiene_stock'     => $v->tieneStock(),
+        ]);
+
         return response()->json([
-            'success' => true,
-            'id' => $producto->id,
-            'nombre' => $producto->nombre,
+            'success'         => true,
+            'id'              => $producto->id,
+            'nombre'          => $producto->nombre,
+            'codigo'          => $producto->codigo,
             'tipo_inventario' => $producto->tipo_inventario,
-            'marca_id' => $producto->marca_id,
-            'marca_nombre' => $producto->marca?->nombre,
-            'modelo_id' => $producto->modelo_id,
-            'modelo_nombre' => $producto->modelo?->nombre,
-            'color_id' => $producto->color_id,
-            'color_nombre' => $producto->color?->nombre,
-            'categoria_id' => $producto->categoria_id,
-            'categoria_nombre' => $producto->categoria?->nombre,
-            'codigo' => $producto->codigo,
-            'precio_compra' => 0, // Por ahora, luego lo obtendrás de tabla precios
+            'marca_id'        => $producto->marca_id,
+            'marca_nombre'    => $producto->marca?->nombre,
+            'modelo_id'       => $producto->modelo_id,
+            'modelo_nombre'   => $producto->modelo?->nombre,
+            'categoria_id'    => $producto->categoria_id,
+            'categoria_nombre'=> $producto->categoria?->nombre,
+            'tiene_variantes' => $variantes->isNotEmpty(),
+            'variantes'       => $variantes,
+            'precio_compra'   => (float)($producto->ultimo_costo_compra ?? 0),
         ]);
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'error' => true,
-            'message' => 'Error al cargar el producto: ' . $e->getMessage()
+            'error'   => true,
+            'message' => 'Error al cargar el producto: ' . $e->getMessage(),
         ], 500);
     }
 }

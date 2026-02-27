@@ -12,6 +12,7 @@ class DetalleVenta extends Model
     protected $fillable = [
         'venta_id',
         'producto_id',
+        'variante_id',
         'imei_id',
         'cantidad',
         'precio_unitario',
@@ -37,5 +38,10 @@ class DetalleVenta extends Model
     public function imei()
     {
         return $this->belongsTo(Imei::class);
+    }
+
+    public function variante()
+    {
+        return $this->belongsTo(ProductoVariante::class, 'variante_id');
     }
 }

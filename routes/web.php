@@ -219,9 +219,16 @@ Route::middleware('auth')->group(function () {
             // 🔴 RUTAS PARA ETIQUETAS
             Route::get('/imeis/{imei}/etiqueta', [ImeiController::class, 'generarEtiqueta'])->name('imeis.etiqueta');
             Route::post('/imeis/etiquetas-masivas', [ImeiController::class, 'generarEtiquetasMasivas'])->name('imeis.etiquetas-masivas');
-            
+
             // 🔴 RUTA PARA CAMBIAR ESTADO
             Route::post('/imeis/{imei}/estado', [ImeiController::class, 'cambiarEstado'])->name('imeis.cambiar-estado');
+        });
+
+        // VARIANTES DE PRODUCTOS
+        Route::middleware('role:Administrador,Almacenero')->group(function () {
+            Route::get('/productos/{producto}/variantes', [ProductoController::class, 'variantes'])->name('productos.variantes');
+            Route::post('/productos/{producto}/variantes', [ProductoController::class, 'storeVariante'])->name('productos.variantes.store');
+            Route::delete('/productos/variantes/{variante}', [ProductoController::class, 'destroyVariante'])->name('productos.variantes.destroy');
         });
 
     });
@@ -386,6 +393,8 @@ Route::middleware('auth')->group(function () {
     // ========================================
     Route::prefix('precios')->name('precios.')->middleware('role:Administrador,Almacenero')->group(function () {
         Route::get('/', [PrecioController::class, 'index'])->name('index');
+        Route::get('/proveedores/buscar', [PrecioController::class, 'buscarProveedores'])->name('proveedores.buscar');
+        Route::get('/producto/{producto}/ultimo-precio-compra', [PrecioController::class, 'ultimoPrecioCompra'])->name('ultimo-precio-compra');
         Route::get('/producto/{producto}', [PrecioController::class, 'show'])->name('show');
         Route::post('/producto/{producto}/calcular', [PrecioController::class, 'calcular'])->name('calcular');
         Route::get('/producto/{producto}/precio/{precio}/edit', [PrecioController::class, 'edit'])->name('edit');
@@ -437,6 +446,33 @@ Route::prefix('api')->name('api.')->middleware('auth')->group(function () {
     // Validar código de barras (para creación de productos)
     Route::get('/validar-codigo-barras', [App\Http\Controllers\Api\ProductoController::class, 'validarCodigoBarras'])
         ->name('validar-codigo-barras');
+
+    // ── VARIANTES ──────────────────────────────────────────────────────────────
+    Route::prefix('variantes')->name('variantes.')->group(function () {
+        // Variantes de un producto base
+        Route::get('/producto/{producto}', [App\Http\Controllers\Api\VarianteController::class, 'porProducto'])
+            ->name('por-producto');
+
+        // CRUD de variante individual
+        Route::post('/', [App\Http\Controllers\Api\VarianteController::class, 'store'])
+            ->name('store');
+
+        Route::get('/{variante}', [App\Http\Controllers\Api\VarianteController::class, 'show'])
+            ->name('show');
+
+        Route::put('/{variante}', [App\Http\Controllers\Api\VarianteController::class, 'update'])
+            ->name('update');
+
+        Route::delete('/{variante}', [App\Http\Controllers\Api\VarianteController::class, 'destroy'])
+            ->name('destroy');
+
+        // Stock e IMEIs de variante
+        Route::get('/{variante}/stock', [App\Http\Controllers\Api\VarianteController::class, 'stock'])
+            ->name('stock');
+
+        Route::get('/{variante}/imeis', [App\Http\Controllers\Api\VarianteController::class, 'imeis'])
+            ->name('imeis');
+    });
 });
 
 

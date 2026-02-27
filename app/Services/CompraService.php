@@ -8,11 +8,14 @@ use App\Models\StockAlmacen;
 use App\Models\MovimientoInventario;
 use App\Models\Imei;
 use App\Models\Producto;
+use App\Models\ProductoVariante;
 use App\Models\Catalogo\Modelo;
 use App\Models\Catalogo\Color;
 use App\Models\CuentaPorPagar;
+use App\Services\VarianteService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class CompraService
 {
@@ -32,19 +35,22 @@ class CompraService
             $subtotalGeneral = 0;
             
             // 3. Procesar cada detalle
-            foreach ($detalles as $detalle) {   
+            foreach ($detalles as $detalle) {
                 $productoBase = Producto::findOrFail($detalle['producto_id']);
 
-                // Resolver variante: si el detalle tiene modelo/color distintos al producto base,
-                // buscar o crear el producto variante correspondiente
-                $producto = $this->resolverVarianteProducto(
-                    $productoBase,
-                    $detalle['modelo_id'] ?? null,
-                    $detalle['color_id']  ?? null
-                );
-
-                // Actualizar el detalle con el ID de la variante resuelta
-                $detalle['producto_id'] = $producto->id;
+                // Resolver variante de producto si se especificó variante_id o color/capacidad
+                $variante = null;
+                if (!empty($detalle['variante_id'])) {
+                    $variante = ProductoVariante::findOrFail($detalle['variante_id']);
+                } elseif (!empty($detalle['color_id']) || !empty($detalle['capacidad'])) {
+                    $varianteService = app(VarianteService::class);
+                    $variante = $varianteService->obtenerOCrearVariante(
+                        $productoBase,
+                        $detalle['color_id'] ?? null,
+                        $detalle['capacidad'] ?? null,
+                        0
+                    );
+                }
 
                 // Calcular subtotal del detalle con descuento si existe
                 $precioConDescuento = $detalle['precio_unitario'];
@@ -55,32 +61,34 @@ class CompraService
                 $subtotalDetalle = $detalle['cantidad'] * $precioConDescuento;
                 $subtotalGeneral += $subtotalDetalle;
 
-                // 3.1 Crear detalle de compra
+                // 3.1 Crear detalle de compra (con variante_id si existe)
                 DetalleCompra::create([
                     'compra_id'       => $compra->id,
-                    'producto_id'     => $producto->id,
+                    'producto_id'     => $productoBase->id,
+                    'variante_id'     => $variante?->id,
                     'modelo_id'       => $detalle['modelo_id'] ?? null,
-                    'color_id'        => $detalle['color_id'] ?? null,
+                    'color_id'        => $detalle['color_id'] ?? ($variante?->color_id),
                     'cantidad'        => $detalle['cantidad'],
                     'precio_unitario' => $detalle['precio_unitario'],
                     'descuento'       => $detalle['descuento'] ?? 0,
                     'subtotal'        => $subtotalDetalle,
                 ]);
-                // 3.2 Actualizar stock
-                $this->actualizarStock($producto, $compra, $detalle);
+
+                // 3.2 Actualizar stock (variante o producto base)
+                $this->actualizarStock($productoBase, $compra, $detalle, $variante);
 
                 // 3.3 Registrar IMEIs si es serie/IMEI
-                if ($producto->tipo_inventario === 'serie') {
-                    $this->registrarIMEIs($detalle, $producto, $compra);
+                if ($productoBase->tipo_inventario === 'serie') {
+                    $this->registrarIMEIs($detalle, $productoBase, $compra, $variante);
                 }
 
                 // 3.4 Registrar código de barras generado si existe
                 if (isset($detalle['codigo_barras']) && $detalle['codigo_barras']) {
-                    $this->actualizarCodigoBarras($producto, $detalle['codigo_barras']);
+                    $this->actualizarCodigoBarras($productoBase, $detalle['codigo_barras']);
                 }
 
                 // 3.5 Actualizar precio de compra del producto
-                $this->actualizarPrecioProducto($producto, $detalle['precio_unitario']);
+                $this->actualizarPrecioProducto($productoBase, $detalle['precio_unitario']);
             }
 
             // 🔴 CREAR CUENTA POR PAGAR
@@ -138,7 +146,7 @@ class CompraService
     
     /**
      * Validar detalles antes de procesar.
-     * El mismo producto base puede aparecer varias veces si tiene diferente modelo o color.
+     * El mismo producto base puede aparecer varias veces si tiene diferente variante.
      */
     private function validarDetalles(array $detalles): void
     {
@@ -150,20 +158,17 @@ class CompraService
                 throw new \Exception("El producto ID {$detalle['producto_id']} no está activo");
             }
 
-            // Clave única: producto + modelo + color
+            // Clave única: producto + variante (o modelo + color para retrocompatibilidad)
             $clave = implode('-', [
                 $detalle['producto_id'],
-                $detalle['modelo_id'] ?? 'null',
-                $detalle['color_id']  ?? 'null',
+                $detalle['variante_id'] ?? ($detalle['modelo_id'] ?? 'null') . '-' . ($detalle['color_id'] ?? 'null'),
             ]);
 
             if (in_array($clave, $combinacionesVistas)) {
-                throw new \Exception("El producto \"{$producto->nombre}\" con el mismo modelo y color está duplicado en el detalle");
+                throw new \Exception("El producto \"{$producto->nombre}\" con la misma variante está duplicado en el detalle");
             }
             $combinacionesVistas[] = $clave;
 
-            // Si se proporcionaron IMEIs para un producto serie, validar que sean únicos
-            // Los IMEIs son OPCIONALES en la compra — pueden registrarse después desde el módulo de IMEIs
             if ($producto->tipo_inventario === 'serie' && !empty($detalle['imeis'])) {
                 $this->validarIMEIsUnicos($detalle['imeis']);
             }
@@ -193,73 +198,75 @@ class CompraService
     }
     
     /**
-     * Actualizar stock del producto en el almacén
+     * Actualizar stock del producto y la variante (si existe) en el almacén
      */
-    private function actualizarStock(Producto $producto, Compra $compra, array $detalle): void
+    private function actualizarStock(Producto $producto, Compra $compra, array $detalle, ?ProductoVariante $variante = null): void
     {
         $stock = StockAlmacen::firstOrCreate(
             [
-                'producto_id' => $detalle['producto_id'],
-                'almacen_id' => $compra->almacen_id,
+                'producto_id' => $producto->id,
+                'almacen_id'  => $compra->almacen_id,
             ],
             ['cantidad' => 0]
         );
-        
+
         $stockAnterior = $stock->cantidad;
         $stock->increment('cantidad', $detalle['cantidad']);
 
-        // Sincronizar stock_actual del producto (suma de todos los almacenes)
-        $totalStock = StockAlmacen::where('producto_id', $detalle['producto_id'])->sum('cantidad');
+        // Si hay variante, actualizar su stock también
+        if ($variante) {
+            $variante->increment('stock_actual', $detalle['cantidad']);
+        }
+
+        // Sincronizar stock_actual del producto base (suma de todos los almacenes)
+        $totalStock = StockAlmacen::where('producto_id', $producto->id)->sum('cantidad');
         $producto->update(['stock_actual' => $totalStock]);
 
         // Registrar movimiento de inventario
         MovimientoInventario::create([
-            'producto_id' => $detalle['producto_id'],
-            'almacen_id' => $compra->almacen_id,
-            'user_id' => $compra->user_id,
-            'tipo_movimiento' => 'ingreso',
-            'cantidad' => $detalle['cantidad'],
-            'stock_anterior' => $stockAnterior,
-            'stock_nuevo' => $stock->cantidad,
-            'numero_factura' => $compra->numero_factura,
+            'producto_id'          => $producto->id,
+            'variante_id'          => $variante?->id,
+            'almacen_id'           => $compra->almacen_id,
+            'user_id'              => $compra->user_id,
+            'tipo_movimiento'      => 'ingreso',
+            'cantidad'             => $detalle['cantidad'],
+            'stock_anterior'       => $stockAnterior,
+            'stock_nuevo'          => $stock->cantidad,
+            'numero_factura'       => $compra->numero_factura,
             'documento_referencia' => $compra->numero_factura,
-            'motivo' => 'Compra #' . $compra->id,
-            'estado' => 'completado',
+            'motivo'               => 'Compra #' . $compra->id,
+            'estado'               => 'completado',
         ]);
-        
-        // Verificar si hay alerta de stock
+
         if ($stock->cantidad <= $producto->stock_minimo) {
             Log::warning('Producto con stock mínimo', [
-                'producto' => $producto->nombre,
-                'stock_actual' => $stock->cantidad,
-                'stock_minimo' => $producto->stock_minimo
+                'producto'    => $producto->nombre,
+                'stock_actual'=> $stock->cantidad,
+                'stock_minimo'=> $producto->stock_minimo,
             ]);
-            
-            // Aquí podrías disparar un evento o notificación
-            // event(new StockBajoEvent($producto, $stock));
         }
     }
     
     /**
      * Registrar IMEIs para productos celulares
      */
-    private function registrarIMEIs(array $detalle, Producto $producto, Compra $compra): void
+    private function registrarIMEIs(array $detalle, Producto $producto, Compra $compra, ?ProductoVariante $variante = null): void
     {
         if (!isset($detalle['imeis']) || !is_array($detalle['imeis'])) {
             return;
         }
-        
+
         foreach ($detalle['imeis'] as $imeiData) {
             Imei::create([
-                'codigo_imei' => $imeiData['codigo_imei'],
-                'serie'       => $imeiData['serie'] ?? null,
-                'color_id'    => $detalle['color_id'] ?? null,
-                'producto_id' => $detalle['producto_id'],
-                'modelo_id'   => $detalle['modelo_id'] ?? null,
-                'detalle_compra_id' => null, // Podrías relacionar con el detalle si quieres
-                'almacen_id'  => $compra->almacen_id,
-                'compra_id'   => $compra->id,
-                'estado_imei' => 'en_stock',
+                'codigo_imei'  => $imeiData['codigo_imei'],
+                'serie'        => $imeiData['serie'] ?? null,
+                'color_id'     => $detalle['color_id'] ?? ($variante?->color_id),
+                'producto_id'  => $producto->id,
+                'variante_id'  => $variante?->id,
+                'modelo_id'    => $detalle['modelo_id'] ?? null,
+                'almacen_id'   => $compra->almacen_id,
+                'compra_id'    => $compra->id,
+                'estado_imei'  => 'en_stock',
             ]);
         }
     }

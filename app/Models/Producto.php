@@ -80,36 +80,41 @@ class Producto extends Model
     }
 
     // Obtener precio de venta actual
-    public function getPrecioVentaAttribute()
+    public function getPrecioVentaAttribute(): float
     {
-        return $this->precios()
-            ->where('tipo_precio', 'venta_regular')
-            ->where('activo', true)
-            ->where(function($q) {
-                $q->whereNull('fecha_inicio')
-                ->orWhere('fecha_inicio', '<=', now());
-            })
-            ->where(function($q) {
-                $q->whereNull('fecha_fin')
-                ->orWhere('fecha_fin', '>=', now());
-            })
-            ->orderBy('prioridad', 'desc')
-            ->first()?->precio ?? 0;
+        try {
+            return (float) ($this->precios()
+                ->where('tipo_precio', 'venta_regular')
+                ->where('activo', true)
+                ->where(function ($q) {
+                    $q->whereNull('fecha_inicio')
+                      ->orWhere('fecha_inicio', '<=', now());
+                })
+                ->where(function ($q) {
+                    $q->whereNull('fecha_fin')
+                      ->orWhere('fecha_fin', '>=', now());
+                })
+                ->orderBy('prioridad', 'desc')
+                ->value('precio') ?? 0);
+        } catch (\Throwable) {
+            return 0.0;
+        }
     }
 
     // Obtener precio mayorista
-    public function getPrecioMayoristaAttribute($cantidad = null)
+    public function getPrecioMayoristaAttribute(): ?float
     {
-        $query = $this->precios()
-            ->where('tipo_precio', 'venta_mayorista')
-            ->where('activo', true);
-        
-        if ($cantidad) {
-            $query->where('cantidad_minima', '<=', $cantidad);
+        try {
+            $precio = $this->precios()
+                ->where('tipo_precio', 'venta_mayorista')
+                ->where('activo', true)
+                ->orderBy('prioridad', 'desc')
+                ->value('precio');
+
+            return $precio !== null ? (float) $precio : null;
+        } catch (\Throwable) {
+            return null;
         }
-        
-        return $query->orderBy('prioridad', 'desc')
-            ->first()?->precio;
     }
     /**
      * Scope para productos activos
@@ -317,5 +322,34 @@ class Producto extends Model
     public function codigosBarras()
     {
         return $this->hasMany(ProductoCodigoBarras::class);
+    }
+
+    /**
+     * Variantes del producto (color + capacidad)
+     */
+    public function variantes()
+    {
+        return $this->hasMany(ProductoVariante::class);
+    }
+
+    public function variantesActivas()
+    {
+        return $this->hasMany(ProductoVariante::class)->where('estado', 'activo');
+    }
+
+    /**
+     * ¿Este producto tiene variantes definidas?
+     */
+    public function tieneVariantes(): bool
+    {
+        return $this->variantes()->exists();
+    }
+
+    /**
+     * Stock total sumado de todas las variantes activas
+     */
+    public function getStockVariantesAttribute(): int
+    {
+        return $this->variantesActivas()->sum('stock_actual');
     }
 }

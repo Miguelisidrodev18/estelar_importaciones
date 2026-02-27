@@ -7,6 +7,7 @@
     <title>Nuevo Producto - CORPORACIÓN ADIVON SAC</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-50">
@@ -391,17 +392,6 @@
                             </div>
 
 
-                            <!-- Almacén -->
-                            <div id="almacenInicialDiv" class="md:col-span-2">
-                                <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-2">Almacén</label>
-                                <select name="almacen_id" id="almacen_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Seleccione un almacén</option>
-                                    @foreach($almacenes as $almacen)
-                                        <option value="{{ $almacen->id }}">{{ $almacen->nombre }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
                         </div>
 
                         <div class="mt-4 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
@@ -412,7 +402,95 @@
                         </div>
                     </div>
 
-                    <!-- SECCIÓN 4: IMAGEN Y ESTADO -->
+                    <!-- SECCIÓN 4: VARIANTES DEL PRODUCTO -->
+                    <div class="mb-8" x-data="variantesManager()" x-init="init()">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                            <i class="fas fa-layer-group mr-2 text-indigo-600"></i>
+                            Variantes del Producto
+                            <span class="ml-2 text-sm font-normal text-gray-400">(opcional — agrega colores y capacidades)</span>
+                        </h3>
+
+                        <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+                            <p class="text-sm text-indigo-700">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                Puedes guardar el producto primero y luego agregar variantes desde la página del producto.
+                                O define variantes iniciales aquí para crearlas automáticamente.
+                            </p>
+                        </div>
+
+                        <!-- Variantes agregadas -->
+                        <template x-if="variantes.length > 0">
+                            <div class="mb-4 space-y-2">
+                                <template x-for="(v, idx) in variantes" :key="idx">
+                                    <div class="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
+                                        <div class="w-6 h-6 rounded-full border-2 border-white shadow flex-shrink-0"
+                                             :style="v.color_hex ? `background-color:${v.color_hex}` : 'background:#e5e7eb'"
+                                             :title="v.color_nombre || 'Sin color'"></div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-semibold text-gray-900">
+                                                <span x-text="v.color_nombre || 'Sin color'"></span>
+                                                <template x-if="v.capacidad">
+                                                    <span x-text="' / ' + v.capacidad" class="text-gray-500 font-normal"></span>
+                                                </template>
+                                            </p>
+                                        </div>
+                                        <button type="button" @click="quitarVariante(idx)"
+                                                class="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition">
+                                            <i class="fas fa-times text-sm"></i>
+                                        </button>
+                                        <!-- Campos hidden para envío -->
+                                        <input type="hidden" :name="`variantes_iniciales[${idx}][color_id]`"  :value="v.color_id || ''">
+                                        <input type="hidden" :name="`variantes_iniciales[${idx}][capacidad]`" :value="v.capacidad || ''">
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Formulario de nueva variante -->
+                        <div class="bg-white border-2 border-dashed border-indigo-200 rounded-xl p-4" x-show="agregarAbierto">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                                <!-- Color -->
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Color</label>
+                                    <select x-model="nueva.color_id" @change="actualizarColorHex($event)"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Sin color</option>
+                                        @foreach($colores as $color)
+                                            <option value="{{ $color->id }}"
+                                                    data-hex="{{ $color->codigo_hex }}"
+                                                    data-nombre="{{ $color->nombre }}">
+                                                {{ $color->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <!-- Capacidad -->
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Capacidad <span class="text-gray-400">(opcional)</span></label>
+                                    <input type="text" x-model="nueva.capacidad"
+                                           placeholder="Ej: 128GB, 256GB"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" @click="agregarVariante()"
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">
+                                    <i class="fas fa-plus mr-2"></i>Agregar
+                                </button>
+                                <button type="button" @click="agregarAbierto = false"
+                                        class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="button" @click="agregarAbierto = true" x-show="!agregarAbierto"
+                                class="mt-3 w-full py-2.5 border-2 border-dashed border-indigo-300 rounded-xl text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 text-sm font-medium transition flex items-center justify-center gap-2">
+                            <i class="fas fa-plus"></i> Agregar variante
+                        </button>
+                    </div>
+
+                    <!-- SECCIÓN 5: IMAGEN Y ESTADO -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                             <label for="imagen" class="block text-sm font-medium text-gray-700 mb-2">
@@ -432,7 +510,7 @@
                             <label for="estado" class="block text-sm font-medium text-gray-700 mb-2">
                                 Estado <span class="text-red-500">*</span>
                             </label>
-                            <select name="estado" id="estado" 
+                            <select name="estado" id="estado"
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                     required>
                                 <option value="activo" selected>Activo</option>
@@ -475,20 +553,17 @@
         // Función para alternar campos según tipo de inventario
         function toggleFieldsByType() {
             const tipo = document.querySelector('input[name="tipo_inventario"]:checked')?.value;
-            const almacenInicialDiv = document.getElementById('almacenInicialDiv');
             const garantiaSection = document.getElementById('garantiaSection');
             const modeloSelect = document.getElementById('modelo_id');
             const modeloRequeridoLabel = document.getElementById('modeloRequeridoLabel');
             const modeloOpcionalLabel = document.getElementById('modeloOpcionalLabel');
 
             if (tipo === 'serie') {
-                almacenInicialDiv?.style.setProperty('display', 'none');
                 garantiaSection?.style.setProperty('display', 'block');
                 if (modeloSelect) modeloSelect.required = true;
                 modeloRequeridoLabel?.classList.remove('hidden');
                 modeloOpcionalLabel?.classList.add('hidden');
             } else {
-                almacenInicialDiv?.style.setProperty('display', 'block');
                 garantiaSection?.style.setProperty('display', 'none');
                 if (modeloSelect) modeloSelect.required = false;
                 modeloRequeridoLabel?.classList.add('hidden');
@@ -669,6 +744,37 @@
             nombreEditadoManual = false;
             sugerirNombre();
         });
+
+        // ── Variantes Manager (Alpine.js) ───────────────────────────────────────
+        function variantesManager() {
+            return {
+                variantes: [],
+                nueva: { color_id: '', color_nombre: '', color_hex: '', capacidad: '' },
+                agregarAbierto: false,
+
+                init() {},
+
+                actualizarColorHex(event) {
+                    const opt = event.target.selectedOptions[0];
+                    this.nueva.color_hex    = opt?.dataset?.hex    || '';
+                    this.nueva.color_nombre = opt?.dataset?.nombre || '';
+                },
+
+                agregarVariante() {
+                    if (!this.nueva.color_id && !this.nueva.capacidad) {
+                        alert('Debes seleccionar al menos un color o ingresar una capacidad.');
+                        return;
+                    }
+                    this.variantes.push({ ...this.nueva });
+                    this.nueva = { color_id: '', color_nombre: '', color_hex: '', capacidad: '' };
+                    this.agregarAbierto = false;
+                },
+
+                quitarVariante(idx) {
+                    this.variantes.splice(idx, 1);
+                },
+            };
+        }
 
         // Botón Generar código de barras
         document.getElementById('btnGenerarCodigo')?.addEventListener('click', function() {

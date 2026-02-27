@@ -8,6 +8,7 @@ use App\Models\Proveedor;
 use App\Models\Almacen;
 use App\Models\ProductoPrecio;
 use App\Models\ProductoPrecioHistorial;
+use App\Models\DetalleCompra;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -167,6 +168,59 @@ class PrecioController extends Controller
             ->paginate(20);
 
         return view('precios.historial', compact('producto', 'historial'));
+    }
+
+    /**
+     * Último precio unitario registrado en compras para este producto+proveedor
+     */
+    public function ultimoPrecioCompra(Request $request, Producto $producto)
+    {
+        $proveedorId = $request->get('proveedor_id');
+
+        $detalle = DetalleCompra::with(['compra.proveedor'])
+            ->where('detalle_compras.producto_id', $producto->id)
+            ->join('compras', 'detalle_compras.compra_id', '=', 'compras.id')
+            ->where('compras.estado', '!=', 'anulado')
+            ->when($proveedorId, fn($q) => $q->where('compras.proveedor_id', $proveedorId))
+            ->orderByDesc('compras.fecha')
+            ->orderByDesc('detalle_compras.id')
+            ->select('detalle_compras.*')
+            ->first();
+
+        if (!$detalle) {
+            return response()->json(['found' => false]);
+        }
+
+        return response()->json([
+            'found'           => true,
+            'precio_unitario' => (float) $detalle->precio_unitario,
+            'fecha_compra'    => $detalle->compra->fecha->format('d/m/Y'),
+            'compra_codigo'   => $detalle->compra->codigo,
+            'proveedor'       => [
+                'id'          => $detalle->compra->proveedor->id,
+                'razon_social'=> $detalle->compra->proveedor->razon_social,
+            ],
+        ]);
+    }
+
+    /**
+     * Búsqueda dinámica de proveedores (AJAX)
+     * No accede al módulo de compras — solo retorna proveedores activos
+     */
+    public function buscarProveedores(Request $request)
+    {
+        $q = trim($request->get('q', ''));
+
+        $proveedores = Proveedor::where('estado', 'activo')
+            ->where(function ($query) use ($q) {
+                $query->where('razon_social', 'like', "%{$q}%")
+                      ->orWhere('ruc', 'like', "%{$q}%");
+            })
+            ->orderBy('razon_social')
+            ->limit(10)
+            ->get(['id', 'razon_social', 'ruc']);
+
+        return response()->json($proveedores);
     }
 
     /**

@@ -560,7 +560,7 @@ class ImeiController extends Controller
         $imei->load(['producto.marca', 'producto.modelo', 'producto.color', 'color']);
 
         // Siempre usa el route dinámico para el QR (no depende de archivos guardados)
-        $qrUrl = route('imeis.qr', $imei);
+        $qrUrl = route('inventario.imeis.qr', $imei);
 
         $html = view('inventario.imeis.etiqueta', compact('imei', 'qrUrl'))->render();
 
@@ -596,7 +596,7 @@ class ImeiController extends Controller
     public function imprimirQR(Imei $imei)
     {
         $imei->load('producto');
-        $qrUrl = route('imeis.qr', $imei);
+        $qrUrl = route('inventario.imeis.qr', $imei);
 
         $html = '<html><head><title>QR IMEI '.$imei->codigo_imei.'</title>'
             . '<style>body{display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif}'

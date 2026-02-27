@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Venta;
 use App\Models\Cliente;
 use App\Models\Producto;
+use App\Models\ProductoVariante;
 use App\Models\Almacen;
 use App\Models\Categoria;
 use App\Models\Imei;
 use App\Services\VentaService;
+use App\Services\VarianteService;
 use Illuminate\Http\Request;
 
 class VentaController extends Controller
@@ -44,20 +46,36 @@ class VentaController extends Controller
         $categorias = Categoria::activas()->orderBy('nombre')->get();
 
         $productos = Producto::where('estado', 'activo')
-            ->with('categoria')
+            ->with(['categoria', 'variantesActivas.color'])
             ->orderBy('nombre')
             ->get()
-            ->map(fn($p) => [
-                'id'              => $p->id,
-                'nombre'          => $p->nombre,
-                'codigo'          => $p->codigo,
-                'codigo_barras'   => $p->codigo_barras ?? null,
-                'categoria_id'    => $p->categoria_id,
-                'tipo_inventario' => $p->tipo_inventario,
-                'stock_actual'    => (int) $p->stock_actual,
-                'precio_venta'    => (float) $p->precio_venta,
-                'imagen'          => $p->imagen_url ?? null,
-            ]);
+            ->map(function($p) {
+                $variantes = $p->variantesActivas->map(fn($v) => [
+                    'id'              => $v->id,
+                    'sku'             => $v->sku,
+                    'color_id'        => $v->color_id,
+                    'color_nombre'    => $v->color?->nombre,
+                    'color_hex'       => $v->color?->codigo_hex,
+                    'capacidad'       => $v->capacidad,
+                    'sobreprecio'     => (float)$v->sobreprecio,
+                    'stock_actual'    => (int)$v->stock_actual,
+                    'nombre_completo' => $v->nombre_completo,
+                    'tiene_stock'     => $v->tieneStock(),
+                ]);
+                return [
+                    'id'              => $p->id,
+                    'nombre'          => $p->nombre,
+                    'codigo'          => $p->codigo,
+                    'codigo_barras'   => $p->codigo_barras ?? null,
+                    'categoria_id'    => $p->categoria_id,
+                    'tipo_inventario' => $p->tipo_inventario,
+                    'stock_actual'    => (int) $p->stock_actual,
+                    'precio_venta'    => (float) $p->precio_venta,
+                    'imagen'          => $p->imagen_url ?? null,
+                    'tiene_variantes' => $variantes->isNotEmpty(),
+                    'variantes'       => $variantes,
+                ];
+            });
 
         return view('ventas.create', compact('clientes', 'productos', 'almacenes', 'categorias'));
     }
@@ -70,6 +88,7 @@ class VentaController extends Controller
             'observaciones' => 'nullable|string',
             'detalles' => 'required|array|min:1',
             'detalles.*.producto_id' => 'required|exists:productos,id',
+            'detalles.*.variante_id' => 'nullable|exists:producto_variantes,id',
             'detalles.*.cantidad' => 'required|integer|min:1',
             'detalles.*.precio_unitario' => 'required|numeric|min:0.01',
             'detalles.*.imei_id' => 'nullable|exists:imeis,id',
@@ -108,7 +127,7 @@ class VentaController extends Controller
 
     public function show(Venta $venta)
     {
-        $venta->load('vendedor', 'confirmador', 'cliente', 'almacen', 'detalles.producto', 'detalles.imei');
+        $venta->load('vendedor', 'confirmador', 'cliente', 'almacen', 'detalles.producto.categoria', 'detalles.variante.color', 'detalles.imei');
 
         return view('ventas.show', compact('venta'));
     }

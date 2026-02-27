@@ -347,6 +347,56 @@
     </div>
 </div>
 
+{{-- ========== MODAL: VARIANTES ========== --}}
+<div x-show="mostrarModalVariante" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="mostrarModalVariante = false"></div>
+    <div class="relative bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl mx-4">
+        <div class="p-5 border-b border-slate-700">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i class="fas fa-layer-group text-indigo-400"></i>
+                Seleccionar Variante
+            </h3>
+            <p class="text-sm text-slate-400 mt-0.5 truncate" x-text="productoActual ? productoActual.nombre : ''"></p>
+        </div>
+        <div class="p-5 space-y-3">
+            <template x-for="v in (productoActual ? productoActual.variantes : [])" :key="v.id">
+                <button @click="seleccionarVariante(v)"
+                        :disabled="!v.tiene_stock && productoActual.tipo_inventario !== 'serie'"
+                        :class="!v.tiene_stock && productoActual.tipo_inventario !== 'serie'
+                            ? 'opacity-40 cursor-not-allowed border-slate-600'
+                            : 'hover:border-indigo-400 hover:bg-indigo-900/20 cursor-pointer'"
+                        class="w-full text-left border border-slate-600 rounded-xl px-4 py-3 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-7 h-7 rounded-full border-2 border-slate-500 flex-shrink-0"
+                                 :style="v.color_hex ? `background-color:${v.color_hex}` : 'background:#475569'"></div>
+                            <div>
+                                <p class="text-sm font-semibold text-white" x-text="v.nombre_completo"></p>
+                                <p class="text-xs text-slate-400 font-mono" x-text="v.sku"></p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-semibold"
+                               :class="v.stock_actual > 0 ? 'text-green-400' : 'text-red-400'"
+                               x-text="v.stock_actual + ' en stock'"></p>
+                            <template x-if="v.sobreprecio > 0">
+                                <p class="text-xs text-indigo-300">+S/ <span x-text="v.sobreprecio.toFixed(2)"></span></p>
+                            </template>
+                        </div>
+                    </div>
+                </button>
+            </template>
+        </div>
+        <div class="px-5 pb-5">
+            <button @click="mostrarModalVariante = false"
+                    class="w-full border border-slate-600 text-slate-300 hover:bg-slate-700 rounded-xl py-2.5 text-sm font-semibold transition-colors">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
 {{-- ========== MODAL: IMEI ========== --}}
 <div x-show="mostrarModalIMEI" x-cloak
      class="fixed inset-0 z-50 flex items-center justify-center">
@@ -354,7 +404,10 @@
     <div class="relative bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl mx-4">
         <div class="p-5 border-b border-slate-700">
             <h3 class="text-lg font-bold text-white">Ingresar IMEIs</h3>
-            <p class="text-sm text-slate-400 mt-0.5 truncate" x-text="productoActual ? productoActual.nombre : ''"></p>
+            <p class="text-sm text-slate-400 mt-0.5 truncate"
+               x-text="productoActual
+                   ? (productoActual.nombre + (varianteActual && varianteActual.nombre_completo ? ' — ' + varianteActual.nombre_completo : ''))
+                   : ''"></p>
         </div>
         <div class="p-5 space-y-4">
             <div class="flex gap-2">
@@ -421,10 +474,12 @@ function posApp() {
         metodoPago:       'efectivo',
         montoRecibido:    0,
         ordenNumero:      Math.floor(1000 + Math.random() * 9000),
-        mostrarModalIMEI: false,
-        productoActual:   null,
-        imeiActual:       '',
-        imeisTemp:        [],
+        mostrarModalIMEI:      false,
+        mostrarModalVariante:  false,
+        productoActual:        null,
+        varianteActual:        null,
+        imeiActual:            '',
+        imeisTemp:             [],
 
         get productosFiltrados() {
             return this.productos.filter(p => {
@@ -458,6 +513,15 @@ function posApp() {
 
         agregarAlCarrito(producto) {
             if (!this.almacenId) { alert('Selecciona un almacén primero'); return; }
+
+            // Si el producto tiene variantes, mostrar el selector de variante primero
+            if (producto.tiene_variantes && producto.variantes && producto.variantes.length > 0) {
+                this.productoActual      = producto;
+                this.varianteActual      = null;
+                this.mostrarModalVariante = true;
+                return;
+            }
+
             if (producto.stock_actual === 0 && producto.tipo_inventario !== 'serie') return;
 
             if (producto.tipo_inventario === 'serie') {
@@ -466,21 +530,61 @@ function posApp() {
                 return;
             }
 
-            const existente = this.carrito.find(i => i.producto_id === producto.id);
+            const existente = this.carrito.find(i => i.producto_id === producto.id && !i.variante_id);
             if (existente) {
                 if (existente.cantidad < producto.stock_actual) existente.cantidad++;
                 else alert('Stock máximo alcanzado');
             } else {
                 this.carrito.push({
-                    producto_id:     producto.id,
-                    nombre:          producto.nombre,
-                    precio_unitario: producto.precio_venta,
-                    cantidad:        1,
+                    producto_id:      producto.id,
+                    variante_id:      null,
+                    nombre:           producto.nombre,
+                    precio_unitario:  producto.precio_venta,
+                    cantidad:         1,
                     stock_disponible: producto.stock_actual,
-                    tipo_inventario: producto.tipo_inventario,
+                    tipo_inventario:  producto.tipo_inventario,
                     imeis: []
                 });
             }
+        },
+
+        seleccionarVariante(v) {
+            this.varianteActual       = v;
+            this.mostrarModalVariante = false;
+
+            const precioFinal = parseFloat(this.productoActual.precio_venta) + parseFloat(v.sobreprecio || 0);
+            const nombreCompleto = this.productoActual.nombre +
+                (v.nombre_completo ? ' — ' + v.nombre_completo : '');
+
+            if (this.productoActual.tipo_inventario === 'serie') {
+                // Para productos con IMEI, abrir modal de IMEI tras seleccionar variante
+                this.mostrarModalIMEI = true;
+                return;
+            }
+
+            // Producto de tipo cantidad
+            if (!v.tiene_stock) { alert('Esta variante no tiene stock disponible'); return; }
+
+            const existente = this.carrito.find(i =>
+                i.producto_id === this.productoActual.id && i.variante_id === v.id
+            );
+            if (existente) {
+                if (existente.cantidad < v.stock_actual) existente.cantidad++;
+                else alert('Stock máximo alcanzado');
+            } else {
+                this.carrito.push({
+                    producto_id:      this.productoActual.id,
+                    variante_id:      v.id,
+                    nombre:           nombreCompleto,
+                    precio_unitario:  precioFinal,
+                    cantidad:         1,
+                    stock_disponible: v.stock_actual,
+                    tipo_inventario:  this.productoActual.tipo_inventario,
+                    imeis: []
+                });
+            }
+            this.productoActual = null;
+            this.varianteActual = null;
         },
 
         incrementarCantidad(index) {
@@ -524,6 +628,7 @@ function posApp() {
                         metodo_pago:   this.metodoPago,
                         detalles:      this.carrito.map(i => ({
                             producto_id:     i.producto_id,
+                            variante_id:     i.variante_id || null,
                             cantidad:        i.cantidad,
                             precio_unitario: i.precio_unitario,
                             imeis:           i.imeis || []
@@ -556,17 +661,26 @@ function posApp() {
 
         confirmarIMEIs() {
             if (!this.imeisTemp.length) return;
+
+            const v = this.varianteActual;
+            const precioFinal = parseFloat(this.productoActual.precio_venta) +
+                (v ? parseFloat(v.sobreprecio || 0) : 0);
+            const nombreCompleto = this.productoActual.nombre +
+                (v && v.nombre_completo ? ' — ' + v.nombre_completo : '');
+
             this.carrito.push({
-                producto_id:     this.productoActual.id,
-                nombre:          this.productoActual.nombre,
-                precio_unitario: this.productoActual.precio_venta,
-                cantidad:        this.imeisTemp.length,
+                producto_id:      this.productoActual.id,
+                variante_id:      v ? v.id : null,
+                nombre:           nombreCompleto,
+                precio_unitario:  precioFinal,
+                cantidad:         this.imeisTemp.length,
                 stock_disponible: this.imeisTemp.length,
-                tipo_inventario: 'serie',
-                imeis: [...this.imeisTemp]
+                tipo_inventario:  'serie',
+                imeis:            [...this.imeisTemp]
             });
             this.mostrarModalIMEI = false;
             this.productoActual   = null;
+            this.varianteActual   = null;
             this.imeiActual       = '';
             this.imeisTemp        = [];
         }

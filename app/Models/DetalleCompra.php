@@ -16,13 +16,14 @@ class DetalleCompra extends Model
     protected $fillable = [
         'compra_id',
         'producto_id',
-        'modelo_id',      // NUEVO
-        'color_id',       // NUEVO
+        'variante_id',
+        'modelo_id',
+        'color_id',
         'cantidad',
         'precio_unitario',
         'descuento',
         'subtotal',
-        'codigo_barras',  // NUEVO
+        'codigo_barras',
     ];
 
     protected $casts = [
@@ -51,6 +52,11 @@ class DetalleCompra extends Model
     {
         return $this->belongsTo(Color::class);
     }
+    public function variante()
+    {
+        return $this->belongsTo(ProductoVariante::class, 'variante_id');
+    }
+
     public function imeis()
     {
         return $this->hasMany(Imei::class, 'detalle_compra_id');

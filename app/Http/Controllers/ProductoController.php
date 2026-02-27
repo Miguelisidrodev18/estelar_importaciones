@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Producto;
+use App\Models\ProductoVariante;
 use App\Models\Categoria;
 use App\Models\Almacen;
 use App\Models\Catalogo\Marca;
@@ -11,6 +12,7 @@ use App\Models\Catalogo\Modelo;
 use App\Models\Catalogo\Color;
 use App\Models\Catalogo\UnidadMedida;
 use App\Services\CodigoBarrasService;
+use App\Services\VarianteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -53,23 +55,29 @@ class ProductoController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Producto::with('categoria');
-        
+        $query = Producto::with(['categoria', 'variantesActivas.color']);
+
         // Filtro por búsqueda
         if ($request->filled('buscar')) {
             $query->buscar($request->buscar);
         }
-        
+
         // Filtro por categoría
         if ($request->filled('categoria_id')) {
             $query->where('categoria_id', $request->categoria_id);
         }
-        
-        // Filtro por estado
-        if ($request->filled('estado')) {
-            $query->where('estado', $request->estado);
+
+        // Filtro por estado — por defecto solo 'activo' (oculta productos migrados a variantes)
+        $estadoFiltro = $request->get('estado', 'activo');
+        if ($estadoFiltro !== 'todos') {
+            $query->where('estado', $estadoFiltro);
         }
-        
+
+        // Filtro por tipo de inventario
+        if ($request->filled('tipo_inventario')) {
+            $query->where('tipo_inventario', $request->tipo_inventario);
+        }
+
         // Filtro por estado de stock
         if ($request->filled('stock_estado')) {
             switch ($request->stock_estado) {
@@ -81,7 +89,7 @@ class ProductoController extends Controller
                     break;
             }
         }
-        
+
         $productos = $query->orderBy('nombre')->paginate(15);
         $categorias = Categoria::activas()->orderBy('nombre')->get();
         
@@ -165,12 +173,6 @@ public function create()
         // Stock inicial (solo para accesorios)
         'stock_inicial' => 'nullable|integer|min:0',
         'almacen_id' => 'nullable|required_with:stock_inicial|exists:almacenes,id',
-        
-        // ✅ ELIMINAR estos campos (ya no van en productos)
-        // 'tipo_producto' - reemplazado por tipo_inventario
-        // 'precio_venta' - se maneja en ventas
-        // 'precio_mayorista' - se maneja en ventas
-        // 'unidad_medida' - reemplazado por unidad_medida_id
     ]);
 
     // Generar código automático si no existe
@@ -192,37 +194,55 @@ public function create()
     \DB::transaction(function () use ($validated, $request) {
         // Crear producto
         $producto = Producto::create($validated);
-        
+
         \Log::info('Producto creado:', [
             'id' => $producto->id,
             'nombre' => $producto->nombre,
-            'tipo_inventario' => $producto->tipo_inventario
+            'tipo_inventario' => $producto->tipo_inventario,
         ]);
-        
-        // Stock inicial SOLO para productos tipo 'cantidad' (accesorios)
-        if ($producto->tipo_inventario === 'cantidad' && 
-            $request->filled('stock_inicial') && 
-            $request->stock_inicial > 0) {
-            
+
+        // Stock inicial SOLO para productos tipo 'cantidad' sin variantes
+        if ($producto->tipo_inventario === 'cantidad' &&
+            $request->filled('stock_inicial') &&
+            $request->stock_inicial > 0 &&
+            empty($request->variantes_iniciales)) {
+
             if ($request->filled('almacen_id')) {
                 \App\Models\MovimientoInventario::registrarMovimiento([
-                    'producto_id' => $producto->id,
-                    'almacen_id' => $request->almacen_id,
+                    'producto_id'     => $producto->id,
+                    'almacen_id'      => $request->almacen_id,
                     'tipo_movimiento' => 'ingreso',
-                    'cantidad' => $request->stock_inicial,
-                    'motivo' => 'Stock inicial del producto',
-                    'usuario_id' => auth()->id(),
+                    'cantidad'        => $request->stock_inicial,
+                    'motivo'          => 'Stock inicial del producto',
+                    'usuario_id'      => auth()->id(),
                 ]);
             }
         }
-        
-        // Si tiene código de barras, guardarlo también en la nueva tabla
+
+        // Si tiene código de barras, guardarlo en la tabla de códigos múltiples
         if ($producto->codigo_barras) {
             $producto->codigosBarras()->create([
                 'codigo_barras' => $producto->codigo_barras,
-                'descripcion' => 'Principal',
-                'es_principal' => true
+                'descripcion'   => 'Principal',
+                'es_principal'  => true,
             ]);
+        }
+
+        // Crear variantes iniciales si las hay
+        $variantesData = array_filter(
+            (array)$request->input('variantes_iniciales', []),
+            fn($v) => !empty($v['color_id']) || !empty($v['capacidad'])
+        );
+        if (!empty($variantesData)) {
+            $varianteService = app(VarianteService::class);
+            foreach ($variantesData as $vData) {
+                $varianteService->obtenerOCrearVariante(
+                    $producto,
+                    !empty($vData['color_id']) ? (int)$vData['color_id'] : null,
+                    !empty($vData['capacidad']) ? $vData['capacidad'] : null,
+                    0
+                );
+            }
         }
     });
 
@@ -303,17 +323,15 @@ public function create()
         
         // Código de barras (único excepto este producto)
         'codigo_barras' => 'nullable|string|max:100|unique:productos,codigo_barras,' . $producto->id,
-        
+
         // Imagen
         'imagen' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-        
+
         // Stock
         'stock_minimo' => 'required|integer|min:0',
         'stock_maximo' => 'required|integer|min:1',
         'ubicacion' => 'nullable|string|max:50',
         'estado' => 'required|in:activo,inactivo,descontinuado',
-        
-        // ❌ ELIMINAR: 'unidad_medida', 'tipo_producto'
     ]);
 
     // Subir nueva imagen si existe
@@ -326,7 +344,7 @@ public function create()
 
     // Actualizar producto
     $producto->update($validated);
-    
+
     // Actualizar código de barras principal si cambió
     if ($producto->wasChanged('codigo_barras')) {
         // Buscar si ya tiene un código principal
@@ -537,6 +555,74 @@ public function validarCodigoBarras(Request $request)
     
     return response()->json($resultados);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GESTIÓN DE VARIANTES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Mostrar variantes de un producto (vista web)
+ */
+public function variantes(Producto $producto)
+{
+    $producto->load(['variantes.color', 'marca', 'modelo', 'categoria']);
+    $colores = Color::where('estado', 'activo')->orderBy('nombre')->get();
+
+    return view('inventario.productos.variantes', compact('producto', 'colores'));
+}
+
+/**
+ * POST /inventario/productos/{producto}/variantes
+ * Crear variante desde el formulario web
+ */
+public function storeVariante(Request $request, Producto $producto, VarianteService $varianteService)
+{
+    $validated = $request->validate([
+        'color_id'     => 'nullable|exists:colores,id',
+        'capacidad'    => 'nullable|string|max:50',
+        'sobreprecio'  => 'nullable|numeric|min:0',
+        'stock_inicial'=> 'nullable|integer|min:0',
+    ]);
+
+    try {
+        $variante = $varianteService->obtenerOCrearVariante(
+            $producto,
+            $validated['color_id'] ?? null,
+            $validated['capacidad'] ?? null,
+            (float)($validated['sobreprecio'] ?? 0)
+        );
+
+        if (!empty($validated['stock_inicial']) && $validated['stock_inicial'] > 0) {
+            $variante->incrementarStock($validated['stock_inicial']);
+        }
+
+        return redirect()
+            ->route('inventario.productos.variantes', $producto)
+            ->with('success', 'Variante agregada: ' . $variante->sku);
+
+    } catch (\Exception $e) {
+        return back()->withInput()->with('error', $e->getMessage());
+    }
+}
+
+/**
+ * DELETE /inventario/productos/variantes/{variante}
+ * Desactivar variante
+ */
+public function destroyVariante(ProductoVariante $variante, VarianteService $varianteService)
+{
+    try {
+        $productoId = $variante->producto_id;
+        $varianteService->desactivarVariante($variante);
+
+        return redirect()
+            ->route('inventario.productos.variantes', $productoId)
+            ->with('success', 'Variante desactivada');
+    } catch (\Exception $e) {
+        return back()->with('error', $e->getMessage());
+    }
+}
+
 /**
  * Mostrar productos de un proveedor específico
  */
