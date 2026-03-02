@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\ProductoVariante;
+use App\Models\Almacen;
 
 class ProductoPrecio extends Model
 {
@@ -10,8 +12,14 @@ class ProductoPrecio extends Model
 
     protected $fillable = [
         'producto_id',
+        'variante_id',
+        'almacen_id',
         'tipo_precio',
         'precio',
+        'precio_compra',
+        'precio_mayorista',
+        'margen',
+        'observaciones',
         'moneda',
         'fecha_inicio',
         'fecha_fin',
@@ -21,7 +29,7 @@ class ProductoPrecio extends Model
         'proveedor_id',
         'prioridad',
         'activo',
-        'creado_por'
+        'creado_por',
     ];
 
     protected $casts = [
@@ -48,6 +56,16 @@ class ProductoPrecio extends Model
     public function creador()
     {
         return $this->belongsTo(User::class, 'creado_por');
+    }
+
+    public function variante()
+    {
+        return $this->belongsTo(ProductoVariante::class, 'variante_id');
+    }
+
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class);
     }
 
     // Scope para precios vigentes

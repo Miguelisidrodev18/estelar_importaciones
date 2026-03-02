@@ -41,9 +41,24 @@ class VentaController extends Controller
 
     public function create()
     {
+        $user      = auth()->user();
         $clientes  = Cliente::activos()->orderBy('nombre')->get();
-        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
         $categorias = Categoria::activas()->orderBy('nombre')->get();
+
+        // Filtrar almacenes por rol: admin ve todos, el resto solo el suyo
+        if ($user->role->nombre === 'Administrador') {
+            $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
+        } else {
+            $almacenes = Almacen::where('estado', 'activo')
+                ->where('id', $user->almacen_id)
+                ->orderBy('nombre')
+                ->get();
+        }
+
+        // Preseleccionar si solo hay un almacén disponible
+        $almacenPredeterminado = $almacenes->count() === 1
+            ? $almacenes->first()->id
+            : ($user->almacen_id ?: null);
 
         $productos = Producto::where('estado', 'activo')
             ->with(['categoria', 'variantesActivas.color'])
@@ -77,51 +92,73 @@ class VentaController extends Controller
                 ];
             });
 
-        return view('ventas.create', compact('clientes', 'productos', 'almacenes', 'categorias'));
+        return view('ventas.create', compact(
+            'clientes', 'productos', 'almacenes', 'categorias', 'almacenPredeterminado'
+        ));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'cliente_id' => 'nullable|exists:clientes,id',
-            'almacen_id' => 'required|exists:almacenes,id',
-            'observaciones' => 'nullable|string',
-            'detalles' => 'required|array|min:1',
-            'detalles.*.producto_id' => 'required|exists:productos,id',
-            'detalles.*.variante_id' => 'nullable|exists:producto_variantes,id',
-            'detalles.*.cantidad' => 'required|integer|min:1',
+            'cliente_id'               => 'nullable|exists:clientes,id',
+            'almacen_id'               => 'required|exists:almacenes,id',
+            'observaciones'            => 'nullable|string',
+            'tipo_comprobante'         => 'nullable|in:boleta,factura,cotizacion',
+            'guia_remision'            => 'nullable|string|max:100',
+            'transportista'            => 'nullable|string|max:150',
+            'placa_vehiculo'           => 'nullable|string|max:20',
+            'metodo_pago'              => 'nullable|in:efectivo,transferencia,yape,plin,mixto',
+            'pagos_detalle'            => 'nullable|array',
+            'pagos_detalle.*.metodo'   => 'required_with:pagos_detalle|in:efectivo,transferencia,yape,plin',
+            'pagos_detalle.*.monto'    => 'required_with:pagos_detalle|numeric|min:0.01',
+            'detalles'                 => 'required|array|min:1',
+            'detalles.*.producto_id'   => 'required|exists:productos,id',
+            'detalles.*.variante_id'   => 'nullable|exists:producto_variantes,id',
+            'detalles.*.cantidad'      => 'required|integer|min:1',
             'detalles.*.precio_unitario' => 'required|numeric|min:0.01',
-            'detalles.*.imei_id' => 'nullable|exists:imeis,id',
+            'detalles.*.imei_id'       => 'nullable|exists:imeis,id',
         ], [
             'detalles.required' => 'Debe agregar al menos un producto',
         ]);
 
-        $subtotal = collect($validated['detalles'])->sum(function ($d) {
-            return $d['cantidad'] * $d['precio_unitario'];
-        });
+        $subtotal        = collect($validated['detalles'])->sum(fn($d) => $d['cantidad'] * $d['precio_unitario']);
+        $tipoComprobante = $validated['tipo_comprobante'] ?? 'boleta';
+        $metodoPago      = $validated['metodo_pago'] ?? null;
+        $pago            = $metodoPago ? ['metodo_pago' => $metodoPago] : null;
 
         try {
             $venta = app(VentaService::class)->crearVenta(
                 [
-                    'user_id' => auth()->id(),
-                    'cliente_id' => $validated['cliente_id'],
-                    'almacen_id' => $validated['almacen_id'],
-                    'fecha' => now()->toDateString(),
-                    'subtotal' => $subtotal,
-                    'igv' => 0,
-                    'total' => $subtotal,
-                    'observaciones' => $validated['observaciones'],
+                    'user_id'          => auth()->id(),
+                    'cliente_id'       => $validated['cliente_id'] ?? null,
+                    'almacen_id'       => $validated['almacen_id'],
+                    'fecha'            => now()->toDateString(),
+                    'subtotal'         => $subtotal,
+                    'igv'              => 0,
+                    'total'            => $subtotal,
+                    'observaciones'    => $validated['observaciones'] ?? null,
+                    'tipo_comprobante' => $tipoComprobante,
+                    'guia_remision'    => $validated['guia_remision'] ?? null,
+                    'transportista'    => $validated['transportista'] ?? null,
+                    'placa_vehiculo'   => $validated['placa_vehiculo'] ?? null,
+                    'pagos_detalle'    => $validated['pagos_detalle'] ?? null,
                 ],
-                $validated['detalles']
+                $validated['detalles'],
+                $pago
             );
+
+            if ($request->wantsJson()) {
+                return response()->json(['venta_id' => $venta->id]);
+            }
 
             return redirect()
                 ->route('ventas.show', $venta)
-                ->with('success', 'Venta creada. Pendiente de confirmación de pago.');
+                ->with('success', 'Venta registrada exitosamente.');
         } catch (\Exception $e) {
-            return back()
-                ->withInput()
-                ->with('error', $e->getMessage());
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
+            return back()->withInput()->with('error', $e->getMessage());
         }
     }
 

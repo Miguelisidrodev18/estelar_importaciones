@@ -41,7 +41,14 @@ class ClienteController extends Controller
             'nombre.required' => 'El nombre es obligatorio',
         ]);
 
-        Cliente::create($validated);
+        $cliente = Cliente::create($validated);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'id'     => $cliente->id,
+                'nombre' => $cliente->nombre,
+            ]);
+        }
 
         return redirect()
             ->route('clientes.index')

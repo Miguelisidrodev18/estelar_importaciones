@@ -19,12 +19,17 @@ class Venta extends Model
         'igv',
         'total',
         'metodo_pago',
+        'tipo_comprobante',
+        'guia_remision',
+        'transportista',
+        'placa_vehiculo',
+        'pagos_detalle',
         'estado_pago',
         'usuario_confirma_id',
         'fecha_confirmacion',
         'observaciones',
-        'tipo_venta', //'interna para tienda, externa para vendedores',
-        'tienda_destino_id', //para ventas externas, a que tienda iban a pagar con esta venta
+        'tipo_venta',
+        'tienda_destino_id',
     ];
 
     protected $casts = [
@@ -33,6 +38,7 @@ class Venta extends Model
         'subtotal' => 'decimal:2',
         'igv' => 'decimal:2',
         'total' => 'decimal:2',
+        'pagos_detalle' => 'array',
     ];
 
     public function vendedor()

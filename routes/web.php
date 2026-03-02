@@ -396,6 +396,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/proveedores/buscar', [PrecioController::class, 'buscarProveedores'])->name('proveedores.buscar');
         Route::get('/producto/{producto}/ultimo-precio-compra', [PrecioController::class, 'ultimoPrecioCompra'])->name('ultimo-precio-compra');
         Route::get('/producto/{producto}', [PrecioController::class, 'show'])->name('show');
+        Route::post('/producto/{producto}', [PrecioController::class, 'store'])->name('store');
         Route::post('/producto/{producto}/calcular', [PrecioController::class, 'calcular'])->name('calcular');
         Route::get('/producto/{producto}/precio/{precio}/edit', [PrecioController::class, 'edit'])->name('edit');
         Route::put('/producto/{producto}/precio/{precio}', [PrecioController::class, 'update'])->name('update');
