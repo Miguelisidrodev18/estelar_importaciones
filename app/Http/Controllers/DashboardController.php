@@ -12,7 +12,11 @@ use App\Models\MovimientoInventario;
 use App\Models\Imei;
 use App\Models\Proveedor;
 use App\Models\StockAlmacen;
+use App\Models\Compra;
+use App\Models\DetalleVenta;
+use App\Models\Cuota;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -36,32 +40,174 @@ class DashboardController extends Controller
      */
     public function admin(): View
     {
+        $mesActual  = now()->month;
+        $anioActual = now()->year;
+        $mesAnterior  = now()->subMonth()->month;
+        $anioAnterior = now()->subMonth()->year;
+
+        // ── Ventas ────────────────────────────────────────────────────────────
+        $ventasMesActual = Venta::where('estado_pago', 'pagado')
+            ->whereMonth('fecha', $mesActual)
+            ->whereYear('fecha', $anioActual)
+            ->sum('total');
+
+        $ventasMesAnterior = Venta::where('estado_pago', 'pagado')
+            ->whereMonth('fecha', $mesAnterior)
+            ->whereYear('fecha', $anioAnterior)
+            ->sum('total');
+
+        $variacionVentas = $ventasMesAnterior > 0
+            ? round((($ventasMesActual - $ventasMesAnterior) / $ventasMesAnterior) * 100, 1)
+            : 0;
+
+        // Ventas por mes del año actual (para el gráfico)
+        $ventasPorMes = Venta::where('estado_pago', 'pagado')
+            ->whereYear('fecha', $anioActual)
+            ->selectRaw('MONTH(fecha) as mes, SUM(total) as total')
+            ->groupBy('mes')
+            ->pluck('total', 'mes')
+            ->toArray();
+
+        $ventasMensualesChart = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $ventasMensualesChart[] = $ventasPorMes[$m] ?? 0;
+        }
+
+        // ── Compras ───────────────────────────────────────────────────────────
+        $comprasMesActual = Compra::where('estado', '!=', 'anulado')
+            ->whereMonth('fecha', $mesActual)
+            ->whereYear('fecha', $anioActual)
+            ->sum('total_pen');
+
+        // ── Clientes ──────────────────────────────────────────────────────────
+        $totalClientes = Cliente::count();
+
+        // ── Inventario ────────────────────────────────────────────────────────
+        $stockTotal     = StockAlmacen::sum('cantidad');
+        $stockCelulares = Imei::where('estado_imei', 'en_stock')->count();
+        $stockAccesorios = Producto::where('tipo_inventario', 'cantidad')
+            ->sum('stock_actual');
+
+        $imeisTotales    = Imei::count();
+        $imeisDisponibles = Imei::where('estado_imei', 'en_stock')->count();
+        $imeisVendidos   = Imei::where('estado_imei', 'vendido')->count();
+        $imeisNuevosSemana = Imei::where('created_at', '>=', now()->subDays(7))->count();
+
+        // Productos bajo stock con nombre (top 5)
+        $productosBajoStockLista = Producto::where('tipo_inventario', 'cantidad')
+            ->whereColumn('stock_actual', '<=', 'stock_minimo')
+            ->where('estado', 'activo')
+            ->orderBy('stock_actual')
+            ->limit(5)
+            ->get(['nombre', 'stock_actual', 'stock_minimo']);
+
+        $productosSerieConStock = Imei::where('estado_imei', 'en_stock')
+            ->distinct()
+            ->pluck('producto_id');
+
+        $productosBajoStock = $productosBajoStockLista->count()
+            + Producto::where('tipo_inventario', 'serie')
+                ->where('estado', 'activo')
+                ->whereNotIn('id', $productosSerieConStock)
+                ->count();
+
+        // ── Top productos más vendidos (mes actual) ───────────────────────────
+        $topProductos = DetalleVenta::join('ventas', 'detalle_ventas.venta_id', '=', 'ventas.id')
+            ->join('productos', 'detalle_ventas.producto_id', '=', 'productos.id')
+            ->where('ventas.estado_pago', 'pagado')
+            ->whereMonth('ventas.fecha', $mesActual)
+            ->whereYear('ventas.fecha', $anioActual)
+            ->selectRaw('productos.nombre, SUM(detalle_ventas.cantidad) as total_vendido')
+            ->groupBy('productos.id', 'productos.nombre')
+            ->orderByDesc('total_vendido')
+            ->limit(5)
+            ->get();
+
+        $maxVendido = $topProductos->max('total_vendido') ?: 1;
+
+        // ── Notificaciones ────────────────────────────────────────────────────
+        // Cuotas vencidas o por vencer en los próximos 7 días
+        $notifCuotas = Cuota::where('estado', 'pendiente')
+            ->where('fecha_vencimiento', '<=', now()->addDays(7))
+            ->with('cuentaPorPagar.proveedor')
+            ->orderBy('fecha_vencimiento')
+            ->limit(10)
+            ->get();
+
+        // Todos los productos bajo stock (para notificaciones)
+        $notifStockBajo = Producto::where('tipo_inventario', 'cantidad')
+            ->whereColumn('stock_actual', '<=', 'stock_minimo')
+            ->where('estado', 'activo')
+            ->orderBy('stock_actual')
+            ->limit(10)
+            ->get(['id', 'nombre', 'stock_actual', 'stock_minimo']);
+
+        $totalNotificaciones = $notifCuotas->count() + $notifStockBajo->count();
+
+        // ── Últimos movimientos ───────────────────────────────────────────────
+        $ultimosMovimientos = MovimientoInventario::with('producto', 'usuario', 'almacen', 'almacenDestino')
+            ->latest()
+            ->limit(8)
+            ->get();
+
         $data = [
-            'total_usuarios' => User::count(),
-            'usuarios_activos' => User::where('estado', 'activo')->count(),
-            'usuarios_inactivos' => User::where('estado', 'inactivo')->count(),
-            'usuarios_por_rol' => User::join('roles', 'users.role_id', '=', 'roles.id')
+            // Usuarios
+            'total_usuarios'    => User::count(),
+            'usuarios_activos'  => User::where('estado', 'activo')->count(),
+            'usuarios_inactivos'=> User::where('estado', 'inactivo')->count(),
+            'usuarios_por_rol'  => User::join('roles', 'users.role_id', '=', 'roles.id')
                 ->selectRaw('roles.nombre, COUNT(*) as total')
                 ->groupBy('roles.nombre')
                 ->get(),
-            'ventas_totales' => Venta::where('estado_pago', 'pagado')->sum('total'),
-            'stock_total' => StockAlmacen::sum('cantidad'),
-            'stock_celulares' => Producto::where('productos.tipo_inventario', 'serie')
-                ->join('stock_almacen', 'productos.id', '=', 'stock_almacen.producto_id')
-                ->sum('stock_almacen.cantidad'),
-            'imeis_totales' => Imei::count(),
-            'imeis_disponibles' => Imei::where('estado_imei', 'en_stock')->count(),
-            'productos_bajo_stock' => StockAlmacen::where('cantidad', '<', 10)->count(),
-            'total_tiendas' => Almacen::where('tipo', 'tienda')->count(),
-            'total_almacenes' => Almacen::where('tipo', 'almacen')->count(),
-            'total_proveedores' => Proveedor::count(),
+
+            // Ventas
+            'ventas_totales'        => Venta::where('estado_pago', 'pagado')->sum('total'),
+            'ventas_mes_actual'     => $ventasMesActual,
+            'ventas_mes_anterior'   => $ventasMesAnterior,
+            'variacion_ventas'      => $variacionVentas,
+            'ventas_mensuales_chart'=> $ventasMensualesChart,
+            'anio_chart'            => $anioActual,
+
+            // Compras
+            'compras_mes_actual' => $comprasMesActual,
+
+            // Clientes
+            'total_clientes' => $totalClientes,
+
+            // Inventario
+            'stock_total'      => $stockTotal,
+            'stock_celulares'  => $stockCelulares,
+            'stock_accesorios' => $stockAccesorios,
+
+            // IMEIs
+            'imeis_totales'      => $imeisTotales,
+            'imeis_disponibles'  => $imeisDisponibles,
+            'imeis_vendidos'     => $imeisVendidos,
+            'imeis_nuevos_semana'=> $imeisNuevosSemana,
+
+            // Stock bajo
+            'productos_bajo_stock'       => $productosBajoStock,
+            'productos_bajo_stock_lista' => $productosBajoStockLista,
+
+            // Top productos
+            'top_productos' => $topProductos,
+            'max_vendido'   => $maxVendido,
+
+            // Infraestructura
+            'total_tiendas'        => Almacen::where('tipo', 'tienda')->count(),
+            'total_almacenes'      => Almacen::where('tipo', 'almacen')->count(),
+            'total_proveedores'    => Proveedor::count(),
             'traslados_pendientes' => MovimientoInventario::where('tipo_movimiento', 'transferencia')
                 ->where('estado', 'pendiente')
                 ->count(),
-            'ultimos_movimientos' => MovimientoInventario::with('producto', 'usuario')
-                ->latest()
-                ->limit(10)
-                ->get(),
+
+            // Movimientos
+            'ultimos_movimientos' => $ultimosMovimientos,
+
+            // Notificaciones
+            'notif_cuotas'         => $notifCuotas,
+            'notif_stock_bajo'     => $notifStockBajo,
+            'total_notificaciones' => $totalNotificaciones,
         ];
 
         return view('dashboards.admin', $data);
