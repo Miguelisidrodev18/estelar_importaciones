@@ -29,6 +29,9 @@ use App\Http\Controllers\VentaController;
 use App\Http\Controllers\TrasladoController;
 use App\Http\Controllers\CajaController;
 use App\Http\Controllers\PrecioController;
+use App\Http\Controllers\TiendaController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\CuentaPorPagarController;
 
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
