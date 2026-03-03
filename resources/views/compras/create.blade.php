@@ -1135,10 +1135,9 @@
 
         if (!producto) return;
 
-        // El color ya está habilitado desde cargarDetallesProducto para todos los tipos
-        // Solo el botón de IMEIs requiere tipo 'serie' + modelo seleccionado + color seleccionado
+        // El botón de IMEIs requiere tipo 'serie' + modelo seleccionado
         if (producto.tipo_inventario === 'serie') {
-            btnIMEI.disabled = !(modeloSelect.value && colorSelect.value);
+            btnIMEI.disabled = !modeloSelect.value;
         }
     }
 
@@ -1148,11 +1147,10 @@
         const productoSelect = document.getElementById(`producto_select_${index}`);
         const producto = catalogoProductos.find(p => p.id == productoSelect.value);
 
-        // Solo habilitar el botón IMEI si el producto es de tipo 'serie'
-        // y además tiene modelo y color seleccionados
+        // Solo habilitar el botón IMEI si el producto es de tipo 'serie' y tiene modelo
         if (producto && producto.tipo_inventario === 'serie') {
             const modeloSelect = document.getElementById(`modelo_select_${index}`);
-            btnIMEI.disabled = !(colorSelect.value && modeloSelect.value);
+            btnIMEI.disabled = !modeloSelect.value;
         }
         // Para productos regulares el botón queda siempre deshabilitado
     }
@@ -1736,13 +1734,9 @@
                 Swal.fire({ icon: 'warning', title: 'Atención', text: 'Primero seleccione un modelo' });
                 return;
             }
-            if (!colorSelect.value) {
-                Swal.fire({ icon: 'warning', title: 'Atención', text: 'Primero seleccione un color' });
-                return;
-            }
             const modeloNombre = modeloSelect.options[modeloSelect.selectedIndex].text;
-            const colorNombre  = colorSelect.options[colorSelect.selectedIndex].text;
-            subtitulo = `${modeloNombre} · ${colorNombre}`;
+            const colorNombre  = colorSelect.value ? colorSelect.options[colorSelect.selectedIndex].text : '';
+            subtitulo = colorNombre ? `${modeloNombre} · ${colorNombre}` : modeloNombre;
         }
 
         document.getElementById('imeiModalTitle').innerHTML = `

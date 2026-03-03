@@ -94,7 +94,7 @@
                     </div>
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-gray-500">Precio venta</span>
-                        <span class="font-bold text-blue-700">S/ {{ number_format($precio->precio_venta, 2) }}</span>
+                        <span class="font-bold text-blue-700">S/ {{ number_format($precio->precio, 2) }}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-gray-500">Margen</span>
@@ -129,13 +129,17 @@
         {{-- Columna derecha: formulario --}}
         <div class="xl:col-span-2">
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+                 data-prov-id="{{ old('proveedor_id', $precio->proveedor_id) }}"
+                 data-prov-nombre="{{ old('_prov_nombre', $precio->proveedor?->razon_social ?? '') }}"
                  x-data="{
-                     precioCompra: {{ $precio->precio_compra }},
-                     margen: {{ $precio->margen }},
-                     precioVenta: {{ $precio->precio_venta }},
+                     precioCompra: {{ $precio->precio_compra ?? 0 }},
+                     margen: {{ $precio->margen ?? 0 }},
+                     precioVenta: {{ $precio->precio ?? 0 }},
+                     modoCalculo: 'margen',
+                     incluyeIgv: false,
 
-                     proveedorId: {{ old('proveedor_id', $precio->proveedor_id) ?? 'null' }},
-                     busquedaProv: @json(old('_prov_nombre', $precio->proveedor?->razon_social ?? '')),
+                     proveedorId: null,
+                     busquedaProv: '',
                      resultadosProv: [],
                      abiertoDropdown: false,
                      buscandoProv: false,
@@ -144,6 +148,9 @@
                      cargandoCompra: false,
 
                      init() {
+                         const pid = this.$el.dataset.provId;
+                         this.proveedorId = pid ? parseInt(pid) : null;
+                         this.busquedaProv = this.$el.dataset.provNombre || '';
                          this.calcularPrecioVenta();
                          if (this.proveedorId) {
                              this.fetchUltimaCompra();
@@ -154,7 +161,18 @@
                          const compra = parseFloat(this.precioCompra) || 0;
                          const margen = parseFloat(this.margen) || 0;
                          if (compra > 0 && margen >= 0) {
-                             this.precioVenta = Math.round(compra * (1 + margen / 100) * 100) / 100;
+                             let venta = compra * (1 + margen / 100);
+                             if (this.incluyeIgv) venta = venta * 1.18;
+                             this.precioVenta = Math.round(venta * 100) / 100;
+                         }
+                     },
+
+                     calcularMargen() {
+                         const compra = parseFloat(this.precioCompra) || 0;
+                         const venta  = parseFloat(this.precioVenta)  || 0;
+                         if (compra > 0 && venta > 0) {
+                             const base = this.incluyeIgv ? (venta / 1.18) : venta;
+                             this.margen = Math.round(((base - compra) / compra * 100) * 10) / 10;
                          }
                      },
 
@@ -315,6 +333,25 @@
                                 @enderror
                             </div>
 
+                            {{-- Toggle modo de cálculo --}}
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Calcular desde</label>
+                                <div class="flex rounded-lg border border-gray-200 overflow-hidden w-full">
+                                    <button type="button"
+                                            @click="modoCalculo='margen'; calcularPrecioVenta()"
+                                            :class="modoCalculo==='margen' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                            class="flex-1 py-2 text-xs font-semibold transition-colors border-r border-gray-200">
+                                        <i class="fas fa-percentage mr-1"></i> Margen %
+                                    </button>
+                                    <button type="button"
+                                            @click="modoCalculo='precio'; calcularMargen()"
+                                            :class="modoCalculo==='precio' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                            class="flex-1 py-2 text-xs font-semibold transition-colors">
+                                        <i class="fas fa-tag mr-1"></i> Precio de venta
+                                    </button>
+                                </div>
+                            </div>
+
                             {{-- Margen --}}
                             <div>
                                 <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
@@ -323,16 +360,19 @@
                                 <input type="number"
                                        name="margen"
                                        x-model="margen"
-                                       @input="calcularPrecioVenta()"
-                                       step="0.1" min="0" max="100"
+                                       @input="if(modoCalculo==='margen') calcularPrecioVenta()"
+                                       :readonly="modoCalculo==='precio'"
+                                       :class="modoCalculo==='precio' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
+                                       step="0.1" min="0" max="1000"
                                        required
                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
+                                <p x-show="modoCalculo==='precio'" class="text-xs text-gray-400 mt-1">Calculado según el precio ingresado</p>
                                 @error('margen')
                                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                                 @enderror
                             </div>
 
-                            {{-- Precio venta (calculado) --}}
+                            {{-- Precio venta --}}
                             <div>
                                 <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
                                     Precio Venta (S/) <span class="text-red-500">*</span>
@@ -340,10 +380,29 @@
                                 <input type="number"
                                        name="precio_venta"
                                        x-model="precioVenta"
+                                       @input="if(modoCalculo==='precio') calcularMargen()"
+                                       :readonly="modoCalculo==='margen'"
+                                       :class="modoCalculo==='margen' ? 'bg-gray-50 text-blue-700 font-semibold cursor-not-allowed' : 'text-blue-700 font-semibold'"
                                        step="0.01" min="0.01"
-                                       required readonly
-                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-blue-700 font-semibold cursor-not-allowed">
-                                <p class="text-xs text-gray-400 mt-1">Calculado automáticamente según margen</p>
+                                       required
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
+                                <p x-show="modoCalculo==='margen'" class="text-xs text-gray-400 mt-1">Calculado según el margen</p>
+                                <p x-show="modoCalculo==='precio'" class="text-xs text-gray-400 mt-1">Ingresa el precio que quieres cobrar</p>
+                            </div>
+
+                            {{-- IGV --}}
+                            <div class="md:col-span-2">
+                                <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+                                    <input type="checkbox" x-model="incluyeIgv"
+                                           @change="modoCalculo==='margen' ? calcularPrecioVenta() : calcularMargen()"
+                                           class="w-4 h-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-400">
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-700">El precio de venta incluye IGV (18%)</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">
+                                            El margen se calcula sobre el precio sin IGV
+                                        </p>
+                                    </div>
+                                </label>
                             </div>
 
                             {{-- Precio mayorista --}}

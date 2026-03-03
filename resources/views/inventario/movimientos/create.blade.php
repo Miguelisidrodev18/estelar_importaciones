@@ -3,524 +3,528 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar Movimiento - CORPORACIÓN ADIVON SAC</title>
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <title>Nuevo Movimiento · ADIVON SAC</title>
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>[x-cloak] { display: none !important; }</style>
 </head>
-<body class="bg-gray-50">
-    <x-sidebar :role="auth()->user()->role->nombre" />
+<body class="bg-gray-50 font-sans">
 
-    <div class="md:ml-64 p-4 md:p-8">
-        <x-header 
-            title="Registrar Movimiento de Inventario" 
-            subtitle="Ingreso, salida, ajuste o transferencia de productos" 
-        />
+<x-sidebar :role="auth()->user()->role->nombre" />
 
-        <div class="max-w-4xl mx-auto">
+@php
+$catalogoJson = $productos->map(fn($p) => [
+    'id'              => $p->id,
+    'codigo'          => $p->codigo,
+    'nombre'          => $p->nombre,
+    'tipo_inventario' => $p->tipo_inventario,
+    'stock_actual'    => (int)($p->stock_actual ?? 0),
+    'unidad'          => $p->unidadMedida?->abreviatura ?? 'UND',
+])->values();
+@endphp
 
-            {{-- ============================================== --}}
-            {{-- FIX: Mostrar errores de validación de Laravel  --}}
-            {{-- ============================================== --}}
-            @if($errors->any())
-                <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-                    <div class="flex">
-                        <i class="fas fa-exclamation-circle text-red-500 mt-0.5 mr-3"></i>
-                        <div>
-                            <p class="font-medium text-red-800">Se encontraron errores:</p>
-                            <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
-                                @foreach($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            @endif
+<div class="md:ml-64 p-4 md:p-8"
+     x-data="{
+         /* ── Tipo de movimiento ───────────────────── */
+         tipoMovimiento: '{{ old('tipo_movimiento', '') }}',
 
-            {{-- FIX: Mostrar mensajes flash de error --}}
-            @if(session('error'))
-                <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-                    <div class="flex">
-                        <i class="fas fa-times-circle text-red-500 mt-0.5 mr-3"></i>
-                        <p class="text-sm text-red-700">{{ session('error') }}</p>
-                    </div>
-                </div>
-            @endif
+         /* ── Búsqueda de producto ─────────────────── */
+         query: '',
+         resultados: [],
+         abierto: false,
+         productoId: {{ old('producto_id') ? old('producto_id') : 'null' }},
+         productoNombre: '',
+         productoTipo: '',
+         productoStock: 0,
+         productoUnidad: '',
+         catalogo: {{ Js::from($catalogoJson) }},
 
-            @if(session('success'))
-                <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
-                    <div class="flex">
-                        <i class="fas fa-check-circle text-green-500 mt-0.5 mr-3"></i>
-                        <p class="text-sm text-green-700">{{ session('success') }}</p>
-                    </div>
-                </div>
-            @endif
+         /* ── Almacenes ────────────────────────────── */
+         almacenId: '{{ old('almacen_id', '') }}',
+         almacenDestinoId: '{{ old('almacen_destino_id', '') }}',
 
-            <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                <div class="bg-blue-900 px-6 py-4">
-                    <h2 class="text-xl font-bold text-white">
-                        <i class="fas fa-exchange-alt mr-2"></i>
-                        Nuevo Movimiento
-                    </h2>
-                </div>
+         /* ── IMEIs ────────────────────────────────── */
+         imeis: [],
+         imeiId: '',
+         cargandoImeis: false,
+         imeiError: '',
 
-                <form action="{{ route('inventario.movimientos.store') }}" method="POST" class="p-6" id="movimientoForm">
-                    @csrf
+         /* ── Otros campos ─────────────────────────── */
+         cantidad: {{ old('cantidad', 1) }},
+         motivo: '',
+         observaciones: '',
 
-                    <!-- Tipo de Movimiento -->
-                    <div class="mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                            <i class="fas fa-list-ul mr-2 text-blue-900"></i>
-                            Tipo de Movimiento
-                        </h3>
+         /* ── Estado del formulario ────────────────── */
+         enviando: false,
+         errorGeneral: '',
 
-                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <label class="cursor-pointer">
-                                <input type="radio" name="tipo_movimiento" value="ingreso" class="peer hidden" required onchange="handleTipoChange()" {{ old('tipo_movimiento') === 'ingreso' ? 'checked' : '' }}>
-                                <div class="border-2 border-gray-300 rounded-lg p-4 text-center hover:border-green-500 peer-checked:border-green-500 peer-checked:bg-green-50 transition-all">
-                                    <i class="fas fa-arrow-down text-3xl text-green-600 mb-2"></i>
-                                    <p class="font-semibold text-gray-900">Ingreso</p>
-                                    <p class="text-xs text-gray-500">Entrada de stock</p>
-                                </div>
-                            </label>
+         /* ── Getters ──────────────────────────────── */
+         get esCelular()      { return this.productoTipo === 'serie'; },
+         get esTransferencia(){ return this.tipoMovimiento === 'transferencia'; },
+         get esIngresoCelular(){ return this.tipoMovimiento === 'ingreso' && this.esCelular; },
+         get formularioValido() {
+             if (!this.tipoMovimiento) return false;
+             if (!this.productoId)     return false;
+             if (!this.almacenId)      return false;
+             if (this.esCelular && !this.esIngresoCelular && !this.imeiId) return false;
+             if (!this.esCelular && this.cantidad < 1) return false;
+             return true;
+         },
 
-                            <label class="cursor-pointer">
-                                <input type="radio" name="tipo_movimiento" value="salida" class="peer hidden" onchange="handleTipoChange()" {{ old('tipo_movimiento') === 'salida' ? 'checked' : '' }}>
-                                <div class="border-2 border-gray-300 rounded-lg p-4 text-center hover:border-red-500 peer-checked:border-red-500 peer-checked:bg-red-50 transition-all">
-                                    <i class="fas fa-arrow-up text-3xl text-red-600 mb-2"></i>
-                                    <p class="font-semibold text-gray-900">Salida</p>
-                                    <p class="text-xs text-gray-500">Salida de stock</p>
-                                </div>
-                            </label>
+         /* ── Métodos ──────────────────────────────── */
+         buscar() {
+             if (this.query.length < 1) {
+                 this.resultados = [];
+                 this.abierto = false;
+                 return;
+             }
+             const q = this.query.toLowerCase();
+             this.resultados = this.catalogo
+                 .filter(p => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q))
+                 .slice(0, 10);
+             this.abierto = this.resultados.length > 0;
+         },
 
-                            <label class="cursor-pointer">
-                                <input type="radio" name="tipo_movimiento" value="ajuste" class="peer hidden" onchange="handleTipoChange()" {{ old('tipo_movimiento') === 'ajuste' ? 'checked' : '' }}>
-                                <div class="border-2 border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all">
-                                    <i class="fas fa-sliders-h text-3xl text-blue-600 mb-2"></i>
-                                    <p class="font-semibold text-gray-900">Ajuste</p>
-                                    <p class="text-xs text-gray-500">Corrección manual</p>
-                                </div>
-                            </label>
+         seleccionar(p) {
+             this.productoId    = p.id;
+             this.productoNombre= p.nombre;
+             this.productoTipo  = p.tipo_inventario;
+             this.productoStock = p.stock_actual;
+             this.productoUnidad= p.unidad;
+             this.query         = p.nombre + ' [' + p.codigo + ']';
+             this.abierto       = false;
+             this.resultados    = [];
+             this.imeis         = [];
+             this.imeiId        = '';
+             this.imeiError     = '';
+             if (this.esCelular && this.almacenId && this.tipoMovimiento) {
+                 this.cargarImeis();
+             }
+         },
 
-                            <label class="cursor-pointer">
-                                <input type="radio" name="tipo_movimiento" value="transferencia" class="peer hidden" onchange="handleTipoChange()" {{ old('tipo_movimiento') === 'transferencia' ? 'checked' : '' }}>
-                                <div class="border-2 border-gray-300 rounded-lg p-4 text-center hover:border-purple-500 peer-checked:border-purple-500 peer-checked:bg-purple-50 transition-all">
-                                    <i class="fas fa-exchange-alt text-3xl text-purple-600 mb-2"></i>
-                                    <p class="font-semibold text-gray-900">Transferencia</p>
-                                    <p class="text-xs text-gray-500">Entre almacenes</p>
-                                </div>
-                            </label>
+         limpiarProducto() {
+             this.productoId    = null;
+             this.productoNombre= '';
+             this.productoTipo  = '';
+             this.productoStock = 0;
+             this.query         = '';
+             this.resultados    = [];
+             this.abierto       = false;
+             this.imeis         = [];
+             this.imeiId        = '';
+             this.imeiError     = '';
+         },
 
-                            <label class="cursor-pointer">
-                                <input type="radio" name="tipo_movimiento" value="devolucion" class="peer hidden" onchange="handleTipoChange()" {{ old('tipo_movimiento') === 'devolucion' ? 'checked' : '' }}>
-                                <div class="border-2 border-gray-300 rounded-lg p-4 text-center hover:border-orange-500 peer-checked:border-orange-500 peer-checked:bg-orange-50 transition-all">
-                                    <i class="fas fa-undo text-3xl text-orange-600 mb-2"></i>
-                                    <p class="font-semibold text-gray-900">Devolución</p>
-                                    <p class="text-xs text-gray-500">Retorno de producto</p>
-                                </div>
-                            </label>
+         onTipoChange() {
+             this.imeis     = [];
+             this.imeiId    = '';
+             this.imeiError = '';
+             if (this.esCelular && this.almacenId && this.tipoMovimiento) {
+                 this.cargarImeis();
+             }
+         },
 
-                            <label class="cursor-pointer">
-                                <input type="radio" name="tipo_movimiento" value="merma" class="peer hidden" onchange="handleTipoChange()" {{ old('tipo_movimiento') === 'merma' ? 'checked' : '' }}>
-                                <div class="border-2 border-gray-300 rounded-lg p-4 text-center hover:border-gray-500 peer-checked:border-gray-500 peer-checked:bg-gray-50 transition-all">
-                                    <i class="fas fa-exclamation-triangle text-3xl text-gray-600 mb-2"></i>
-                                    <p class="font-semibold text-gray-900">Merma</p>
-                                    <p class="text-xs text-gray-500">Pérdida/deterioro</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
+         onAlmacenChange() {
+             this.imeis     = [];
+             this.imeiId    = '';
+             this.imeiError = '';
+             if (this.esCelular && this.tipoMovimiento) {
+                 this.cargarImeis();
+             }
+         },
 
-                    <!-- Datos del Movimiento -->
-                    <div class="mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                            <i class="fas fa-info-circle mr-2 text-blue-900"></i>
-                            Datos del Movimiento
-                        </h3>
+         async cargarImeis() {
+             if (!this.productoId || !this.almacenId || !this.tipoMovimiento) return;
+             if (!this.esCelular) return;
+             if (this.tipoMovimiento === 'ingreso') {
+                 this.imeiError = 'Los ingresos de celulares se registran en el módulo de Compras.';
+                 return;
+             }
+             this.cargandoImeis = true;
+             this.imeiError     = '';
+             this.imeis         = [];
+             try {
+                 const url = '{{ route('inventario.movimientos.imeis-disponibles') }}'
+                     + '?producto_id=' + this.productoId
+                     + '&almacen_id='  + this.almacenId
+                     + '&tipo_movimiento=' + this.tipoMovimiento;
+                 const res  = await fetch(url);
+                 const data = await res.json();
+                 if (data.error) {
+                     this.imeiError = data.error;
+                 } else {
+                     this.imeis = data;
+                     if (data.length === 0) this.imeiError = 'Sin IMEIs disponibles para este movimiento en el almacén seleccionado.';
+                 }
+             } catch {
+                 this.imeiError = 'Error al cargar IMEIs. Intente de nuevo.';
+             }
+             this.cargandoImeis = false;
+         },
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Producto -->
-                            <div>
-                                <label for="producto_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Producto <span class="text-red-500">*</span>
-                                </label>
-                                <select name="producto_id" id="producto_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        required onchange="loadProductInfo()">
-                                    <option value="">Seleccione un producto</option>
-                                    @foreach($productos as $producto)
-                                        <option value="{{ $producto->id }}" 
-                                                data-stock="{{ $producto->stock_actual }}" 
-                                                data-unidad="{{ $producto->unidad_medida }}"
-                                                data-tipo="{{ $producto->tipo_producto }}"
-                                                {{ old('producto_id') == $producto->id ? 'selected' : '' }}>
-                                            {{ $producto->codigo }} - {{ $producto->nombre }} (Stock: {{ $producto->stock_actual }})
-                                        </option>
-                                    @endforeach
-                                </select>
-                                
-                                <div id="productoInfo" class="mt-2 hidden">
-                                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                        <p class="text-sm text-blue-900">
-                                            <i class="fas fa-info-circle mr-2"></i>
-                                            <span id="tipoProducto"></span> - Stock: <span id="stockActual" class="font-bold">0</span> <span id="unidadMedida"></span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+         init() {
+             /* Restaurar producto si hay old() values después de error de validación */
+             @if(old('producto_id'))
+             const found = this.catalogo.find(p => p.id == {{ old('producto_id') }});
+             if (found) this.seleccionar(found);
+             @endif
+         }
+     }"
+     x-init="init()">
 
-                            <!-- Almacén -->
-                            <div>
-                                <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Almacén <span class="text-red-500">*</span>
-                                </label>
-                                <select name="almacen_id" id="almacen_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        required onchange="handleAlmacenChange()">
-                                    <option value="">Seleccione un almacén</option>
-                                    @foreach($almacenes as $almacen)
-                                        <option value="{{ $almacen->id }}" {{ old('almacen_id') == $almacen->id ? 'selected' : '' }}>
-                                            {{ $almacen->nombre }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+    {{-- Breadcrumb --}}
+    <nav class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+        <a href="{{ route('inventario.movimientos.index') }}" class="hover:text-blue-700 transition-colors">Movimientos</a>
+        <i class="fas fa-chevron-right text-xs text-gray-400"></i>
+        <span class="text-gray-800 font-medium">Nuevo Movimiento</span>
+    </nav>
 
-                            <!-- IMEI (solo para celulares) -->
-                            <div id="imeiDiv" class="hidden">
-                                <label for="imei_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    IMEI <span class="text-red-500">*</span>
-                                </label>
-                                <select name="imei_id" id="imei_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Primero seleccione producto y almacén</option>
-                                </select>
-                                <p class="mt-1 text-xs text-gray-500">Solo para productos tipo celular</p>
-                            </div>
-
-                            <!-- Cantidad (solo para accesorios) -->
-                            <div id="cantidadDiv">
-                                <label for="cantidad" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Cantidad <span class="text-red-500">*</span>
-                                </label>
-                                <input type="number" name="cantidad" id="cantidad" min="1" value="{{ old('cantidad', 1) }}"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            </div>
-
-                            <!-- Almacén Destino (solo transferencias) -->
-                            <div id="almacenDestinoDiv" class="hidden">
-                                <label for="almacen_destino_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Almacén Destino <span class="text-red-500">*</span>
-                                </label>
-                                <select name="almacen_destino_id" id="almacen_destino_id" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Seleccione almacén destino</option>
-                                    @foreach($almacenes as $almacen)
-                                        <option value="{{ $almacen->id }}" {{ old('almacen_destino_id') == $almacen->id ? 'selected' : '' }}>
-                                            {{ $almacen->nombre }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <!-- Número de Guía (solo transferencias) -->
-                            <div id="numeroGuiaDiv" class="hidden">
-                                <label for="numero_guia" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Número de Guía de Remisión <span class="text-red-500">*</span>
-                                </label>
-                                <input type="text" name="numero_guia" id="numero_guia" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Ej: GR001-2024"
-                                        value="{{ old('numero_guia') }}">
-                                <p class="mt-1 text-xs text-gray-500">Número de guía de remisión para el traslado</p>
-                            </div>
-
-                            <!-- Motivo -->
-                            <div class="md:col-span-2">
-                                <label for="motivo" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Motivo <span class="text-red-500">*</span>
-                                </label>
-                                <input type="text" name="motivo" id="motivo" 
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Ej: Compra a proveedor, Venta a cliente..." required
-                                        value="{{ old('motivo') }}">
-                            </div>
-
-                            <!-- Observaciones -->
-                            <div class="md:col-span-2">
-                                <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
-                                <textarea name="observaciones" id="observaciones" rows="2"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="Información adicional...">{{ old('observaciones') }}</textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Advertencia -->
-                    <div class="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
-                        <div class="flex">
-                            <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-3"></i>
-                            <div class="text-sm text-yellow-700">
-                                <p class="font-medium">Importante:</p>
-                                <p class="mt-1">Los movimientos NO se pueden eliminar. Para celulares, se registrará el IMEI específico.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Botones -->
-                    <div class="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
-                        <a href="{{ route('inventario.movimientos.index') }}" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                            <i class="fas fa-times mr-2"></i>Cancelar
-                        </a>
-                        <button type="submit" id="btnSubmit" class="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800">
-                            <i class="fas fa-save mr-2"></i>Registrar Movimiento
-                        </button>
-                    </div>
-                </form>
-            </div>
+    {{-- Header --}}
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Registrar Movimiento</h1>
+            <p class="text-sm text-gray-500 mt-0.5">Ingreso, salida, ajuste o transferencia de inventario</p>
         </div>
+        <a href="{{ route('inventario.movimientos.index') }}"
+           class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
     </div>
 
-<script>
-let tipoProductoActual = '';
-let tipoMovimientoActual = '';
+    {{-- Alertas de validación --}}
+    @if($errors->any())
+    <div class="mb-5 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl">
+        <div class="flex items-center gap-2 mb-2">
+            <i class="fas fa-exclamation-triangle text-red-500"></i>
+            <span class="text-sm font-semibold">Corrige los siguientes errores:</span>
+        </div>
+        <ul class="list-disc list-inside space-y-0.5 text-sm">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
 
-// =====================================================
-// FIX: Manejar cambio de tipo de movimiento
-// =====================================================
-function handleTipoChange() {
-    const tipo = document.querySelector('input[name="tipo_movimiento"]:checked');
-    tipoMovimientoActual = tipo ? tipo.value : '';
-    
-    const almacenDestinoDiv = document.getElementById('almacenDestinoDiv');
-    const almacenDestinoSelect = document.getElementById('almacen_destino_id');
-    const numeroGuiaDiv = document.getElementById('numeroGuiaDiv');
-    const numeroGuiaInput = document.getElementById('numero_guia');
+    @if(session('error'))
+    <div class="mb-5 flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">
+        <i class="fas fa-times-circle text-red-500"></i> {{ session('error') }}
+    </div>
+    @endif
 
-    if (tipoMovimientoActual === 'transferencia') {
-        almacenDestinoDiv.classList.remove('hidden');
-        // FIX: NO usar required en HTML, la validación la hace Laravel
-        // almacenDestinoSelect.required = true;
-        numeroGuiaDiv.classList.remove('hidden');
-        // numeroGuiaInput.required = true;
-    } else {
-        almacenDestinoDiv.classList.add('hidden');
-        almacenDestinoSelect.value = '';
-        numeroGuiaDiv.classList.add('hidden');
-        numeroGuiaInput.value = '';
-    }
-    
-    // Recargar IMEIs si es necesario
-    if (tipoProductoActual === 'celular') {
-        loadImeisDisponibles();
-    }
-}
+    <form action="{{ route('inventario.movimientos.store') }}" method="POST"
+          @submit.prevent="if(!formularioValido){ errorGeneral='Completa todos los campos requeridos.'; return; } enviando=true; errorGeneral=''; $el.submit()">
+        @csrf
 
-// =====================================================
-// FIX: Manejar cambio de producto
-// =====================================================
-function loadProductInfo() {
-    const select = document.getElementById('producto_id');
-    const option = select.options[select.selectedIndex];
-    const productoInfo = document.getElementById('productoInfo');
-    const stockActual = document.getElementById('stockActual');
-    const unidadMedida = document.getElementById('unidadMedida');
-    const tipoProducto = document.getElementById('tipoProducto');
-    const imeiDiv = document.getElementById('imeiDiv');
-    const cantidadDiv = document.getElementById('cantidadDiv');
-    const imeiSelect = document.getElementById('imei_id');
-    const cantidadInput = document.getElementById('cantidad');
-    
-    if (option.value) {
-        const stock = option.dataset.stock;
-        const unidad = option.dataset.unidad;
-        const tipo = option.dataset.tipo;
-        
-        tipoProductoActual = tipo;
-        
-        stockActual.textContent = stock;
-        unidadMedida.textContent = unidad;
-        tipoProducto.textContent = tipo === 'celular' ? 'Celular' : 'Accesorio';
-        productoInfo.classList.remove('hidden');
-        
-        if (tipo === 'celular') {
-            imeiDiv.classList.remove('hidden');
-            cantidadDiv.classList.add('hidden');
-            // FIX: No manipular required del HTML, Laravel valida en backend
-            cantidadInput.value = 1;
-            
-            if (document.getElementById('almacen_id').value) {
-                loadImeisDisponibles();
-            } else {
-                imeiSelect.innerHTML = '<option value="">Primero seleccione almacén</option>';
-            }
-        } else {
-            tipoProductoActual = 'accesorio';
-            imeiDiv.classList.add('hidden');
-            cantidadDiv.classList.remove('hidden');
-            imeiSelect.value = '';
-        }
-    } else {
-        tipoProductoActual = '';
-        productoInfo.classList.add('hidden');
-        imeiDiv.classList.add('hidden');
-        cantidadDiv.classList.remove('hidden');
-    }
-}
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-// Manejar cambio de almacén
-function handleAlmacenChange() {
-    if (tipoProductoActual === 'celular') {
-        loadImeisDisponibles();
-    }
-}
+            {{-- ====== Columna izquierda: tipo + info ====== --}}
+            <div class="space-y-5">
 
-// Función para cargar IMEIs
-function loadImeisDisponibles() {
-    const productoId = document.getElementById('producto_id').value;
-    const almacenId = document.getElementById('almacen_id').value;
-    const imeiSelect = document.getElementById('imei_id');
-    
-    if (!tipoMovimientoActual) {
-        imeiSelect.innerHTML = '<option value="">Primero seleccione tipo de movimiento</option>';
-        return;
-    }
-    
-    if (!productoId) {
-        imeiSelect.innerHTML = '<option value="">Primero seleccione producto</option>';
-        return;
-    }
-    
-    if (!almacenId) {
-        imeiSelect.innerHTML = '<option value="">Primero seleccione almacén</option>';
-        return;
-    }
-    
-    if (tipoMovimientoActual === 'ingreso') {
-        imeiSelect.innerHTML = '<option value="">Los ingresos de celulares se registran en Compras</option>';
-        imeiSelect.disabled = true;
-        alert('⚠️ Los celulares se ingresan mediante el módulo de Compras, no aquí.');
-        return;
-    }
-    
-    imeiSelect.innerHTML = '<option value="">Cargando IMEIs...</option>';
-    imeiSelect.disabled = true;
-    
-    const url = '{{ route("inventario.movimientos.imeis-disponibles") }}' + 
-                `?producto_id=${productoId}&almacen_id=${almacenId}&tipo_movimiento=${tipoMovimientoActual}`;
-    
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            imeiSelect.disabled = false;
-            
-            if (data.error) {
-                imeiSelect.innerHTML = `<option value="">Error: ${data.error}</option>`;
-                return;
-            }
-            
-            if (!Array.isArray(data) || data.length === 0) {
-                imeiSelect.innerHTML = '<option value="">No hay IMEIs disponibles</option>';
-                return;
-            }
-            
-            let html = '<option value="">Seleccione un IMEI</option>';
-            data.forEach(imei => {
-                const detalles = [
-                    imei.codigo_imei,
-                    imei.serie ? `S/N: ${imei.serie}` : '',
-                    imei.color || '',
-                    imei.estado ? `[${imei.estado}]` : ''
-                ].filter(Boolean).join(' - ');
-                
-                html += `<option value="${imei.id}">${detalles}</option>`;
-            });
-            
-            imeiSelect.innerHTML = html;
-        })
-        .catch(error => {
-            console.error('Error al cargar IMEIs:', error);
-            imeiSelect.disabled = false;
-            imeiSelect.innerHTML = '<option value="">Error al cargar IMEIs</option>';
-        });
-}
+                {{-- Tipo de movimiento --}}
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-linear-to-r from-blue-900 to-blue-700 px-5 py-3">
+                        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-list-ul"></i> Tipo de Movimiento
+                        </h2>
+                    </div>
+                    <div class="p-4 grid grid-cols-2 gap-2">
+                        @foreach([
+                            ['ingreso',       'Ingreso',       'fa-arrow-circle-down', 'green',  'Entrada de stock'],
+                            ['salida',        'Salida',        'fa-arrow-circle-up',   'red',    'Salida de stock'],
+                            ['ajuste',        'Ajuste',        'fa-sliders-h',         'blue',   'Corrección manual'],
+                            ['transferencia', 'Transferencia', 'fa-exchange-alt',      'purple', 'Entre almacenes'],
+                            ['devolucion',    'Devolución',    'fa-undo',              'orange', 'Retorno de producto'],
+                            ['merma',         'Merma',         'fa-exclamation-triangle','gray', 'Pérdida/deterioro'],
+                        ] as [$val, $label, $icon, $color, $desc])
+                        <label class="cursor-pointer">
+                            <input type="radio" name="tipo_movimiento" value="{{ $val }}"
+                                   x-model="tipoMovimiento"
+                                   @change="onTipoChange()"
+                                   class="peer hidden" {{ old('tipo_movimiento') === $val ? 'checked' : '' }}>
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center hover:border-{{ $color }}-400
+                                        peer-checked:border-{{ $color }}-500 peer-checked:bg-{{ $color }}-50
+                                        transition-all cursor-pointer select-none">
+                                <i class="fas {{ $icon }} text-2xl text-{{ $color }}-500 mb-1"></i>
+                                <p class="text-xs font-bold text-gray-800">{{ $label }}</p>
+                                <p class="text-[10px] text-gray-400 leading-tight mt-0.5">{{ $desc }}</p>
+                            </div>
+                        </label>
+                        @endforeach
+                    </div>
+                </div>
 
-// =====================================================
-// FIX: Validación antes de enviar el formulario
-// =====================================================
-document.getElementById('movimientoForm').addEventListener('submit', function(e) {
-    const btn = document.getElementById('btnSubmit');
-    
-    // Verificar tipo de movimiento seleccionado
-    const tipoRadio = document.querySelector('input[name="tipo_movimiento"]:checked');
-    if (!tipoRadio) {
-        e.preventDefault();
-        alert('Debe seleccionar un tipo de movimiento.');
-        return;
-    }
-    
-    // Si es celular, verificar que se seleccionó IMEI
-    if (tipoProductoActual === 'celular') {
-        const imeiSelect = document.getElementById('imei_id');
-        if (!imeiSelect.value) {
-            e.preventDefault();
-            alert('Debe seleccionar un IMEI para productos tipo celular.');
-            return;
-        }
-    }
-    
-    // Si es transferencia, verificar destino y guía
-    if (tipoRadio.value === 'transferencia') {
-        const destino = document.getElementById('almacen_destino_id').value;
-        const guia = document.getElementById('numero_guia').value;
-        const origen = document.getElementById('almacen_id').value;
-        
-        if (!destino) {
-            e.preventDefault();
-            alert('Debe seleccionar un almacén destino para transferencias.');
-            return;
-        }
-        
-        if (destino === origen) {
-            e.preventDefault();
-            alert('El almacén destino debe ser diferente al almacén origen.');
-            return;
-        }
-        
-        if (!guia.trim()) {
-            e.preventDefault();
-            alert('Debe ingresar el número de guía para transferencias.');
-            return;
-        }
-    }
-    
-    // Deshabilitar botón para evitar doble envío
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
-});
+                {{-- Panel de info del producto seleccionado --}}
+                <div x-show="productoId" x-cloak
+                     class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-linear-to-r from-emerald-700 to-emerald-500 px-5 py-3">
+                        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-box"></i> Producto seleccionado
+                        </h2>
+                    </div>
+                    <div class="p-5 space-y-3">
+                        <div>
+                            <p class="text-sm font-bold text-gray-900" x-text="productoNombre"></p>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500">Tipo inventario</span>
+                            <span class="font-medium">
+                                <template x-if="esCelular">
+                                    <span class="text-blue-700 font-semibold">
+                                        <i class="fas fa-mobile-alt mr-1"></i> Celular (IMEI)
+                                    </span>
+                                </template>
+                                <template x-if="!esCelular">
+                                    <span class="text-gray-700">
+                                        <i class="fas fa-boxes mr-1"></i> Accesorio / cantidad
+                                    </span>
+                                </template>
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500">Stock global</span>
+                            <span class="font-bold text-emerald-700"
+                                  x-text="productoStock + ' ' + productoUnidad"></span>
+                        </div>
+                        <button type="button" @click="limpiarProducto()"
+                                class="w-full text-xs text-red-500 hover:text-red-700 transition-colors mt-1">
+                            <i class="fas fa-times-circle mr-1"></i> Cambiar producto
+                        </button>
+                    </div>
+                </div>
 
-// =====================================================
-// Inicializar cuando la página carga (para old() values)
-// =====================================================
-document.addEventListener('DOMContentLoaded', function() {
-    // Si hay valores old() (después de un error de validación), restaurar estado
-    const tipoRadio = document.querySelector('input[name="tipo_movimiento"]:checked');
-    if (tipoRadio) {
-        tipoMovimientoActual = tipoRadio.value;
-        handleTipoChange();
-    }
-    
-    const productoSelect = document.getElementById('producto_id');
-    if (productoSelect.value) {
-        loadProductInfo();
-    }
-});
-</script>
+                {{-- Nota importante --}}
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <p class="text-xs font-semibold text-amber-800 mb-1.5 flex items-center gap-1">
+                        <i class="fas fa-exclamation-triangle"></i> Importante
+                    </p>
+                    <ul class="text-xs text-amber-700 space-y-1 list-disc list-inside">
+                        <li>Los movimientos <strong>no se pueden eliminar</strong></li>
+                        <li>Para celulares, los <strong>ingresos</strong> se registran en el módulo de Compras</li>
+                        <li>Las transferencias requieren número de guía de remisión</li>
+                    </ul>
+                </div>
+
+            </div>
+
+            {{-- ====== Columna derecha: formulario ====== --}}
+            <div class="xl:col-span-2">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-linear-to-r from-gray-700 to-gray-600 px-5 py-3">
+                        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-edit"></i> Datos del Movimiento
+                        </h2>
+                    </div>
+
+                    <div class="p-6 space-y-5">
+
+                        {{-- Búsqueda dinámica de producto --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                Producto <span class="text-red-500">*</span>
+                            </label>
+                            <input type="hidden" name="producto_id" :value="productoId">
+                            <div class="relative" @click.away="abierto = false">
+                                <div class="relative">
+                                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                    <input type="text"
+                                           x-model="query"
+                                           @input.debounce.200ms="buscar()"
+                                           @focus="if(resultados.length) abierto = true"
+                                           :readonly="!!productoId"
+                                           :class="productoId ? 'bg-gray-50 text-gray-500 cursor-default' : ''"
+                                           placeholder="Buscar por nombre o código..."
+                                           class="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                    <button x-show="productoId" type="button" @click="limpiarProducto()"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors">
+                                        <i class="fas fa-times text-sm"></i>
+                                    </button>
+                                </div>
+
+                                {{-- Dropdown resultados --}}
+                                <div x-show="abierto" x-cloak
+                                     class="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                                    <template x-for="p in resultados" :key="p.id">
+                                        <button type="button" @click="seleccionar(p)"
+                                                class="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0 transition-colors">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="text-sm font-medium text-gray-900" x-text="p.nombre"></p>
+                                                    <p class="text-xs text-gray-400" x-text="p.codigo"></p>
+                                                </div>
+                                                <div class="text-right shrink-0 ml-3">
+                                                    <span class="text-xs font-semibold text-emerald-700"
+                                                          x-text="'Stock: ' + p.stock_actual + ' ' + p.unidad"></span>
+                                                    <span class="block text-[10px] text-gray-400"
+                                                          x-text="p.tipo_inventario === 'serie' ? '📱 IMEI' : '📦 Cantidad'"></span>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                            @error('producto_id')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Almacén origen --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                Almacén <span class="text-red-500">*</span>
+                            </label>
+                            <select name="almacen_id" x-model="almacenId" @change="onAlmacenChange()"
+                                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">— Selecciona un almacén —</option>
+                                @foreach($almacenes as $alm)
+                                    <option value="{{ $alm->id }}" {{ old('almacen_id') == $alm->id ? 'selected' : '' }}>
+                                        {{ $alm->nombre }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('almacen_id')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- IMEI (solo celulares) --}}
+                        <div x-show="esCelular" x-cloak>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                IMEI <span class="text-red-500">*</span>
+                            </label>
+
+                            {{-- Ingreso de celular = bloquear --}}
+                            <div x-show="esIngresoCelular"
+                                 class="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700">
+                                <i class="fas fa-info-circle shrink-0"></i>
+                                <span>Los ingresos de celulares se registran en el módulo de <strong>Compras</strong>.</span>
+                            </div>
+
+                            <div x-show="!esIngresoCelular">
+                                <div x-show="cargandoImeis" class="text-xs text-gray-400 py-2">
+                                    <i class="fas fa-spinner fa-spin mr-1"></i> Cargando IMEIs disponibles...
+                                </div>
+                                <div x-show="!cargandoImeis">
+                                    <select name="imei_id" x-model="imeiId"
+                                            :disabled="imeis.length === 0"
+                                            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400">
+                                        <option value="">— Selecciona un IMEI —</option>
+                                        <template x-for="imei in imeis" :key="imei.id">
+                                            <option :value="imei.id"
+                                                    x-text="imei.codigo_imei + (imei.serie ? ' · ' + imei.serie : '') + (imei.color ? ' · ' + imei.color : '') + ' [' + imei.estado + ']'">
+                                            </option>
+                                        </template>
+                                    </select>
+                                    <p x-show="imeiError" x-text="imeiError"
+                                       class="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg mt-1.5"></p>
+                                    <p x-show="!imeiError && imeis.length > 0" class="text-xs text-gray-400 mt-1"
+                                       x-text="imeis.length + ' IMEI(s) disponibles'"></p>
+                                </div>
+                            </div>
+                            @error('imei_id')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Cantidad (solo accesorios) --}}
+                        <div x-show="!esCelular" x-cloak>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                Cantidad <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" name="cantidad" x-model="cantidad" min="1"
+                                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                            @error('cantidad')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Campos de transferencia --}}
+                        <template x-if="esTransferencia">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                        Almacén Destino <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="almacen_destino_id" x-model="almacenDestinoId"
+                                            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 bg-white">
+                                        <option value="">— Selecciona destino —</option>
+                                        @foreach($almacenes as $alm)
+                                            <option value="{{ $alm->id }}" {{ old('almacen_destino_id') == $alm->id ? 'selected' : '' }}>
+                                                {{ $alm->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('almacen_destino_id')
+                                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                        Nº Guía de Remisión <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="numero_guia"
+                                           value="{{ old('numero_guia') }}"
+                                           placeholder="Ej: GR001-2024"
+                                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 bg-white">
+                                    @error('numero_guia')
+                                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
+                        </template>
+
+                        {{-- Motivo --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                Motivo <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" name="motivo"
+                                   value="{{ old('motivo') }}"
+                                   placeholder="Ej: Compra a proveedor, ajuste de inventario físico..."
+                                   required
+                                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                            @error('motivo')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Observaciones --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                Observaciones <span class="text-gray-400 normal-case font-normal">(opcional)</span>
+                            </label>
+                            <textarea name="observaciones" rows="2"
+                                      placeholder="Información adicional..."
+                                      class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 resize-none">{{ old('observaciones') }}</textarea>
+                        </div>
+
+                        {{-- Error general --}}
+                        <p x-show="errorGeneral" x-text="errorGeneral" x-cloak
+                           class="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg"></p>
+
+                        {{-- Botones --}}
+                        <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                            <a href="{{ route('inventario.movimientos.index') }}"
+                               class="px-5 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors">
+                                <i class="fas fa-times mr-1"></i> Cancelar
+                            </a>
+                            <button type="submit"
+                                    :disabled="enviando"
+                                    class="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-900 text-white text-sm font-semibold rounded-xl hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                                <i x-show="!enviando" class="fas fa-save"></i>
+                                <i x-show="enviando" class="fas fa-spinner fa-spin"></i>
+                                <span x-text="enviando ? 'Guardando...' : 'Registrar Movimiento'"></span>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </form>
+</div>
 </body>
 </html>

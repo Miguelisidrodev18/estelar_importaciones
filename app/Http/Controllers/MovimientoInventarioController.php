@@ -47,16 +47,25 @@ class MovimientoInventarioController extends Controller
         $movimientos = $query->latest()->paginate(20);
         
         $productos = Producto::activos()->orderBy('nombre')->get(['id', 'codigo', 'nombre']);
-        $almacenes = Almacen::activos()->orderBy('nombre')->get(['id', 'codigo', 'nombre']);
-        
+        $almacenes = Almacen::activos()->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'tipo']);
+
         $stats = [
-            'total_movimientos' => MovimientoInventario::count(),
-            'movimientos_hoy' => MovimientoInventario::hoy()->count(),
-            'ingresos_hoy' => MovimientoInventario::hoy()->ingresos()->count(),
-            'salidas_hoy' => MovimientoInventario::hoy()->salidas()->count(),
+            'total_movimientos'   => MovimientoInventario::count(),
+            'movimientos_hoy'     => MovimientoInventario::hoy()->count(),
+            'ingresos_hoy'        => MovimientoInventario::hoy()->ingresos()->count(),
+            'salidas_hoy'         => MovimientoInventario::hoy()->salidas()->count(),
+            'transferencias_hoy'  => MovimientoInventario::hoy()->transferencias()->count(),
         ];
-        
-        return view('inventario.movimientos.index', compact('movimientos', 'productos', 'almacenes', 'stats'));
+
+        // Movimientos de hoy por almacén (para el panel de tiendas)
+        $movHoyPorAlmacen = MovimientoInventario::hoy()
+            ->selectRaw('almacen_id, COUNT(*) as total')
+            ->groupBy('almacen_id')
+            ->pluck('total', 'almacen_id');
+
+        return view('inventario.movimientos.index', compact(
+            'movimientos', 'productos', 'almacenes', 'stats', 'movHoyPorAlmacen'
+        ));
     }
 
     /**

@@ -19,7 +19,7 @@
 <body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" class="no-print" />
 
-    <div class="md:ml-64 p-4 md:p-8">
+    <div class="md:ml-64 p-4 md:p-10">
 
         {{-- Flash --}}
         @if(session('success'))
@@ -124,19 +124,19 @@
         </div>
 
         {{-- Info cards --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-7">
             {{-- Venta --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center gap-2 mb-4">
-                    <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-receipt text-blue-600 text-sm"></i>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div class="flex items-center gap-2 mb-5">
+                    <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-receipt text-blue-600"></i>
                     </div>
-                    <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wider">Venta</h3>
+                    <h3 class="font-bold text-gray-700 uppercase tracking-wider">Venta</h3>
                 </div>
-                <dl class="space-y-2.5">
+                <dl class="space-y-3">
                     <div class="flex justify-between items-center">
                         <dt class="text-sm text-gray-400">Código</dt>
-                        <dd class="font-mono font-bold text-blue-600 text-sm">{{ $venta->codigo }}</dd>
+                        <dd class="font-mono font-bold text-blue-600">{{ $venta->codigo }}</dd>
                     </div>
                     <div class="flex justify-between items-center">
                         <dt class="text-sm text-gray-400">Fecha</dt>
@@ -158,12 +158,12 @@
             </div>
 
             {{-- Cliente --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center gap-2 mb-4">
-                    <div class="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-user text-indigo-600 text-sm"></i>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div class="flex items-center gap-2 mb-5">
+                    <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-user text-indigo-600"></i>
                     </div>
-                    <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wider">Cliente</h3>
+                    <h3 class="font-bold text-gray-700 uppercase tracking-wider">Cliente</h3>
                 </div>
                 @if($venta->cliente)
                     <dl class="space-y-2.5">
@@ -194,25 +194,25 @@
             </div>
 
             {{-- Pago --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center gap-2 mb-4">
-                    <div class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-credit-card text-green-600 text-sm"></i>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div class="flex items-center gap-2 mb-5">
+                    <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-credit-card text-green-600"></i>
                     </div>
-                    <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wider">Pago</h3>
+                    <h3 class="font-bold text-gray-700 uppercase tracking-wider">Pago</h3>
                 </div>
-                <dl class="space-y-2.5">
+                <dl class="space-y-3">
                     <div class="flex justify-between items-center">
                         <dt class="text-sm text-gray-400">Subtotal</dt>
                         <dd class="text-sm text-gray-700">S/ {{ number_format($venta->subtotal, 2) }}</dd>
                     </div>
                     <div class="flex justify-between items-center">
-                        <dt class="text-sm text-gray-400">IGV</dt>
+                        <dt class="text-sm text-gray-400">IGV (18%)</dt>
                         <dd class="text-sm text-gray-700">S/ {{ number_format($venta->igv, 2) }}</dd>
                     </div>
-                    <div class="flex justify-between items-center border-t border-gray-100 pt-2.5">
-                        <dt class="text-sm font-bold text-gray-700">Total</dt>
-                        <dd class="text-lg font-bold text-gray-900">S/ {{ number_format($venta->total, 2) }}</dd>
+                    <div class="flex justify-between items-center border-t border-gray-100 pt-3">
+                        <dt class="font-bold text-gray-700">Total</dt>
+                        <dd class="text-2xl font-bold text-gray-900">S/ {{ number_format($venta->total, 2) }}</dd>
                     </div>
                     <div class="flex justify-between items-center">
                         <dt class="text-sm text-gray-400">Método</dt>
@@ -243,13 +243,13 @@
 
         {{-- Products table --}}
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-                <div class="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-box text-purple-600 text-sm"></i>
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-100">
+                <div class="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-box text-purple-600"></i>
                 </div>
                 <div>
-                    <h3 class="font-bold text-gray-900">Productos vendidos</h3>
-                    <p class="text-xs text-gray-400">{{ $venta->detalles->count() }} ítem(s)</p>
+                    <h3 class="text-lg font-bold text-gray-900">Productos vendidos</h3>
+                    <p class="text-sm text-gray-400">{{ $venta->detalles->count() }} ítem(s)</p>
                 </div>
             </div>
 
@@ -257,20 +257,20 @@
                 <table class="min-w-full">
                     <thead>
                         <tr class="bg-gray-50 border-b border-gray-100">
-                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
-                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Producto</th>
-                            <th class="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">IMEI / Serie</th>
-                            <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Cant.</th>
-                            <th class="px-6 py-3.5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Precio unit.</th>
-                            <th class="px-6 py-3.5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Subtotal</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Producto</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">IMEI / Serie</th>
+                            <th class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Cant.</th>
+                            <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Precio unit.</th>
+                            <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         @foreach($venta->detalles as $i => $detalle)
                         <tr class="hover:bg-gray-50/60 transition-colors">
-                            <td class="px-6 py-4 text-sm text-gray-400 font-medium">{{ $i + 1 }}</td>
-                            <td class="px-6 py-4">
-                                <span class="text-sm font-semibold text-gray-900">{{ $detalle->producto->nombre }}</span>
+                            <td class="px-6 py-5 text-sm text-gray-400 font-medium">{{ $i + 1 }}</td>
+                            <td class="px-6 py-5">
+                                <span class="font-semibold text-gray-900">{{ $detalle->producto->nombre }}</span>
                                 {{-- Variante (color + capacidad) --}}
                                 @if($detalle->variante)
                                     <span class="flex items-center gap-1.5 mt-1">
@@ -285,24 +285,24 @@
                                     <span class="block text-xs text-gray-400 mt-0.5">{{ $detalle->producto->categoria->nombre }}</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-6 py-5">
                                 @if($detalle->imei)
-                                    <span class="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-xs px-2.5 py-1 rounded-full font-mono font-semibold">
-                                        <i class="fas fa-microchip text-[10px]"></i>
+                                    <span class="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-sm px-3 py-1 rounded-full font-mono font-semibold">
+                                        <i class="fas fa-microchip text-xs"></i>
                                         {{ $detalle->imei->codigo_imei }}
                                     </span>
                                 @else
-                                    <span class="text-gray-400 text-sm">—</span>
+                                    <span class="text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-center">
-                                <span class="text-sm font-bold text-gray-700">{{ $detalle->cantidad }}</span>
+                            <td class="px-6 py-5 text-center">
+                                <span class="font-bold text-gray-700">{{ $detalle->cantidad }}</span>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <span class="text-sm text-gray-700">S/ {{ number_format($detalle->precio_unitario, 2) }}</span>
+                            <td class="px-6 py-5 text-right">
+                                <span class="text-gray-700">S/ {{ number_format($detalle->precio_unitario, 2) }}</span>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <span class="text-sm font-bold text-gray-900">S/ {{ number_format($detalle->subtotal, 2) }}</span>
+                            <td class="px-6 py-5 text-right">
+                                <span class="font-bold text-gray-900">S/ {{ number_format($detalle->subtotal, 2) }}</span>
                             </td>
                         </tr>
                         @endforeach
@@ -310,18 +310,18 @@
                     <tfoot class="bg-gray-50 border-t-2 border-gray-100">
                         <tr>
                             <td colspan="4" class="px-6 py-4"></td>
-                            <td class="px-6 py-3 text-right text-sm font-semibold text-gray-500">Subtotal</td>
-                            <td class="px-6 py-3 text-right text-sm font-bold text-gray-700">S/ {{ number_format($venta->subtotal, 2) }}</td>
+                            <td class="px-6 py-4 text-right text-sm font-semibold text-gray-500">Subtotal</td>
+                            <td class="px-6 py-4 text-right font-bold text-gray-700">S/ {{ number_format($venta->subtotal, 2) }}</td>
                         </tr>
                         <tr>
                             <td colspan="4" class="px-6 py-1"></td>
                             <td class="px-6 py-1 text-right text-sm font-semibold text-gray-500">IGV (18%)</td>
-                            <td class="px-6 py-1 text-right text-sm font-bold text-gray-700">S/ {{ number_format($venta->igv, 2) }}</td>
+                            <td class="px-6 py-1 text-right font-bold text-gray-700">S/ {{ number_format($venta->igv, 2) }}</td>
                         </tr>
                         <tr>
-                            <td colspan="4" class="px-6 py-3"></td>
-                            <td class="px-6 py-3 text-right text-base font-bold text-gray-900">Total</td>
-                            <td class="px-6 py-3 text-right text-lg font-bold text-blue-600">S/ {{ number_format($venta->total, 2) }}</td>
+                            <td colspan="4" class="px-6 py-4"></td>
+                            <td class="px-6 py-4 text-right text-lg font-bold text-gray-900">Total</td>
+                            <td class="px-6 py-4 text-right text-2xl font-bold text-blue-600">S/ {{ number_format($venta->total, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>

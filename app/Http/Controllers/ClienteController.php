@@ -95,14 +95,28 @@ class ClienteController extends Controller
 
     public function consultarDocumento(Request $request)
     {
-        $tipo = $request->input('tipo');
-        $numero = $request->input('numero');
-        $sunat = app(SunatService::class);
+        $tipo   = strtoupper($request->input('tipo', 'DNI'));
+        $numero = trim($request->input('numero', ''));
+        $sunat  = app(SunatService::class);
 
         if ($tipo === 'RUC') {
-            return response()->json($sunat->consultarRuc($numero));
+            $result = $sunat->consultarRuc($numero);
+            if (!$result['success']) {
+                return response()->json(['error' => $result['message']], 422);
+            }
+            return response()->json([
+                'nombre'       => $result['data']['razon_social'] ?? '',
+                'razon_social' => $result['data']['razon_social'] ?? '',
+                'direccion'    => $result['data']['direccion']    ?? '',
+            ]);
         }
 
-        return response()->json($sunat->consultarDni($numero));
+        $result = $sunat->consultarDni($numero);
+        if (!$result['success']) {
+            return response()->json(['error' => $result['message']], 422);
+        }
+        return response()->json([
+            'nombre' => $result['data']['nombre'] ?? '',
+        ]);
     }
 }

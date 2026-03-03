@@ -50,22 +50,33 @@ class CompraController extends Controller
             
         $marcas = Marca::where('estado', 'activo')->orderBy('nombre')->get();
 
-        $productos = Producto::with('categoria', 'marca', 'modelo')
+        $productos = Producto::with(['categoria', 'marca', 'modelo', 'variantesActivas.color'])
             ->where('estado', 'activo')
             ->orderBy('nombre')
             ->get()
             ->map(function($producto) {
+                $variantes = $producto->variantesActivas->map(fn($v) => [
+                    'id'           => $v->id,
+                    'color_id'     => $v->color_id,
+                    'color_nombre' => $v->color?->nombre,
+                    'color_hex'    => $v->color?->codigo_hex,
+                    'capacidad'    => $v->capacidad,
+                    'stock_actual' => (int)$v->stock_actual,
+                ]);
                 return [
-                    'id'            => $producto->id,
-                    'nombre'        => $producto->nombre,
+                    'id'              => $producto->id,
+                    'nombre'          => $producto->nombre,
                     'tipo_inventario' => $producto->tipo_inventario,
                     'categoria'       => $producto->categoria->nombre ?? 'N/A',
+                    'categoria_id'    => $producto->categoria_id,
                     'marca_id'        => $producto->marca_id,
                     'marca'           => $producto->marca?->nombre,
                     'modelo_id'       => $producto->modelo_id,
                     'modelo'          => $producto->modelo?->nombre,
                     'unidad_medida'   => $producto->unidadMedida?->abreviatura ?? 'UND',
                     'requiere_imei'   => $producto->tipo_inventario === 'serie',
+                    'tiene_variantes' => $variantes->isNotEmpty(),
+                    'variantes'       => $variantes,
                 ];
             });
 

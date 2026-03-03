@@ -83,11 +83,13 @@ class SunatService
                 if ($response->successful()) {
                     $data = $response->json();
 
-                    if (!isset($data['dni'])) {
+                    // La API devuelve 'numeroDocumento' (no 'dni')
+                    if (empty($data['numeroDocumento']) && empty($data['nombre'])) {
                         return ['success' => false, 'message' => 'DNI no encontrado en RENIEC.'];
                     }
 
-                    $nombre = trim(implode(' ', array_filter([
+                    // Preferir el campo 'nombre' que viene completo; si no, construirlo
+                    $nombre = $data['nombre'] ?? trim(implode(' ', array_filter([
                         $data['nombres']         ?? null,
                         $data['apellidoPaterno'] ?? null,
                         $data['apellidoMaterno'] ?? null,
@@ -96,7 +98,7 @@ class SunatService
                     return [
                         'success' => true,
                         'data' => [
-                            'dni'    => $data['dni'],
+                            'dni'    => $data['numeroDocumento'] ?? $dni,
                             'nombre' => $nombre,
                         ],
                     ];

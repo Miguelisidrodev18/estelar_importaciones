@@ -88,8 +88,8 @@ class VentaService
                 $this->procesarPago($venta, $pago);
             }
 
-            // Registrar movimiento en caja si es necesario
-            if ($datosVenta['estado_pago'] === 'pagado') {
+            // Registrar movimiento en caja si se procesó un pago
+            if ($pago) {
                 $this->registrarEnCaja($venta, $pago['metodo_pago'] ?? 'efectivo');
             }
 

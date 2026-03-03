@@ -63,7 +63,9 @@
                  proveedorId: '',
                  precioCompra: '',
                  margen: 30,
-                 impuestos: 0,
+                 precioVenta: '',
+                 incluyeIgv: false,
+                 modoCalculo: 'margen',
                  resultado: null,
                  busquedaProv: '',
                  resultadosProv: [],
@@ -112,18 +114,28 @@
                      this.resultado = null;
                  },
 
-                 async calcular() {
-                     if (!this.precioCompra) return;
-                     const precioBase = parseFloat(this.precioCompra) * (1 + parseFloat(this.margen) / 100);
-                     const precioFinal = precioBase * (1 + parseFloat(this.impuestos || 0) / 100);
-                     this.resultado = {
-                         precio_base: Math.round(precioBase * 100) / 100,
-                         precio_final: Math.round(precioFinal * 100) / 100,
-                     };
-                 },
+                 calcular() {
+                     const compra = parseFloat(this.precioCompra) || 0;
+                     if (!compra) return;
 
-                 get precioVentaFinal() {
-                     return this.resultado ? this.resultado.precio_final : 0;
+                     if (this.modoCalculo === 'margen') {
+                         const margen = parseFloat(this.margen) || 0;
+                         let venta = compra * (1 + margen / 100);
+                         if (this.incluyeIgv) venta = venta * 1.18;
+                         this.precioVenta = Math.round(venta * 100) / 100;
+                     } else {
+                         const venta = parseFloat(this.precioVenta) || 0;
+                         if (!venta) return;
+                         const base = this.incluyeIgv ? (venta / 1.18) : venta;
+                         this.margen = Math.round(((base - compra) / compra * 100) * 10) / 10;
+                     }
+
+                     const margenActual = parseFloat(this.margen) || 0;
+                     const precioBase   = Math.round(compra * (1 + margenActual / 100) * 100) / 100;
+                     this.resultado = {
+                         precio_base:  precioBase,
+                         precio_final: parseFloat(this.precioVenta) || 0,
+                     };
                  }
              }">
 
@@ -244,45 +256,94 @@
                         </div>
                     </div>
 
-                    {{-- Margen e impuestos --}}
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Margen %</label>
-                            <input type="number" name="margen" x-model="margen"
-                                   step="0.1" min="0" max="1000"
-                                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Impuestos %</label>
-                            <input type="number" x-model="impuestos"
-                                   step="0.1" min="0" max="100"
-                                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+                    {{-- Toggle modo de cálculo --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Calcular desde</label>
+                        <div class="flex rounded-lg border border-gray-200 overflow-hidden">
+                            <button type="button"
+                                    @click="modoCalculo='margen'; calcular()"
+                                    :class="modoCalculo==='margen' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                    class="flex-1 py-2 text-xs font-semibold transition-colors border-r border-gray-200">
+                                <i class="fas fa-percentage mr-1"></i> Margen %
+                            </button>
+                            <button type="button"
+                                    @click="modoCalculo='precio'"
+                                    :class="modoCalculo==='precio' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                    class="flex-1 py-2 text-xs font-semibold transition-colors">
+                                <i class="fas fa-tag mr-1"></i> Precio de venta
+                            </button>
                         </div>
                     </div>
 
-                    {{-- Botón calcular --}}
+                    {{-- Margen % --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Margen %</label>
+                        <input type="number" name="margen" x-model="margen"
+                               @input="if(modoCalculo==='margen') calcular()"
+                               :readonly="modoCalculo==='precio'"
+                               :class="modoCalculo==='precio' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
+                               step="0.1" min="0" max="1000"
+                               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+                        <p x-show="modoCalculo==='precio'" class="text-xs text-gray-400 mt-1">Calculado según el precio ingresado</p>
+                    </div>
+
+                    {{-- Precio de venta (editable en modo 'precio') --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                            Precio Venta (S/)
+                            <span x-show="modoCalculo==='precio'" class="text-red-500">*</span>
+                        </label>
+                        <input type="number" x-model="precioVenta"
+                               @input="if(modoCalculo==='precio') calcular()"
+                               :readonly="modoCalculo==='margen'"
+                               :class="modoCalculo==='margen' ? 'bg-gray-50 text-emerald-700 font-semibold cursor-not-allowed' : 'text-emerald-700 font-semibold'"
+                               step="0.01" min="0.01" placeholder="0.00"
+                               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+                        <p x-show="modoCalculo==='margen'" class="text-xs text-gray-400 mt-1">Calculado según el margen</p>
+                        <p x-show="modoCalculo==='precio'" class="text-xs text-gray-400 mt-1">Ingresa el precio que quieres cobrar</p>
+                    </div>
+
+                    {{-- IGV --}}
+                    <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+                        <input type="checkbox" x-model="incluyeIgv"
+                               @change="calcular()"
+                               class="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-700">El precio de venta incluye IGV (18%)</p>
+                            <p class="text-xs text-gray-400 mt-0.5">El margen se calcula sobre el precio base sin impuesto</p>
+                        </div>
+                    </label>
+
+                    {{-- Botón calcular (para trigger explícito) --}}
                     <button type="button" @click="calcular()"
-                            :disabled="!precioCompra"
+                            :disabled="!precioCompra || (modoCalculo==='precio' && !precioVenta)"
                             class="w-full py-2 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-40 border border-slate-200">
-                        <i class="fas fa-calculator mr-1"></i> Calcular precio de venta
+                        <i class="fas fa-calculator mr-1"></i> Calcular
                     </button>
 
                     {{-- Resultado calculado --}}
                     <template x-if="resultado">
                         <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2">
                             <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Precio base</span>
+                                <span class="text-gray-600">Margen de ganancia</span>
+                                <span class="font-semibold text-emerald-700" x-text="(parseFloat(margen)||0).toFixed(1) + '%'"></span>
+                            </div>
+                            <div class="flex justify-between text-sm" x-show="incluyeIgv">
+                                <span class="text-gray-600">Precio sin IGV</span>
                                 <span class="font-medium" x-text="'S/ ' + resultado.precio_base.toFixed(2)"></span>
                             </div>
                             <div class="flex justify-between text-sm border-t border-emerald-200 pt-2">
-                                <span class="font-semibold text-gray-700">Precio de venta final</span>
+                                <span class="font-semibold text-gray-700">Precio de venta</span>
                                 <span class="font-bold text-emerald-700 text-lg" x-text="'S/ ' + resultado.precio_final.toFixed(2)"></span>
                             </div>
+                            <p x-show="incluyeIgv" class="text-xs text-center text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>Precio incluye IGV 18%
+                            </p>
                         </div>
                     </template>
 
-                    {{-- Campo oculto precio_venta (del resultado) --}}
-                    <input type="hidden" name="precio_venta" :value="resultado ? resultado.precio_final : ''">
+                    {{-- Campo oculto precio_venta --}}
+                    <input type="hidden" name="precio_venta" :value="precioVenta || ''">
 
                     {{-- Precio mayorista --}}
                     <div>
@@ -322,7 +383,7 @@
                     </button>
 
                     <p x-show="!resultado" x-cloak class="text-xs text-center text-gray-400">
-                        Ingresa el precio de compra y haz clic en Calcular para habilitar el guardado.
+                        Completa los datos y haz clic en "Calcular" para habilitar el guardado.
                     </p>
                 </form>
             </div>

@@ -83,7 +83,7 @@
 <div class="flex" style="height: calc(100vh - 3.5rem)">
 
     {{-- ====== LEFT: CART ====== --}}
-    <aside class="w-72 xl:w-80 flex-shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col shadow-xl z-10">
+    <aside class="w-80 xl:w-96 flex-shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col shadow-xl z-10">
 
         {{-- Almacén --}}
         <div class="px-4 py-3 border-b border-slate-800">
@@ -164,32 +164,62 @@
                 </div>
             </div>
 
-            {{-- Cliente --}}
+            {{-- Cliente con búsqueda dinámica --}}
             <div class="flex gap-2">
-                <div class="flex-1 relative" x-data="{ open: false }">
-                    <button @click="open = !open"
-                            class="w-full border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white bg-slate-800 rounded-xl py-2 px-3 text-sm flex items-center gap-2 transition-colors">
-                        <i class="fas fa-user text-xs text-slate-400"></i>
-                        <span class="truncate text-left flex-1" x-text="orden.clienteNombre || 'Cliente'"></span>
-                        <i class="fas fa-chevron-down text-xs text-slate-500"></i>
-                    </button>
-                    <div x-show="open" @click.outside="open=false" x-cloak
-                         class="absolute bottom-full left-0 w-64 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl mb-2 z-30 p-3">
-                        <p class="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Seleccionar cliente</p>
-                        <select x-model="orden.clienteId"
-                                @change="orden.clienteNombre = $event.target.selectedIndex > 0 ? $event.target.options[$event.target.selectedIndex].text : ''; open = false"
-                                class="w-full bg-slate-700 text-white border border-slate-600 rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-blue-500">
-                            <option value="">Cliente general</option>
-                            @foreach($clientes as $cli)
-                                <option value="{{ $cli->id }}">{{ $cli->nombre }}</option>
-                            @endforeach
-                        </select>
-                        <div id="clientesExtra_{{ auth()->id() }}"></div>
+                <div class="flex-1 relative" @click.outside="mostrarDropdownCliente = false">
+
+                    {{-- Chip del cliente seleccionado --}}
+                    <div x-show="orden.clienteId" x-cloak
+                         class="w-full border border-blue-600 bg-blue-900/25 rounded-xl py-2 pl-3 pr-8 text-sm text-blue-200 flex items-center gap-2 relative">
+                        <i class="fas fa-user-check text-xs text-blue-400 flex-shrink-0"></i>
+                        <span class="truncate flex-1 font-medium" x-text="orden.clienteNombre"></span>
+                        <button @click="limpiarCliente()"
+                                class="absolute right-2 top-2 text-blue-400 hover:text-red-400 transition-colors">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    </div>
+
+                    {{-- Input búsqueda (visible cuando no hay cliente seleccionado) --}}
+                    <div x-show="!orden.clienteId" class="relative">
+                        <i class="fas fa-user absolute left-2.5 top-2.5 text-xs text-slate-500 pointer-events-none"></i>
+                        <input type="text"
+                               x-model="clienteQuery"
+                               @focus="mostrarDropdownCliente = true; buscarCliente()"
+                               @input="buscarCliente()"
+                               @keydown.escape="mostrarDropdownCliente = false"
+                               placeholder="Buscar cliente..."
+                               class="w-full border border-slate-700 hover:border-slate-600 text-slate-300 bg-slate-800 rounded-xl py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder-slate-500">
+                    </div>
+
+                    {{-- Dropdown resultados --}}
+                    <div x-show="mostrarDropdownCliente" x-cloak
+                         class="absolute bottom-full left-0 right-0 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl mb-1.5 z-40 overflow-hidden">
+                        <div class="max-h-60 overflow-y-auto">
+                            <button @click="seleccionarCliente(null)"
+                                    class="w-full text-left px-3 py-2.5 text-sm hover:bg-slate-700 text-slate-400 border-b border-slate-700 transition-colors flex items-center gap-2">
+                                <i class="fas fa-user-slash text-xs text-slate-500"></i>
+                                <span>Consumidor final</span>
+                            </button>
+                            <template x-for="c in clienteResultados" :key="c.id">
+                                <button @click="seleccionarCliente(c)"
+                                        class="w-full text-left px-3 py-2.5 hover:bg-slate-700 transition-colors border-b border-slate-700/40">
+                                    <p class="text-sm text-white font-medium truncate" x-text="c.nombre"></p>
+                                    <p class="text-xs text-slate-400 font-mono mt-0.5"
+                                       x-text="c.tipo_documento + ' · ' + c.numero_documento"></p>
+                                </button>
+                            </template>
+                            <div x-show="clienteResultados.length === 0 && clienteQuery.length >= 2" x-cloak
+                                 class="px-3 py-5 text-center text-slate-500 text-xs">
+                                <i class="fas fa-search-minus block text-lg mb-1"></i>
+                                Sin resultados para "<span x-text="clienteQuery"></span>"
+                            </div>
+                        </div>
                     </div>
                 </div>
+
                 {{-- Botón crear cliente rápido --}}
                 <button @click="abrirModalCliente()"
-                        title="Crear cliente rápido"
+                        title="Nuevo cliente"
                         class="border border-slate-700 text-slate-400 hover:text-white hover:border-blue-500 bg-slate-800 rounded-xl px-3 py-2 text-sm transition-colors">
                     <i class="fas fa-user-plus text-xs"></i>
                 </button>
@@ -643,6 +673,15 @@
     </div>
 </div>
 
+@php
+$clientesJson = $clientes->map(fn($c) => [
+    'id'               => $c->id,
+    'nombre'           => $c->nombre,
+    'tipo_documento'   => $c->tipo_documento   ?? 'DNI',
+    'numero_documento' => $c->numero_documento ?? '',
+])->values();
+@endphp
+
 <script>
 function crearOrden(id) {
     return {
@@ -692,6 +731,12 @@ function posApp() {
 
         // Catálogo
         productos: @json($productos),
+
+        // Clientes (búsqueda dinámica)
+        clientes: @json($clientesJson),
+        clienteQuery:           '',
+        clienteResultados:      [],
+        mostrarDropdownCliente: false,
 
         // Acceso a la orden activa
         get orden() { return this.ordenes[this.ordenActiva]; },
@@ -932,6 +977,36 @@ function posApp() {
             this.imeiActual = ''; this.imeisTemp = [];
         },
 
+        // ---- Búsqueda dinámica de cliente ----
+        buscarCliente() {
+            const q = this.clienteQuery.toLowerCase().trim();
+            if (!q) {
+                this.clienteResultados = this.clientes.slice(0, 10);
+            } else {
+                this.clienteResultados = this.clientes.filter(c =>
+                    c.nombre.toLowerCase().includes(q) ||
+                    c.numero_documento.includes(q)
+                ).slice(0, 10);
+            }
+        },
+        seleccionarCliente(c) {
+            if (!c) {
+                this.orden.clienteId     = '';
+                this.orden.clienteNombre = '';
+            } else {
+                this.orden.clienteId     = String(c.id);
+                this.orden.clienteNombre = c.nombre;
+            }
+            this.clienteQuery           = '';
+            this.mostrarDropdownCliente = false;
+        },
+        limpiarCliente() {
+            this.orden.clienteId        = '';
+            this.orden.clienteNombre    = '';
+            this.clienteQuery           = '';
+            this.mostrarDropdownCliente = false;
+        },
+
         // ---- Modal cliente rápido ----
         abrirModalCliente() {
             this.nuevoCliente = { tipo_documento: 'DNI', numero_documento: '', nombre: '', direccion: '', telefono: '' };
@@ -956,7 +1031,9 @@ function posApp() {
                     })
                 });
                 const data = await res.json();
-                if (data.nombre || data.razon_social) {
+                if (!res.ok) {
+                    this.errorCliente = data.error || 'No se encontró información para este documento';
+                } else if (data.nombre || data.razon_social) {
                     this.nuevoCliente.nombre    = data.nombre || data.razon_social || '';
                     this.nuevoCliente.direccion = data.direccion || '';
                 } else {
@@ -991,10 +1068,17 @@ function posApp() {
                 });
                 const data = await res.json();
                 if (res.ok && data.id) {
-                    // Agregar cliente a la orden activa y seleccionarlo
-                    this.orden.clienteId    = String(data.id);
+                    // Agregar cliente al catálogo local para búsqueda inmediata
+                    this.clientes.unshift({
+                        id: data.id,
+                        nombre: data.nombre,
+                        tipo_documento: this.nuevoCliente.tipo_documento,
+                        numero_documento: this.nuevoCliente.numero_documento,
+                    });
+                    // Seleccionarlo en la orden activa
+                    this.orden.clienteId     = String(data.id);
                     this.orden.clienteNombre = data.nombre;
-                    this.showModalCliente = false;
+                    this.showModalCliente    = false;
                 } else {
                     this.errorCliente = data.message || (data.errors ? Object.values(data.errors).flat().join('. ') : 'Error al guardar');
                 }
