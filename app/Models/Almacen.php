@@ -50,6 +50,14 @@ class Almacen extends Model
     }
 
     /**
+     * Relación inversa: sucursal que tiene este almacén asignado
+     */
+    public function sucursal()
+    {
+        return $this->hasOne(Sucursal::class, 'almacen_id');
+    }
+
+    /**
      * Relación: Un almacén tiene muchos movimientos de inventario
      */
     public function movimientos()

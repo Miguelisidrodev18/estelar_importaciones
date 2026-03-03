@@ -3,168 +3,247 @@
 namespace App\Http\Controllers;
 
 use App\Models\Caja;
-use App\Models\Almacen;
+use App\Models\MovimientoCaja;
+use App\Models\User;
 use App\Services\CajaService;
 use Illuminate\Http\Request;
 
 class CajaController extends Controller
 {
-    public function index()
-    {
-        $cajas = Caja::with('usuario', 'almacen')
-            ->orderBy('created_at', 'desc')
-            ->get();
+    public function __construct(private CajaService $cajaService) {}
 
-        return view('caja.index', compact('cajas'));
+    /**
+     * Historial de cajas (admin ve todo, tienda ve solo las suyas).
+     */
+    public function index(Request $request)
+    {
+        $user = auth()->user();
+        $isAdmin = $user->role->nombre === 'Administrador';
+
+        $query = Caja::with(['usuario', 'almacen', 'sucursal'])
+            ->orderBy('created_at', 'desc');
+
+        if (!$isAdmin) {
+            $query->where('user_id', $user->id);
+        }
+
+        // Filtros (solo admin)
+        if ($isAdmin) {
+            if ($request->filled('sucursal_id')) {
+                $query->where('sucursal_id', $request->sucursal_id);
+            }
+            if ($request->filled('user_id')) {
+                $query->where('user_id', $request->user_id);
+            }
+            if ($request->filled('estado')) {
+                $query->where('estado', $request->estado);
+            }
+            if ($request->filled('fecha_desde')) {
+                $query->whereDate('fecha', '>=', $request->fecha_desde);
+            }
+            if ($request->filled('fecha_hasta')) {
+                $query->whereDate('fecha', '<=', $request->fecha_hasta);
+            }
+        }
+
+        $cajas = $query->paginate(20)->withQueryString();
+
+        $usuarios = $isAdmin ? User::orderBy('name')->get() : collect();
+        $sucursales = $isAdmin ? \App\Models\Sucursal::where('estado', 'activo')->orderBy('nombre')->get() : collect();
+
+        return view('caja.index', compact('cajas', 'isAdmin', 'usuarios', 'sucursales'));
     }
 
+    /**
+     * Formulario de apertura de caja.
+     */
     public function abrir()
     {
-        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
-        $cajaAbierta = Caja::where('user_id', auth()->id())
-            ->where('estado', 'abierta')
-            ->first();
+        $cajaActiva = $this->cajaService->cajaActiva();
 
-        return view('caja.abrir', compact('almacenes', 'cajaAbierta'));
+        if ($cajaActiva) {
+            return redirect()->route('caja.actual')
+                ->with('info', 'Ya tienes una caja abierta.');
+        }
+
+        $user = auth()->user();
+        $almacen = $user->almacen ?? null;
+
+        return view('caja.abrir', compact('almacen'));
     }
 
+    /**
+     * Abrir nueva caja.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'almacen_id' => 'required|exists:almacenes,id',
-            'monto_inicial' => 'required|numeric|min:0',
+            'monto_inicial'    => 'required|numeric|min:0',
+            'observaciones'    => 'nullable|string|max:500',
         ]);
 
         try {
-            app(CajaService::class)->abrirCaja(
+            $this->cajaService->abrirCaja(
                 auth()->id(),
-                $validated['almacen_id'],
-                $validated['monto_inicial']
+                null, // almacen_id auto desde usuario
+                (float) $validated['monto_inicial'],
+                $validated['observaciones'] ?? null
             );
 
-            return redirect()
-                ->route('caja.actual')
-                ->with('success', 'Caja abierta exitosamente');
+            return redirect()->route('caja.actual')
+                ->with('success', 'Caja abierta exitosamente.');
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
     }
 
+    /**
+     * Vista de caja actual del usuario (con arqueo en tiempo real).
+     */
     public function actual()
     {
-        $caja = Caja::with('movimientos', 'almacen')
-            ->where('user_id', auth()->id())
-            ->where('estado', 'abierta')
-            ->first();
+        $caja = $this->cajaService->cajaActiva();
 
         if (!$caja) {
-            return redirect()
-                ->route('caja.abrir')
-                ->with('error', 'No tienes una caja abierta');
+            return redirect()->route('caja.abrir')
+                ->with('error', 'No tienes una caja abierta. Abre una para continuar.');
         }
 
-        return view('caja.actual', compact('caja'));
+        $arqueo = $this->cajaService->getArqueo($caja);
+
+        return view('caja.actual', compact('caja', 'arqueo'));
     }
 
+    /**
+     * Detalle de una caja cerrada (admin o propietario).
+     */
+    public function show(Caja $caja)
+    {
+        $user = auth()->user();
+        $isAdmin = $user->role->nombre === 'Administrador';
+
+        if (!$isAdmin && $caja->user_id !== $user->id) {
+            abort(403, 'No tienes acceso a esta caja.');
+        }
+
+        $caja->load(['usuario', 'almacen', 'sucursal', 'movimientos.venta', 'movimientos.usuario']);
+        $arqueo = $this->cajaService->getArqueo($caja);
+
+        return view('caja.show', compact('caja', 'arqueo', 'isAdmin'));
+    }
+
+    /**
+     * Cerrar caja con arqueo.
+     */
     public function cerrar(Request $request)
     {
         $validated = $request->validate([
-            'caja_id' => 'required|exists:caja,id',
-            'monto_final_real' => 'required|numeric|min:0',
+            'caja_id'             => 'required|exists:caja,id',
+            'monto_real_cierre'   => 'required|numeric|min:0',
+            'observaciones_cierre'=> 'nullable|string|max:500',
         ]);
 
-        try {
-            $caja = app(CajaService::class)->cerrarCaja(
-                $validated['caja_id'],
-                $validated['monto_final_real']
-            );
+        $caja = Caja::findOrFail($validated['caja_id']);
 
-            return redirect()
-                ->route('caja.index')
-                ->with('success', 'Caja cerrada exitosamente');
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
-        }
-    }
-    public function registrarIngreso(Request $request)
-    {
-        $validated = $request->validate([
-            'caja_id' => 'required|exists:caja,id',
-            'monto' => 'required|numeric|min:0.01',
-            'concepto' => 'required|string|max:255',
-            'observaciones' => 'nullable|string',
-        ]);
-
-        try {
-            $movimiento = app(CajaService::class)->registrarMovimiento(
-                $validated['caja_id'],
-                'ingreso',
-                $validated['monto'],
-                $validated['concepto'],
-                null, // venta_id
-                null, // compra_id
-                $validated['observaciones'] ?? null
-            );
-
-            return redirect()
-                ->route('caja.actual')
-                ->with('success', 'Ingreso registrado exitosamente');
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
-        }
-    }
-
-    public function registrarGasto(Request $request)
-    {
-        $validated = $request->validate([
-            'caja_id' => 'required|exists:caja,id',
-            'monto' => 'required|numeric|min:0.01',
-            'concepto' => 'required|string|max:255',
-            'categoria_gasto' => 'required|string',
-            'observaciones' => 'nullable|string',
-        ]);
-
-        try {
-            // Agregar la categoría al concepto para mejor identificación
-            $conceptoCompleto = '[' . ucfirst($validated['categoria_gasto']) . '] ' . $validated['concepto'];
-            
-            $movimiento = app(CajaService::class)->registrarMovimiento(
-                $validated['caja_id'],
-                'egreso',
-                $validated['monto'],
-                $conceptoCompleto,
-                null, // venta_id
-                null, // compra_id
-                $validated['observaciones'] ?? null
-            );
-
-            return redirect()
-                ->route('caja.actual')
-                ->with('success', 'Gasto registrado exitosamente');
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
-        }
-    }
-
-    public function movimientos()
-    {
-        $movimientos = MovimientoCaja::with('caja')
-            ->whereHas('caja', function($query) {
-                $query->where('user_id', auth()->id());
-            })
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
-
-        return view('caja.movimientos', compact('movimientos'));
-    }
-
-    public function comprobante(MovimientoCaja $movimiento)
-    {
-        // Verificar que el movimiento pertenezca al usuario
-        if ($movimiento->caja->user_id !== auth()->id() && !auth()->user()->hasRole('Administrador')) {
+        if ($caja->user_id !== auth()->id() && auth()->user()->role->nombre !== 'Administrador') {
             abort(403);
         }
 
-        return view('caja.comprobante', compact('movimiento'));
+        try {
+            $this->cajaService->cerrarCaja(
+                $validated['caja_id'],
+                (float) $validated['monto_real_cierre'],
+                $validated['observaciones_cierre'] ?? null
+            );
+
+            return redirect()->route('caja.index')
+                ->with('success', 'Caja cerrada correctamente. El arqueo fue registrado.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Registrar ingreso manual.
+     */
+    public function registrarIngreso(Request $request)
+    {
+        $validated = $request->validate([
+            'caja_id'     => 'required|exists:caja,id',
+            'monto'       => 'required|numeric|min:0.01',
+            'concepto'    => 'required|string|max:255',
+            'metodo_pago' => 'required|in:efectivo,yape,plin,transferencia',
+            'referencia'  => 'nullable|string|max:100',
+            'observaciones' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $this->cajaService->registrarMovimiento(
+                (int) $validated['caja_id'],
+                'ingreso',
+                (float) $validated['monto'],
+                $validated['concepto'],
+                null,
+                null,
+                $validated['observaciones'] ?? null,
+                $validated['metodo_pago'],
+                $validated['referencia'] ?? null
+            );
+
+            return redirect()->route('caja.actual')
+                ->with('success', 'Ingreso registrado correctamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Registrar gasto / egreso.
+     */
+    public function registrarGasto(Request $request)
+    {
+        $validated = $request->validate([
+            'caja_id'        => 'required|exists:caja,id',
+            'monto'          => 'required|numeric|min:0.01',
+            'concepto'       => 'required|string|max:255',
+            'categoria_gasto'=> 'required|in:operativo,limpieza,transporte,alimentacion,otros',
+            'observaciones'  => 'nullable|string|max:500',
+        ]);
+
+        $conceptoCompleto = '[' . ucfirst($validated['categoria_gasto']) . '] ' . $validated['concepto'];
+
+        try {
+            $this->cajaService->registrarMovimiento(
+                (int) $validated['caja_id'],
+                'egreso',
+                (float) $validated['monto'],
+                $conceptoCompleto,
+                null,
+                null,
+                $validated['observaciones'] ?? null,
+                'efectivo',
+                null
+            );
+
+            return redirect()->route('caja.actual')
+                ->with('success', 'Gasto registrado correctamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Listado de movimientos del usuario paginados.
+     */
+    public function movimientos()
+    {
+        $movimientos = MovimientoCaja::with(['caja.almacen', 'venta'])
+            ->whereHas('caja', function ($q) {
+                $q->where('user_id', auth()->id());
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(30);
+
+        return view('caja.movimientos', compact('movimientos'));
     }
 }

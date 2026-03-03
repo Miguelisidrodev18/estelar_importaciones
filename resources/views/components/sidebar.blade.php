@@ -189,10 +189,27 @@
 
                     {{-- Caja --}}
                     <li>
-                        <a href="{{ route('caja.index') }}"
-                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.*') ? 'bg-blue-700' : '' }}">
-                            <i class="fas fa-cash-register mr-3"></i>Caja
-                        </a>
+                        <button @click="cajaOpen = !cajaOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-cash-register mr-3"></i>Caja
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': cajaOpen }"></i>
+                        </button>
+                        <ul x-show="cajaOpen" x-transition class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('caja.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.index') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-history mr-3 text-sm"></i>Historial de Cajas
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('caja.actual') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.actual') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-door-open mr-3 text-sm"></i>Caja Activa
+                                </a>
+                            </li>
+                        </ul>
                     </li>
 
                     {{-- Catálogo --}}
@@ -462,10 +479,27 @@
 
                     {{-- Caja --}}
                     <li>
-                        <a href="{{ route('caja.actual') }}"
-                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.*') ? 'bg-blue-700' : '' }}">
-                            <i class="fas fa-money-bill-wave mr-3"></i>Caja
-                        </a>
+                        <button @click="cajaOpen = !cajaOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-cash-register mr-3"></i>Mi Caja
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': cajaOpen }"></i>
+                        </button>
+                        <ul x-show="cajaOpen" x-transition class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('caja.actual') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.actual') || request()->routeIs('caja.abrir') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-door-open mr-3 text-sm"></i>Caja Actual
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('caja.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.index') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-history mr-3 text-sm"></i>Historial
+                                </a>
+                            </li>
+                        </ul>
                     </li>
 
                 @elseif($role == 'Vendedor')

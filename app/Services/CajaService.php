@@ -4,12 +4,22 @@ namespace App\Services;
 
 use App\Models\Caja;
 use App\Models\MovimientoCaja;
+use App\Models\Sucursal;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class CajaService
 {
-    public function abrirCaja(int $userId, int $almacenId, float $montoInicial): Caja
-    {
+    /**
+     * Abrir caja para un usuario.
+     * Si no se pasa almacen_id, se toma del usuario.
+     */
+    public function abrirCaja(
+        int $userId,
+        ?int $almacenId,
+        float $montoInicial,
+        ?string $observaciones = null
+    ): Caja {
         $cajaAbierta = Caja::where('user_id', $userId)
             ->where('estado', 'abierta')
             ->first();
@@ -18,33 +28,63 @@ class CajaService
             throw new \Exception('Ya tienes una caja abierta. Ciérrala antes de abrir una nueva.');
         }
 
+        if (!$almacenId) {
+            $user = User::find($userId);
+            $almacenId = $user?->almacen_id;
+            if (!$almacenId) {
+                throw new \Exception('El usuario no tiene un almacén asignado. Contacta al administrador.');
+            }
+        }
+
+        $sucursalId = Sucursal::where('almacen_id', $almacenId)->value('id');
+
         return Caja::create([
-            'user_id' => $userId,
-            'almacen_id' => $almacenId,
-            'fecha' => now()->toDateString(),
-            'monto_inicial' => $montoInicial,
-            'monto_final' => $montoInicial,
-            'estado' => 'abierta',
+            'user_id'                => $userId,
+            'almacen_id'             => $almacenId,
+            'sucursal_id'            => $sucursalId,
+            'fecha'                  => now()->toDateString(),
+            'fecha_apertura'         => now(),
+            'monto_inicial'          => $montoInicial,
+            'monto_final'            => $montoInicial,
+            'estado'                 => 'abierta',
+            'observaciones_apertura' => $observaciones,
         ]);
     }
 
-    public function registrarMovimiento(int $cajaId, string $tipo, float $monto, string $concepto, ?int $ventaId = null, ?int $compraId = null): MovimientoCaja
-    {
-        return DB::transaction(function () use ($cajaId, $tipo, $monto, $concepto, $ventaId, $compraId) {
-
+    /**
+     * Registrar movimiento de caja (ingreso o egreso).
+     */
+    public function registrarMovimiento(
+        int $cajaId,
+        string $tipo,
+        float $monto,
+        string $concepto,
+        ?int $ventaId = null,
+        ?int $compraId = null,
+        ?string $observaciones = null,
+        ?string $metodoPago = null,
+        ?string $referencia = null
+    ): MovimientoCaja {
+        return DB::transaction(function () use (
+            $cajaId, $tipo, $monto, $concepto,
+            $ventaId, $compraId, $observaciones, $metodoPago, $referencia
+        ) {
             $caja = Caja::findOrFail($cajaId);
 
             if ($caja->estado !== 'abierta') {
-                throw new \Exception('La caja está cerrada');
+                throw new \Exception('La caja está cerrada. No se pueden registrar movimientos.');
             }
 
             $movimiento = MovimientoCaja::create([
-                'caja_id' => $cajaId,
-                'venta_id' => $ventaId,
-                'compra_id' => $compraId,
-                'tipo' => $tipo,
-                'monto' => $monto,
-                'concepto' => $concepto,
+                'caja_id'       => $cajaId,
+                'user_id'       => auth()->id(),
+                'venta_id'      => $ventaId,
+                'compra_id'     => $compraId,
+                'tipo'          => $tipo,
+                'metodo_pago'   => $metodoPago ?? 'efectivo',
+                'monto'         => $monto,
+                'concepto'      => $concepto,
+                'referencia'    => $referencia,
                 'observaciones' => $observaciones,
             ]);
 
@@ -58,33 +98,93 @@ class CajaService
         });
     }
 
-    public function cerrarCaja(int $cajaId, float $montoFinalReal): Caja
-    {
-        return DB::transaction(function () use ($cajaId, $montoFinalReal) {
-
-            $caja = Caja::findOrFail($cajaId);
+    /**
+     * Cerrar caja con arqueo.
+     */
+    public function cerrarCaja(
+        int $cajaId,
+        float $montoRealEfectivo,
+        ?string $observaciones = null
+    ): Caja {
+        return DB::transaction(function () use ($cajaId, $montoRealEfectivo, $observaciones) {
+            $caja = Caja::with('movimientos')->findOrFail($cajaId);
 
             if ($caja->estado !== 'abierta') {
-                throw new \Exception('Esta caja ya está cerrada');
+                throw new \Exception('Esta caja ya está cerrada.');
             }
 
-            $diferencia = $montoFinalReal - $caja->monto_final;
+            $arqueo     = $this->getArqueo($caja);
+            $diferencia = $montoRealEfectivo - $arqueo['saldo_esperado'];
 
             $caja->update([
-                'estado' => 'cerrada',
-                'monto_final' => $montoFinalReal,
+                'estado'               => 'cerrada',
+                'fecha_cierre'         => now(),
+                'monto_real_cierre'    => $montoRealEfectivo,
+                'diferencia_cierre'    => $diferencia,
+                'observaciones_cierre' => $observaciones,
             ]);
 
-            if (abs($diferencia) > 0.01) {
+            if (abs($diferencia) >= 0.01) {
                 MovimientoCaja::create([
-                    'caja_id' => $cajaId,
-                    'tipo' => $diferencia > 0 ? 'ingreso' : 'egreso',
-                    'monto' => abs($diferencia),
-                    'concepto' => $diferencia > 0 ? 'Sobrante en cierre de caja' : 'Faltante en cierre de caja',
+                    'caja_id'     => $cajaId,
+                    'user_id'     => auth()->id(),
+                    'tipo'        => $diferencia > 0 ? 'ingreso' : 'egreso',
+                    'monto'       => abs($diferencia),
+                    'concepto'    => $diferencia > 0 ? 'Sobrante en cierre de caja' : 'Faltante en cierre de caja',
+                    'metodo_pago' => 'efectivo',
                 ]);
             }
 
             return $caja->fresh('movimientos');
         });
+    }
+
+    /**
+     * Obtener la caja activa del usuario.
+     */
+    public function cajaActiva(?int $userId = null): ?Caja
+    {
+        $userId = $userId ?? auth()->id();
+        return Caja::where('user_id', $userId)
+            ->where('estado', 'abierta')
+            ->with(['almacen', 'sucursal', 'movimientos.venta'])
+            ->first();
+    }
+
+    /**
+     * Resumen de arqueo (breakdown por método de pago).
+     */
+    public function getArqueo(Caja $caja): array
+    {
+        $movimientos = $caja->movimientos;
+
+        $ingresos = $movimientos->where('tipo', 'ingreso');
+        $egresos  = $movimientos->where('tipo', 'egreso');
+
+        $ventasEfectivo      = $ingresos->whereNotNull('venta_id')->where('metodo_pago', 'efectivo')->sum('monto');
+        $ventasYape          = $ingresos->whereNotNull('venta_id')->where('metodo_pago', 'yape')->sum('monto');
+        $ventasPlin          = $ingresos->whereNotNull('venta_id')->where('metodo_pago', 'plin')->sum('monto');
+        $ventasTransferencia = $ingresos->whereNotNull('venta_id')->where('metodo_pago', 'transferencia')->sum('monto');
+        $ingresosManual      = $ingresos->whereNull('venta_id')
+            ->whereNotIn('concepto', ['Sobrante en cierre de caja'])
+            ->sum('monto');
+        $egresosTotal        = $egresos->whereNotIn('concepto', ['Faltante en cierre de caja'])->sum('monto');
+
+        $totalVentas = $ventasEfectivo + $ventasYape + $ventasPlin + $ventasTransferencia;
+        $saldoEsperado = $caja->monto_inicial + $ventasEfectivo + $ingresosManual - $egresosTotal;
+
+        return [
+            'monto_inicial'        => (float) $caja->monto_inicial,
+            'ventas_efectivo'      => (float) $ventasEfectivo,
+            'ventas_yape'          => (float) $ventasYape,
+            'ventas_plin'          => (float) $ventasPlin,
+            'ventas_transferencia' => (float) $ventasTransferencia,
+            'total_ventas'         => (float) $totalVentas,
+            'ingresos_manual'      => (float) $ingresosManual,
+            'total_ingresos'       => (float) ($totalVentas + $ingresosManual),
+            'total_egresos'        => (float) $egresosTotal,
+            'saldo_esperado'       => (float) $saldoEsperado,
+            'num_ventas'           => $ingresos->whereNotNull('venta_id')->count(),
+        ];
     }
 }

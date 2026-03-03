@@ -1,507 +1,477 @@
-{{-- resources/views/caja/actual.blade.php --}}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Caja Actual - CORPORACIÓN ADIVON SAC</title>
+    <title>Caja Actual</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
-        .hover-scale {
-            transition: transform 0.2s ease-in-out;
-        }
-        .hover-scale:hover {
-            transform: translateY(-3px);
-        }
-        .receipt-paper {
-            background: white;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        .modal-overlay {
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(4px);
+        [x-cloak] { display: none !important; }
+        .modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
         }
     </style>
 </head>
 <body class="bg-gray-100">
-    <x-sidebar :role="auth()->user()->role->nombre" />
+<x-sidebar :role="auth()->user()->role->nombre" />
 
-    <div class="md:ml-64 p-4 md:p-8" x-data="{ 
+<div class="md:ml-64 p-4 md:p-8"
+     x-data="{
         showGastoModal: false,
         showIngresoModal: false,
         showCierreModal: false,
-        showComprobanteModal: false,
-        selectedMovimiento: null
-    }">
-        
-        {{-- Header --}}
-        <x-header 
-            title="Caja del Día" 
-            subtitle="{{ now()->format('d/m/Y') }} - {{ auth()->user()->name }}"
-        />
+        montoReal: '',
+        saldoSistema: {{ $arqueo['saldo_esperado'] }},
+        get diferencia() {
+            let r = parseFloat(this.montoReal) || 0;
+            return r - this.saldoSistema;
+        }
+     }">
 
-        {{-- Alertas --}}
-        @if(session('success'))
-            <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-lg flex justify-between items-center">
-                <span><i class="fas fa-check-circle mr-2"></i>{{ session('success') }}</span>
-                <button onclick="this.parentElement.remove()" class="text-green-700 hover:text-green-900">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        @endif
+    <x-header title="Mi Caja" subtitle="{{ now()->locale('es')->isoFormat('dddd D [de] MMMM') }} — {{ auth()->user()->name }}" />
 
-        @if(session('error'))
-            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg flex justify-between items-center">
-                <span><i class="fas fa-exclamation-circle mr-2"></i>{{ session('error') }}</span>
-                <button onclick="this.parentElement.remove()" class="text-red-700 hover:text-red-900">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        @endif
+    @if(session('success'))
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-lg flex justify-between items-center">
+            <span><i class="fas fa-check-circle mr-2"></i>{{ session('success') }}</span>
+            <button onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg flex justify-between items-center">
+            <span><i class="fas fa-exclamation-circle mr-2"></i>{{ session('error') }}</span>
+            <button onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+        </div>
+    @endif
 
-        {{-- Resumen de Caja --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl shadow-lg p-6 text-white">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-blue-200 text-sm">Saldo Actual</p>
-                        <p class="text-3xl font-bold mt-2">S/ {{ number_format($caja->monto_final, 2) }}</p>
-                        <p class="text-blue-200 text-xs mt-1">Monto inicial: S/ {{ number_format($caja->monto_inicial, 2) }}</p>
-                    </div>
-                    <div class="bg-white bg-opacity-20 p-3 rounded-lg">
-                        <i class="fas fa-cash-register text-2xl"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-gray-500 text-sm">Ingresos del Día</p>
-                        <p class="text-2xl font-bold text-green-600 mt-2">S/ {{ number_format($caja->total_ingresos, 2) }}</p>
-                        <p class="text-xs text-gray-500 mt-1">{{ $caja->movimientos->where('tipo', 'ingreso')->count() }} transacciones</p>
-                    </div>
-                    <div class="bg-green-100 p-3 rounded-lg">
-                        <i class="fas fa-arrow-up text-green-600 text-xl"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-gray-500 text-sm">Gastos del Día</p>
-                        <p class="text-2xl font-bold text-red-600 mt-2">S/ {{ number_format($caja->total_egresos, 2) }}</p>
-                        <p class="text-xs text-gray-500 mt-1">{{ $caja->movimientos->where('tipo', 'egreso')->count() }} gastos</p>
-                    </div>
-                    <div class="bg-red-100 p-3 rounded-lg">
-                        <i class="fas fa-arrow-down text-red-600 text-xl"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-gray-500 text-sm">Almacén</p>
-                        <p class="text-xl font-bold text-gray-800 mt-2">{{ $caja->almacen->nombre }}</p>
-                        <p class="text-xs text-gray-500 mt-1">Abierta: {{ $caja->created_at->format('H:i') }}</p>
-                    </div>
-                    <div class="bg-purple-100 p-3 rounded-lg">
-                        <i class="fas fa-store text-purple-600 text-xl"></i>
-                    </div>
-                </div>
-            </div>
+    {{-- Tarjetas de resumen --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl p-5 text-white shadow-lg">
+            <p class="text-blue-200 text-xs font-medium uppercase tracking-wide">Saldo en Sistema</p>
+            <p class="text-3xl font-bold mt-1">S/ {{ number_format($arqueo['saldo_esperado'], 2) }}</p>
+            <p class="text-blue-200 text-xs mt-1">Inicial: S/ {{ number_format($arqueo['monto_inicial'], 2) }}</p>
         </div>
 
-        {{-- Acciones Rápidas --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <button @click="showIngresoModal = true" 
-                    class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl p-4 hover-scale flex items-center justify-between group">
-                <div class="flex items-center">
-                    <div class="bg-white bg-opacity-20 p-3 rounded-lg mr-4">
-                        <i class="fas fa-plus-circle text-2xl"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-lg font-semibold">Registrar Ingreso</h4>
-                        <p class="text-sm opacity-90">Ventas u otros ingresos</p>
-                    </div>
-                </div>
-                <i class="fas fa-arrow-right text-xl group-hover:translate-x-2 transition-transform"></i>
-            </button>
-
-            <button @click="showGastoModal = true"
-                    class="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl p-4 hover-scale flex items-center justify-between group">
-                <div class="flex items-center">
-                    <div class="bg-white bg-opacity-20 p-3 rounded-lg mr-4">
-                        <i class="fas fa-minus-circle text-2xl"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-lg font-semibold">Registrar Gasto</h4>
-                        <p class="text-sm opacity-90">Comidas, pasajes, etc.</p>
-                    </div>
-                </div>
-                <i class="fas fa-arrow-right text-xl group-hover:translate-x-2 transition-transform"></i>
-            </button>
-
-            <button @click="showCierreModal = true"
-                    class="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl p-4 hover-scale flex items-center justify-between group">
-                <div class="flex items-center">
-                    <div class="bg-white bg-opacity-20 p-3 rounded-lg mr-4">
-                        <i class="fas fa-lock text-2xl"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-lg font-semibold">Cerrar Caja</h4>
-                        <p class="text-sm opacity-90">Realizar cierre del día</p>
-                    </div>
-                </div>
-                <i class="fas fa-arrow-right text-xl group-hover:translate-x-2 transition-transform"></i>
-            </button>
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+            <p class="text-gray-500 text-xs font-medium uppercase tracking-wide">Ventas Totales</p>
+            <p class="text-2xl font-bold text-green-600 mt-1">S/ {{ number_format($arqueo['total_ventas'], 2) }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ $arqueo['num_ventas'] }} venta(s)</p>
         </div>
 
-        {{-- Tabla de Movimientos --}}
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-800">
-                    <i class="fas fa-history mr-2 text-blue-900"></i>
-                    Movimientos del Día
-                </h3>
-                <div class="flex space-x-2">
-                    <button onclick="window.print()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm">
-                        <i class="fas fa-print mr-2"></i>Imprimir
-                    </button>
-                </div>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hora</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Concepto</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Monto</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Observaciones</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comprobante</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        @forelse($caja->movimientos as $movimiento)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 text-sm text-gray-600">{{ $movimiento->created_at->format('H:i') }}</td>
-                            <td class="px-6 py-4">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                                    {{ $movimiento->tipo === 'ingreso' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                    {{ ucfirst($movimiento->tipo) }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">{{ $movimiento->concepto }}</p>
-                                    @if($movimiento->venta_id)
-                                        <p class="text-xs text-gray-500">Venta #{{ $movimiento->venta_id }}</p>
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="text-sm font-semibold {{ $movimiento->tipo === 'ingreso' ? 'text-green-600' : 'text-red-600' }}">
-                                    {{ $movimiento->tipo === 'ingreso' ? '+' : '-' }} S/ {{ number_format($movimiento->monto, 2) }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-sm text-gray-500">{{ $movimiento->observaciones ?? '-' }}</td>
-                            <td class="px-6 py-4">
-                                <button @click="selectedMovimiento = {{ $movimiento }}; showComprobanteModal = true"
-                                        class="text-blue-600 hover:text-blue-800">
-                                    <i class="fas fa-receipt mr-1"></i>Ver
-                                </button>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                                <i class="fas fa-receipt text-4xl mb-3 text-gray-300"></i>
-                                <p>No hay movimientos registrados hoy</p>
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+            <p class="text-gray-500 text-xs font-medium uppercase tracking-wide">Egresos del Día</p>
+            <p class="text-2xl font-bold text-red-600 mt-1">S/ {{ number_format($arqueo['total_egresos'], 2) }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ $caja->movimientos->where('tipo', 'egreso')->count() }} gasto(s)</p>
         </div>
 
-        {{-- Modal Registrar Ingreso --}}
-        <div x-show="showIngresoModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto modal-overlay" 
-             x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" @click.away="showIngresoModal = false">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold text-gray-900">Registrar Ingreso</h3>
-                        <button @click="showIngresoModal = false" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                    
-                    <form action="{{ route('caja.ingreso') }}" method="POST">
-                        @csrf
-                        <input type="hidden" name="caja_id" value="{{ $caja->id }}">
-                        
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Monto *</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500">S/</span>
-                                    <input type="number" name="monto" step="0.01" min="0.01" required
-                                           class="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Concepto *</label>
-                                <input type="text" name="concepto" required
-                                       class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                       placeholder="Ej: Venta contado, Cobro cliente, etc.">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
-                                <textarea name="observaciones" rows="2"
-                                          class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                          placeholder="Detalles adicionales..."></textarea>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                            <button type="button" @click="showIngresoModal = false" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                                Cancelar
-                            </button>
-                            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                                <i class="fas fa-save mr-2"></i>Registrar Ingreso
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        {{-- Modal Registrar Gasto --}}
-        <div x-show="showGastoModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto modal-overlay"
-             x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" @click.away="showGastoModal = false">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold text-gray-900">Registrar Gasto</h3>
-                        <button @click="showGastoModal = false" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                    
-                    <form action="{{ route('caja.gasto') }}" method="POST">
-                        @csrf
-                        <input type="hidden" name="caja_id" value="{{ $caja->id }}">
-                        
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Monto *</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500">S/</span>
-                                    <input type="number" name="monto" step="0.01" min="0.01" required
-                                           class="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Gasto *</label>
-                                <select name="categoria_gasto" required
-                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                    <option value="">Seleccione...</option>
-                                    <option value="comida">Comida / Refrigerio</option>
-                                    <option value="pasaje">Pasaje / Transporte</option>
-                                    <option value="movilidad">Movilidad</option>
-                                    <option value="utiles">Útiles de oficina</option>
-                                    <option value="servicios">Servicios</option>
-                                    <option value="otros">Otros</option>
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Concepto / Descripción *</label>
-                                <input type="text" name="concepto" required
-                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                        placeholder="Ej: Almuerzo equipo, Taxi a cliente, etc.">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
-                                <textarea name="observaciones" rows="2"
-                                          class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                          placeholder="Detalles adicionales..."></textarea>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                            <button type="button" @click="showGastoModal = false" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                                Cancelar
-                            </button>
-                            <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                                <i class="fas fa-save mr-2"></i>Registrar Gasto
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        {{-- Modal Cerrar Caja --}}
-        <div x-show="showCierreModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto modal-overlay"
-             x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" @click.away="showCierreModal = false">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold text-gray-900">Cerrar Caja</h3>
-                        <button @click="showCierreModal = false" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                    
-                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                        <p class="text-sm text-yellow-700">
-                            <i class="fas fa-info-circle mr-2"></i>
-                            Verifica que todos los movimientos estén registrados antes de cerrar.
-                        </p>
-                    </div>
-                    
-                    <form action="{{ route('caja.cerrar') }}" method="POST">
-                        @csrf
-                        <input type="hidden" name="caja_id" value="{{ $caja->id }}">
-                        
-                        <div class="space-y-4">
-                            <div>
-                                <p class="text-sm text-gray-600">Monto según sistema:</p>
-                                <p class="text-2xl font-bold text-blue-600 mb-2">S/ {{ number_format($caja->monto_final, 2) }}</p>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Monto real en caja *</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500">S/</span>
-                                    <input type="number" name="monto_final_real" step="0.01" min="0" required
-                                           class="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                           placeholder="0.00">
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones del cierre</label>
-                                <textarea name="observaciones_cierre" rows="2"
-                                          class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                          placeholder="Detalles sobre el cierre..."></textarea>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                            <button type="button" @click="showCierreModal = false" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                                Cancelar
-                            </button>
-                            <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                                <i class="fas fa-lock mr-2"></i>Cerrar Caja
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        {{-- Modal Comprobante --}}
-        <div x-show="showComprobanteModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto modal-overlay"
-             x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" @click.away="showComprobanteModal = false">
-                    <template x-if="selectedMovimiento">
-                        <div>
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-xl font-bold text-gray-900">Comprobante de Movimiento</h3>
-                                <button @click="showComprobanteModal = false" class="text-gray-400 hover:text-gray-600">
-                                    <i class="fas fa-times text-xl"></i>
-                                </button>
-                            </div>
-                            
-                            <div class="border-2 border-gray-200 rounded-lg p-6 mb-4 receipt-paper">
-                                <div class="text-center mb-4">
-                                    <h4 class="font-bold text-lg">CORPORACIÓN ADIVON SAC</h4>
-                                    <p class="text-sm text-gray-600">RUC: 20601234567</p>
-                                    <p class="text-sm text-gray-600">{{ $caja->almacen->nombre }}</p>
-                                </div>
-                                
-                                <div class="border-t border-b border-gray-200 py-3 mb-3">
-                                    <div class="flex justify-between text-sm">
-                                        <span class="text-gray-600">Fecha:</span>
-                                        <span class="font-medium" x-text="new Date(selectedMovimiento.created_at).toLocaleString()"></span>
-                                    </div>
-                                    <div class="flex justify-between text-sm">
-                                        <span class="text-gray-600">Tipo:</span>
-                                        <span class="font-medium" x-text="selectedMovimiento.tipo.toUpperCase()"></span>
-                                    </div>
-                                    <div class="flex justify-between text-sm">
-                                        <span class="text-gray-600">Caja #:</span>
-                                        <span class="font-medium" x-text="selectedMovimiento.caja_id"></span>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <p class="text-sm text-gray-600">Concepto:</p>
-                                    <p class="font-medium" x-text="selectedMovimiento.concepto"></p>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <p class="text-sm text-gray-600">Monto:</p>
-                                    <p class="text-2xl font-bold" :class="selectedMovimiento.tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'">
-                                        <span x-text="selectedMovimiento.tipo === 'ingreso' ? '+' : '-'"></span>
-                                        S/ <span x-text="parseFloat(selectedMovimiento.monto).toFixed(2)"></span>
-                                    </p>
-                                </div>
-                                
-                                <template x-if="selectedMovimiento.observaciones">
-                                    <div class="mb-3">
-                                        <p class="text-sm text-gray-600">Observaciones:</p>
-                                        <p class="text-sm" x-text="selectedMovimiento.observaciones"></p>
-                                    </div>
-                                </template>
-                                
-                                <div class="text-center text-xs text-gray-500 mt-4">
-                                    <p>Comprobante generado por sistema</p>
-                                    <p>Usuario: {{ auth()->user()->name }}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex justify-end space-x-3">
-                                <button type="button" @click="window.print()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                                    <i class="fas fa-print mr-2"></i>Imprimir
-                                </button>
-                                <button type="button" @click="showComprobanteModal = false" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                                    Cerrar
-                                </button>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </div>
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+            <p class="text-gray-500 text-xs font-medium uppercase tracking-wide">Almacén</p>
+            <p class="text-lg font-bold text-gray-800 mt-1">{{ $caja->almacen->nombre }}</p>
+            <p class="text-xs text-gray-400 mt-1">
+                Abierta: {{ $caja->fecha_apertura ? $caja->fecha_apertura->format('H:i') : $caja->created_at->format('H:i') }}
+            </p>
         </div>
     </div>
 
-    <style>
-        [x-cloak] { display: none !important; }
-        @media print {
-            body * { visibility: hidden; }
-            .receipt-paper, .receipt-paper * { visibility: visible; }
-            .receipt-paper { position: absolute; left: 0; top: 0; width: 100%; }
-        }
-    </style>
+    {{-- Arqueo por método de pago --}}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+            <i class="fas fa-chart-pie mr-1"></i> Desglose de ventas por método de pago
+        </h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                <i class="fas fa-money-bill-wave text-green-600 text-xl mb-1"></i>
+                <p class="text-xs text-gray-500">Efectivo</p>
+                <p class="text-lg font-bold text-green-700">S/ {{ number_format($arqueo['ventas_efectivo'], 2) }}</p>
+            </div>
+            <div class="text-center p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <i class="fas fa-mobile-alt text-purple-600 text-xl mb-1"></i>
+                <p class="text-xs text-gray-500">Yape</p>
+                <p class="text-lg font-bold text-purple-700">S/ {{ number_format($arqueo['ventas_yape'], 2) }}</p>
+            </div>
+            <div class="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <i class="fas fa-mobile text-blue-600 text-xl mb-1"></i>
+                <p class="text-xs text-gray-500">Plin</p>
+                <p class="text-lg font-bold text-blue-700">S/ {{ number_format($arqueo['ventas_plin'], 2) }}</p>
+            </div>
+            <div class="text-center p-3 bg-orange-50 rounded-lg border border-orange-100">
+                <i class="fas fa-university text-orange-600 text-xl mb-1"></i>
+                <p class="text-xs text-gray-500">Transferencia</p>
+                <p class="text-lg font-bold text-orange-700">S/ {{ number_format($arqueo['ventas_transferencia'], 2) }}</p>
+            </div>
+        </div>
+        @if($arqueo['ingresos_manual'] > 0)
+            <p class="text-xs text-gray-400 mt-3 text-right">
+                + S/ {{ number_format($arqueo['ingresos_manual'], 2) }} en ingresos manuales
+            </p>
+        @endif
+    </div>
+
+    {{-- Acciones rápidas --}}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 no-print">
+        <button @click="showIngresoModal = true"
+                class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl p-4
+                       flex items-center gap-4 transition-all shadow-sm">
+            <div class="bg-white bg-opacity-20 p-3 rounded-lg">
+                <i class="fas fa-plus-circle text-2xl"></i>
+            </div>
+            <div class="text-left">
+                <p class="font-semibold text-lg">Registrar Ingreso</p>
+                <p class="text-sm opacity-80">Cobros u otros ingresos</p>
+            </div>
+        </button>
+
+        <button @click="showGastoModal = true"
+                class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl p-4
+                       flex items-center gap-4 transition-all shadow-sm">
+            <div class="bg-white bg-opacity-20 p-3 rounded-lg">
+                <i class="fas fa-minus-circle text-2xl"></i>
+            </div>
+            <div class="text-left">
+                <p class="font-semibold text-lg">Registrar Gasto</p>
+                <p class="text-sm opacity-80">Movilidad, insumos, etc.</p>
+            </div>
+        </button>
+
+        <button @click="showCierreModal = true"
+                class="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white rounded-xl p-4
+                       flex items-center gap-4 transition-all shadow-sm">
+            <div class="bg-white bg-opacity-20 p-3 rounded-lg">
+                <i class="fas fa-lock text-2xl"></i>
+            </div>
+            <div class="text-left">
+                <p class="font-semibold text-lg">Cerrar Caja</p>
+                <p class="text-sm opacity-80">Realizar el arqueo y cierre</p>
+            </div>
+        </button>
+    </div>
+
+    {{-- Tabla de movimientos --}}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="font-semibold text-gray-800">
+                <i class="fas fa-list-alt mr-2 text-blue-800"></i> Movimientos del día
+            </h3>
+            <span class="text-xs text-gray-400">{{ $caja->movimientos->count() }} registro(s)</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hora</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Concepto</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Método</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    @forelse($caja->movimientos->sortByDesc('created_at') as $mov)
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm text-gray-500">{{ $mov->created_at->format('H:i') }}</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                                {{ $mov->tipo === 'ingreso' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                <span class="w-1.5 h-1.5 rounded-full mr-1
+                                    {{ $mov->tipo === 'ingreso' ? 'bg-green-500' : 'bg-red-500' }}"></span>
+                                {{ ucfirst($mov->tipo) }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <p class="text-sm font-medium text-gray-800">{{ $mov->concepto }}</p>
+                            @if($mov->venta_id)
+                                <p class="text-xs text-blue-500">Venta #{{ $mov->venta_id }}</p>
+                            @endif
+                            @if($mov->referencia)
+                                <p class="text-xs text-gray-400">Ref: {{ $mov->referencia }}</p>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3">
+                            @php $mp = $mov->metodo_pago ?? 'efectivo'; @endphp
+                            <span class="text-xs text-gray-500 capitalize">{{ $mp }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="font-semibold {{ $mov->tipo === 'ingreso' ? 'text-green-600' : 'text-red-600' }}">
+                                {{ $mov->tipo === 'ingreso' ? '+' : '-' }} S/ {{ number_format($mov->monto, 2) }}
+                            </span>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center text-gray-400">
+                            <i class="fas fa-receipt text-4xl mb-3 block text-gray-200"></i>
+                            Sin movimientos aún en este turno.
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {{-- ========== MODAL INGRESO ========== --}}
+    <div x-show="showIngresoModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6" @click.away="showIngresoModal = false">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-bold text-gray-900"><i class="fas fa-plus-circle text-green-500 mr-2"></i>Registrar Ingreso</h3>
+                <button @click="showIngresoModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form action="{{ route('caja.ingreso') }}" method="POST" class="space-y-4">
+                @csrf
+                <input type="hidden" name="caja_id" value="{{ $caja->id }}">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto *</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">S/</span>
+                        <input type="number" name="monto" step="0.01" min="0.01" required
+                               class="pl-9 w-full py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Método de pago *</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        @foreach(['efectivo' => 'Efectivo', 'yape' => 'Yape', 'plin' => 'Plin', 'transferencia' => 'Transfer.'] as $val => $lbl)
+                        <label class="flex flex-col items-center justify-center cursor-pointer">
+                            <input type="radio" name="metodo_pago" value="{{ $val }}" class="sr-only peer"
+                                   {{ $val === 'efectivo' ? 'checked' : '' }}>
+                            <div class="w-full text-center py-2 px-1 border-2 border-gray-200 rounded-lg text-xs font-medium
+                                        peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-700
+                                        hover:border-gray-300 transition-colors cursor-pointer">
+                                {{ $lbl }}
+                            </div>
+                        </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Concepto *</label>
+                    <input type="text" name="concepto" required maxlength="255"
+                           class="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                           placeholder="Ej: Cobro de deuda, venta extra...">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Referencia / Nro. operación</label>
+                    <input type="text" name="referencia" maxlength="100"
+                           class="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
+                           placeholder="Opcional">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                    <textarea name="observaciones" rows="2"
+                              class="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
+                              placeholder="Detalles adicionales..."></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" @click="showIngresoModal = false"
+                            class="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm">
+                        <i class="fas fa-save mr-1"></i> Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ========== MODAL GASTO ========== --}}
+    <div x-show="showGastoModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6" @click.away="showGastoModal = false">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-bold text-gray-900"><i class="fas fa-minus-circle text-red-500 mr-2"></i>Registrar Gasto</h3>
+                <button @click="showGastoModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form action="{{ route('caja.gasto') }}" method="POST" class="space-y-4">
+                @csrf
+                <input type="hidden" name="caja_id" value="{{ $caja->id }}">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto *</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">S/</span>
+                        <input type="number" name="monto" step="0.01" min="0.01" required
+                               class="pl-9 w-full py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
+                    <select name="categoria_gasto" required
+                            class="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-sm">
+                        <option value="">Seleccione...</option>
+                        <option value="operativo">Operativo (útiles, servicios)</option>
+                        <option value="limpieza">Limpieza</option>
+                        <option value="transporte">Transporte / Movilidad</option>
+                        <option value="alimentacion">Alimentación / Refrigerio</option>
+                        <option value="otros">Otros</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Descripción *</label>
+                    <input type="text" name="concepto" required maxlength="255"
+                           class="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-sm"
+                           placeholder="Ej: Almuerzo equipo, taxi a proveedor...">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                    <textarea name="observaciones" rows="2"
+                              class="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-sm"
+                              placeholder="Detalles adicionales..."></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" @click="showGastoModal = false"
+                            class="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm">
+                        <i class="fas fa-save mr-1"></i> Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ========== MODAL CIERRE ========== --}}
+    <div x-show="showCierreModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6" @click.away="showCierreModal = false">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-bold text-gray-900"><i class="fas fa-lock text-yellow-500 mr-2"></i>Cierre de Caja</h3>
+                <button @click="showCierreModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            {{-- Arqueo resumen --}}
+            <div class="bg-gray-50 rounded-lg p-4 mb-5 text-sm space-y-1.5">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Monto inicial:</span>
+                    <span class="font-medium">S/ {{ number_format($arqueo['monto_inicial'], 2) }}</span>
+                </div>
+                <div class="flex justify-between text-green-700">
+                    <span>+ Ventas efectivo:</span>
+                    <span class="font-medium">S/ {{ number_format($arqueo['ventas_efectivo'], 2) }}</span>
+                </div>
+                @if($arqueo['ingresos_manual'] > 0)
+                <div class="flex justify-between text-green-700">
+                    <span>+ Ingresos manuales:</span>
+                    <span class="font-medium">S/ {{ number_format($arqueo['ingresos_manual'], 2) }}</span>
+                </div>
+                @endif
+                @if($arqueo['total_egresos'] > 0)
+                <div class="flex justify-between text-red-600">
+                    <span>- Egresos:</span>
+                    <span class="font-medium">S/ {{ number_format($arqueo['total_egresos'], 2) }}</span>
+                </div>
+                @endif
+                <div class="border-t border-gray-200 pt-2 mt-2 flex justify-between font-bold text-blue-900">
+                    <span>Saldo esperado (efectivo):</span>
+                    <span>S/ {{ number_format($arqueo['saldo_esperado'], 2) }}</span>
+                </div>
+                @if($arqueo['ventas_yape'] + $arqueo['ventas_plin'] + $arqueo['ventas_transferencia'] > 0)
+                <div class="mt-2 pt-2 border-t border-dashed border-gray-200 text-xs text-gray-500 space-y-1">
+                    <p class="font-semibold text-gray-600 mb-1">Ventas digitales (no cuentan en efectivo):</p>
+                    @if($arqueo['ventas_yape'] > 0)
+                        <div class="flex justify-between"><span>Yape:</span><span>S/ {{ number_format($arqueo['ventas_yape'], 2) }}</span></div>
+                    @endif
+                    @if($arqueo['ventas_plin'] > 0)
+                        <div class="flex justify-between"><span>Plin:</span><span>S/ {{ number_format($arqueo['ventas_plin'], 2) }}</span></div>
+                    @endif
+                    @if($arqueo['ventas_transferencia'] > 0)
+                        <div class="flex justify-between"><span>Transferencia:</span><span>S/ {{ number_format($arqueo['ventas_transferencia'], 2) }}</span></div>
+                    @endif
+                </div>
+                @endif
+            </div>
+
+            <form action="{{ route('caja.cerrar') }}" method="POST" class="space-y-4">
+                @csrf
+                <input type="hidden" name="caja_id" value="{{ $caja->id }}">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Monto real en caja (efectivo físico) <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">S/</span>
+                        <input type="number" name="monto_real_cierre" step="0.01" min="0" required
+                               x-model="montoReal"
+                               class="pl-9 w-full py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 font-semibold text-lg"
+                               placeholder="0.00">
+                    </div>
+                </div>
+
+                {{-- Diferencia en tiempo real --}}
+                <div x-show="montoReal !== ''" class="rounded-lg p-3 text-center"
+                     :class="Math.abs(diferencia) < 0.01 ? 'bg-green-50 border border-green-200' :
+                             diferencia > 0 ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'">
+                    <p class="text-sm font-medium"
+                       :class="Math.abs(diferencia) < 0.01 ? 'text-green-700' : diferencia > 0 ? 'text-blue-700' : 'text-red-700'">
+                        <span x-show="Math.abs(diferencia) < 0.01">
+                            <i class="fas fa-check-circle mr-1"></i> Cuadra perfectamente
+                        </span>
+                        <span x-show="diferencia > 0.005">
+                            <i class="fas fa-arrow-up mr-1"></i> Sobrante: S/ <span x-text="diferencia.toFixed(2)"></span>
+                        </span>
+                        <span x-show="diferencia < -0.005">
+                            <i class="fas fa-arrow-down mr-1"></i> Faltante: S/ <span x-text="Math.abs(diferencia).toFixed(2)"></span>
+                        </span>
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones del cierre</label>
+                    <textarea name="observaciones_cierre" rows="2"
+                              class="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 text-sm"
+                              placeholder="Notas sobre el cierre..."></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" @click="showCierreModal = false"
+                            class="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold text-sm">
+                        <i class="fas fa-lock mr-1"></i> Cerrar Caja
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
 </body>
-</html> 
+</html>

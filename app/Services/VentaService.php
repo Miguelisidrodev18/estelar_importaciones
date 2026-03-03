@@ -225,7 +225,11 @@ class VentaService
                 'ingreso',
                 $venta->total,
                 'Venta #' . $venta->codigo,
-                $venta->id
+                $venta->id,  // venta_id
+                null,         // compra_id
+                null,         // observaciones
+                $metodoPago,  // metodo_pago
+                null          // referencia
             );
         }
     }

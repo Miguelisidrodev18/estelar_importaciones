@@ -373,7 +373,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/ingreso', [CajaController::class, 'registrarIngreso'])->name('ingreso');
         Route::post('/gasto', [CajaController::class, 'registrarGasto'])->name('gasto');
         Route::get('/movimientos', [CajaController::class, 'movimientos'])->name('movimientos');
-        Route::get('/comprobante/{movimiento}', [CajaController::class, 'comprobante'])->name('comprobante');
+        Route::get('/{caja}', [CajaController::class, 'show'])->name('show');
     });
 
     // ========================================

@@ -12,13 +12,9 @@ class MovimientoCaja extends Model
     protected $table = 'movimientos_caja';
 
     protected $fillable = [
-        'caja_id',
-        'venta_id',
-        'compra_id',
-        'tipo',
-        'monto',
-        'concepto',
-        'observaciones',
+        'caja_id', 'user_id', 'venta_id', 'compra_id',
+        'tipo', 'metodo_pago', 'monto', 'concepto',
+        'referencia', 'observaciones',
     ];
 
     protected $casts = [
@@ -30,6 +26,11 @@ class MovimientoCaja extends Model
         return $this->belongsTo(Caja::class);
     }
 
+    public function usuario()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     public function venta()
     {
         return $this->belongsTo(Venta::class);
@@ -38,5 +39,17 @@ class MovimientoCaja extends Model
     public function compra()
     {
         return $this->belongsTo(Compra::class);
+    }
+
+    public function getNombreMetodoPagoAttribute(): string
+    {
+        return match($this->metodo_pago) {
+            'efectivo'      => 'Efectivo',
+            'yape'          => 'Yape',
+            'plin'          => 'Plin',
+            'transferencia' => 'Transferencia',
+            'mixto'         => 'Mixto',
+            default         => ucfirst($this->metodo_pago ?? 'efectivo'),
+        };
     }
 }
