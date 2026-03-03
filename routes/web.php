@@ -13,6 +13,10 @@ use App\Http\Controllers\ProfileController;
 // ===================== CORE =====================
 use App\Http\Controllers\DashboardController;
 
+// ===================== ADMIN =====================
+use App\Http\Controllers\Admin\EmpresaController;
+use App\Http\Controllers\Admin\SucursalController;
+
 // ===================== INVENTARIO =====================
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ProductoController;
@@ -389,6 +393,31 @@ Route::middleware('auth')->group(function () {
         Route::resource('modelos', App\Http\Controllers\Catalogo\ModeloController::class)->parameters(['modelos' => 'modelo']);
         Route::get('modelos-por-marca/{marcaId}', [App\Http\Controllers\Catalogo\ModeloController::class, 'getModelosPorMarca'])->name('modelos.por-marca');
         Route::get('marcas-por-categoria/{categoriaId}', [App\Http\Controllers\Catalogo\MarcaController::class, 'getMarcasPorCategoria'])->name('marcas.por-categoria');
+    });
+
+    // ========================================
+    // MÓDULO ADMINISTRACIÓN (solo Administrador)
+    // ========================================
+    Route::middleware('role:Administrador')->prefix('admin')->name('admin.')->group(function () {
+        // Empresa (singleton)
+        Route::get('/empresa', [EmpresaController::class, 'edit'])->name('empresa.edit');
+        Route::put('/empresa', [EmpresaController::class, 'update'])->name('empresa.update');
+
+        // Sucursales
+        Route::get('/sucursales', [SucursalController::class, 'index'])->name('sucursales.index');
+        Route::get('/sucursales/create', [SucursalController::class, 'create'])->name('sucursales.create');
+        Route::post('/sucursales', [SucursalController::class, 'store'])->name('sucursales.store');
+        Route::get('/sucursales/{sucursal}/edit', [SucursalController::class, 'edit'])->name('sucursales.edit');
+        Route::put('/sucursales/{sucursal}', [SucursalController::class, 'update'])->name('sucursales.update');
+        Route::delete('/sucursales/{sucursal}', [SucursalController::class, 'destroy'])->name('sucursales.destroy');
+        Route::get('/sucursales/{sucursal}/comprobantes', [SucursalController::class, 'comprobantes'])->name('sucursales.comprobantes');
+
+        // Series de comprobantes de una sucursal
+        Route::put('/sucursales/{sucursal}/series/{serie}', [SucursalController::class, 'updateSerie'])->name('sucursales.series.update');
+        Route::post('/sucursales/{sucursal}/series', [SucursalController::class, 'storeSerie'])->name('sucursales.series.store');
+
+        // Pagos digitales de una sucursal
+        Route::put('/sucursales/{sucursal}/pagos', [SucursalController::class, 'updatePagos'])->name('sucursales.pagos.update');
     });
 
     // ========================================

@@ -27,7 +27,8 @@
                 trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
                 cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }},
                 catalogoOpen: {{ request()->routeIs('catalogo.*') ? 'true' : 'false' }},
-                tiendaOpen: {{ request()->routeIs('tienda.*') ? 'true' : 'false' }} {{-- NUEVO para rol Tienda --}}
+                tiendaOpen: {{ request()->routeIs('tienda.*') ? 'true' : 'false' }},
+                adminOpen: {{ request()->routeIs('admin.empresa.*') || request()->routeIs('admin.sucursales.*') ? 'true' : 'false' }}
             }">
 
         <div class="p-6 border-b border-blue-700 flex items-center justify-between">
@@ -232,6 +233,31 @@
                                 <a href="{{ route('catalogo.motivos.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.motivos.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-exchange-alt mr-3 text-sm"></i>Motivos de Movimiento
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    {{-- Administración --}}
+                    <li>
+                        <button @click="adminOpen = !adminOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.empresa.*') || request()->routeIs('admin.sucursales.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-cogs mr-3"></i>Administración
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': adminOpen }"></i>
+                        </button>
+                        <ul x-show="adminOpen" x-transition class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('admin.empresa.edit') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.empresa.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-building mr-3 text-sm"></i>Empresa
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.sucursales.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.sucursales.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-store mr-3 text-sm"></i>Sucursales
                                 </a>
                             </li>
                         </ul>

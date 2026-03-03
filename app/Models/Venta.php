@@ -30,6 +30,9 @@ class Venta extends Model
         'observaciones',
         'tipo_venta',
         'tienda_destino_id',
+        'sucursal_id',
+        'serie_comprobante_id',
+        'correlativo',
     ];
 
     protected $casts = [
@@ -59,6 +62,27 @@ class Venta extends Model
     public function almacen()
     {
         return $this->belongsTo(Almacen::class);
+    }
+
+    public function sucursal()
+    {
+        return $this->belongsTo(Sucursal::class);
+    }
+
+    public function serieComprobante()
+    {
+        return $this->belongsTo(SerieComprobante::class, 'serie_comprobante_id');
+    }
+
+    /**
+     * Número de documento completo: FA01-00000001
+     */
+    public function getNumeroDocumentoAttribute(): ?string
+    {
+        if ($this->serieComprobante && $this->correlativo) {
+            return $this->serieComprobante->serie . '-' . str_pad($this->correlativo, 8, '0', STR_PAD_LEFT);
+        }
+        return null;
     }
 
     public function detalles()
