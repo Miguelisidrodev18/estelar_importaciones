@@ -20,17 +20,7 @@
 <x-sidebar :role="auth()->user()->role->nombre" />
 
 <div class="md:ml-64 p-4 md:p-8"
-     x-data="{
-        showGastoModal: false,
-        showIngresoModal: false,
-        showCierreModal: false,
-        montoReal: '',
-        saldoSistema: {{ $arqueo['saldo_esperado'] }},
-        get diferencia() {
-            let r = parseFloat(this.montoReal) || 0;
-            return r - this.saldoSistema;
-        }
-     }">
+     x-data="{ showGastoModal: false, showIngresoModal: false, showCierreModal: false, montoReal: '', saldoSistema: {{ $arqueo['saldo_esperado'] }} }">
 
     <x-header title="Mi Caja" subtitle="{{ now()->locale('es')->isoFormat('dddd D [de] MMMM') }} — {{ auth()->user()->name }}" />
 
@@ -435,18 +425,19 @@
 
                 {{-- Diferencia en tiempo real --}}
                 <div x-show="montoReal !== ''" class="rounded-lg p-3 text-center"
-                     :class="Math.abs(diferencia) < 0.01 ? 'bg-green-50 border border-green-200' :
-                             diferencia > 0 ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'">
+                     :class="Math.abs(parseFloat(montoReal) - saldoSistema) < 0.01 ? 'bg-green-50 border border-green-200' :
+                             (parseFloat(montoReal) - saldoSistema) > 0 ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'">
                     <p class="text-sm font-medium"
-                       :class="Math.abs(diferencia) < 0.01 ? 'text-green-700' : diferencia > 0 ? 'text-blue-700' : 'text-red-700'">
-                        <span x-show="Math.abs(diferencia) < 0.01">
+                       :class="Math.abs(parseFloat(montoReal) - saldoSistema) < 0.01 ? 'text-green-700' :
+                               (parseFloat(montoReal) - saldoSistema) > 0 ? 'text-blue-700' : 'text-red-700'">
+                        <span x-show="Math.abs(parseFloat(montoReal) - saldoSistema) < 0.01">
                             <i class="fas fa-check-circle mr-1"></i> Cuadra perfectamente
                         </span>
-                        <span x-show="diferencia > 0.005">
-                            <i class="fas fa-arrow-up mr-1"></i> Sobrante: S/ <span x-text="diferencia.toFixed(2)"></span>
+                        <span x-show="(parseFloat(montoReal) - saldoSistema) > 0.005">
+                            <i class="fas fa-arrow-up mr-1"></i> Sobrante: S/ <span x-text="(parseFloat(montoReal) - saldoSistema).toFixed(2)"></span>
                         </span>
-                        <span x-show="diferencia < -0.005">
-                            <i class="fas fa-arrow-down mr-1"></i> Faltante: S/ <span x-text="Math.abs(diferencia).toFixed(2)"></span>
+                        <span x-show="(parseFloat(montoReal) - saldoSistema) < -0.005">
+                            <i class="fas fa-arrow-down mr-1"></i> Faltante: S/ <span x-text="Math.abs(parseFloat(montoReal) - saldoSistema).toFixed(2)"></span>
                         </span>
                     </p>
                 </div>

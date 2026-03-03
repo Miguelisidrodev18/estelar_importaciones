@@ -66,14 +66,14 @@
 
         {{-- Formulario de apertura --}}
         @if($almacen)
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
-             x-data="{ monto: '', confirmando: false }">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-5">
                 <i class="fas fa-cash-register mr-1"></i> Monto de apertura
             </h3>
 
-            <form action="{{ route('caja.store') }}" method="POST">
+            <form action="{{ route('caja.store') }}" method="POST" id="formAbrirCaja"
+                  onsubmit="return confirmarApertura(this)">
                 @csrf
 
                 <div class="mb-5">
@@ -82,11 +82,11 @@
                     </label>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold text-lg">S/</span>
-                        <input type="number" name="monto_inicial" step="0.01" min="0"
-                               x-model="monto"
+                        <input type="number" name="monto_inicial" id="montoInicial" step="0.01" min="0"
                                class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-xl font-bold
                                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                                       @error('monto_inicial') border-red-400 @enderror"
+                               value="{{ old('monto_inicial', '0.00') }}"
                                placeholder="0.00" required autofocus>
                     </div>
                     @error('monto_inicial')
@@ -102,35 +102,11 @@
                               placeholder="Notas al abrir la caja...">{{ old('observaciones') }}</textarea>
                 </div>
 
-                <div x-show="!confirmando">
-                    <button type="button"
-                            @click="confirmando = true"
-                            class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg
-                                   transition-colors flex items-center justify-center gap-2 text-base">
-                        <i class="fas fa-lock-open"></i> Abrir Caja
-                    </button>
-                </div>
-
-                <div x-show="confirmando" x-cloak class="bg-green-50 border border-green-200 rounded-xl p-5">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-check-circle text-green-500 text-3xl mb-2"></i>
-                        <p class="font-semibold text-gray-800">
-                            ¿Confirmar apertura con
-                            <span class="text-green-700">S/ <span x-text="parseFloat(monto || 0).toFixed(2)"></span></span>?
-                        </p>
-                        <p class="text-sm text-gray-500 mt-1">Almacén: {{ $almacen->nombre }}</p>
-                    </div>
-                    <div class="flex gap-3">
-                        <button type="button" @click="confirmando = false"
-                                class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors">
-                            Cancelar
-                        </button>
-                        <button type="submit"
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                            <i class="fas fa-check mr-1"></i> Confirmar
-                        </button>
-                    </div>
-                </div>
+                <button type="submit"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg
+                               transition-colors flex items-center justify-center gap-2 text-base">
+                    <i class="fas fa-lock-open"></i> Abrir Caja
+                </button>
 
             </form>
         </div>
@@ -138,6 +114,11 @@
 
     </div>
 </div>
-<style>[x-cloak] { display: none !important; }</style>
+<script>
+function confirmarApertura(form) {
+    var monto = parseFloat(document.getElementById('montoInicial').value) || 0;
+    return confirm('¿Confirmar apertura de caja con S/ ' + monto.toFixed(2) + '?\n\nAlmacén: {{ $almacen->nombre ?? "" }}');
+}
+</script>
 </body>
 </html>
