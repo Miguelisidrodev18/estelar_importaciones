@@ -12,7 +12,7 @@
 <body class="bg-gray-50">
 <x-sidebar :role="auth()->user()->role->nombre" />
 
-<div class="md:ml-64 p-4 md:p-8" x-data="{ tab: 'datos' }">
+<div class="md:ml-64 p-4 md:p-8" x-data="empresaForm()">
     <x-header title="Configuración de Empresa" subtitle="Datos generales, logos y configuración SUNAT" />
 
     @if(session('success'))
@@ -60,22 +60,42 @@
             {{-- TAB: DATOS INICIALES --}}
             <div x-show="tab === 'datos'" class="p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+
+                    {{-- RUC con botón SUNAT --}}
+                    <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">RUC *</label>
-                        <input type="text" name="ruc" value="{{ old('ruc', $empresa->ruc) }}" maxlength="11"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 @error('ruc') border-red-500 @enderror"
-                            placeholder="20XXXXXXXXX">
+                        <div class="flex gap-2">
+                            <input type="text" name="ruc" x-model="ruc" maxlength="11"
+                                class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 @error('ruc') border-red-500 @enderror"
+                                placeholder="20XXXXXXXXX"
+                                @keydown.enter.prevent="consultarRuc()">
+                            <button type="button" @click="consultarRuc()"
+                                :disabled="buscando || ruc.length !== 11"
+                                class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+                                <i class="fas fa-search" x-show="!buscando"></i>
+                                <i class="fas fa-spinner fa-spin" x-show="buscando"></i>
+                                <span x-text="buscando ? 'Consultando...' : 'Buscar en SUNAT'"></span>
+                            </button>
+                        </div>
                         @error('ruc')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+
+                        {{-- Alerta resultado SUNAT --}}
+                        <div x-show="sunatMsg" x-cloak class="mt-2 px-3 py-2 rounded-lg text-sm flex items-center gap-2"
+                            :class="sunatOk ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'">
+                            <i :class="sunatOk ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
+                            <span x-text="sunatMsg"></span>
+                        </div>
                     </div>
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Razón Social *</label>
-                        <input type="text" name="razon_social" value="{{ old('razon_social', $empresa->razon_social) }}" maxlength="200"
+                        <input type="text" name="razon_social" x-model="razon_social" maxlength="200"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 @error('razon_social') border-red-500 @enderror">
                         @error('razon_social')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Comercial</label>
-                        <input type="text" name="nombre_comercial" value="{{ old('nombre_comercial', $empresa->nombre_comercial) }}" maxlength="200"
+                        <input type="text" name="nombre_comercial" x-model="nombre_comercial" maxlength="200"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
@@ -88,27 +108,27 @@
                     </div>
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Dirección Fiscal</label>
-                        <input type="text" name="direccion" value="{{ old('direccion', $empresa->direccion) }}" maxlength="300"
+                        <input type="text" name="direccion" x-model="direccion" maxlength="300"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
-                        <input type="text" name="departamento" value="{{ old('departamento', $empresa->departamento) }}"
+                        <input type="text" name="departamento" x-model="departamento"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                        <input type="text" name="provincia" value="{{ old('provincia', $empresa->provincia) }}"
+                        <input type="text" name="provincia" x-model="provincia"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
-                        <input type="text" name="distrito" value="{{ old('distrito', $empresa->distrito) }}"
+                        <input type="text" name="distrito" x-model="distrito"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ubigeo</label>
-                        <input type="text" name="ubigeo" value="{{ old('ubigeo', $empresa->ubigeo) }}" maxlength="6"
+                        <input type="text" name="ubigeo" x-model="ubigeo" maxlength="6"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
@@ -256,5 +276,67 @@
         </form>
     </div>
 </div>
+
+<script>
+function empresaForm() {
+    return {
+        tab: 'datos',
+        buscando: false,
+        sunatMsg: '',
+        sunatOk: false,
+
+        // Campos reactivos para autocompletar desde SUNAT
+        ruc:             '{{ old('ruc', $empresa->ruc) }}',
+        razon_social:    '{{ old('razon_social', $empresa->razon_social) }}',
+        nombre_comercial:'{{ old('nombre_comercial', $empresa->nombre_comercial) }}',
+        direccion:       '{{ old('direccion', $empresa->direccion) }}',
+        departamento:    '{{ old('departamento', $empresa->departamento) }}',
+        provincia:       '{{ old('provincia', $empresa->provincia) }}',
+        distrito:        '{{ old('distrito', $empresa->distrito) }}',
+        ubigeo:          '{{ old('ubigeo', $empresa->ubigeo) }}',
+
+        async consultarRuc() {
+            if (this.ruc.length !== 11) return;
+            this.buscando = true;
+            this.sunatMsg = '';
+
+            try {
+                const res = await fetch(`/admin/consultar-ruc/${this.ruc}`, {
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                    }
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    this.sunatOk = false;
+                    this.sunatMsg = data.error ?? 'Error al consultar SUNAT.';
+                    return;
+                }
+
+                // Autocompletar campos
+                this.razon_social     = data.razon_social     || this.razon_social;
+                this.nombre_comercial = data.nombre_comercial || this.nombre_comercial;
+                this.direccion        = data.direccion        || this.direccion;
+                this.departamento     = data.departamento     || this.departamento;
+                this.provincia        = data.provincia        || this.provincia;
+                this.distrito         = data.distrito         || this.distrito;
+                this.ubigeo           = data.ubigeo           || this.ubigeo;
+
+                const estado = data.estado ? ` · Estado: ${data.estado}` : '';
+                const condicion = data.condicion ? ` · Condición: ${data.condicion}` : '';
+                this.sunatOk  = true;
+                this.sunatMsg = `Datos cargados correctamente${estado}${condicion}`;
+            } catch (e) {
+                this.sunatOk  = false;
+                this.sunatMsg = 'Error de conexión al consultar SUNAT.';
+            } finally {
+                this.buscando = false;
+            }
+        }
+    }
+}
+</script>
 </body>
 </html>

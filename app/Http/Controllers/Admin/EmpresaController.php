@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 class EmpresaController extends Controller
@@ -12,6 +13,46 @@ class EmpresaController extends Controller
     public function __construct()
     {
         $this->middleware('role:Administrador');
+    }
+
+    /**
+     * Consultar datos de empresa por RUC en apis.net.pe (SUNAT).
+     */
+    public function consultarRuc(string $ruc)
+    {
+        if (!preg_match('/^\d{11}$/', $ruc)) {
+            return response()->json(['error' => 'RUC inválido'], 422);
+        }
+
+        $token = env('APIS_NET_PE_TOKEN', 'apis-token-demo');
+
+        $response = Http::withToken($token)
+            ->timeout(8)
+            ->get('https://api.apis.net.pe/v1/ruc', ['numero' => $ruc]);
+
+        if ($response->failed()) {
+            return response()->json(['error' => 'No se pudo consultar el RUC. Verifica tu token de apis.net.pe.'], 502);
+        }
+
+        $data = $response->json();
+
+        // v1 devuelve 'ubigeo' como string o array
+        $ubigeo = is_array($data['ubigeo'] ?? null)
+            ? ($data['ubigeo'][0] ?? '')
+            : ($data['ubigeo'] ?? '');
+
+        return response()->json([
+            'ruc'              => $data['numeroDocumento'] ?? $ruc,
+            'razon_social'     => $data['nombre'] ?? '',
+            'nombre_comercial' => '',
+            'direccion'        => $data['direccion'] ?? '',
+            'departamento'     => $data['departamento'] ?? '',
+            'provincia'        => $data['provincia'] ?? '',
+            'distrito'         => $data['distrito'] ?? '',
+            'ubigeo'           => $ubigeo,
+            'estado'           => $data['estado'] ?? '',
+            'condicion'        => $data['condicion'] ?? '',
+        ]);
     }
 
     /**

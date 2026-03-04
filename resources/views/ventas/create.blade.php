@@ -121,7 +121,7 @@
                         <template x-if="item.imeis && item.imeis.length">
                             <div class="mb-2 flex flex-wrap gap-1">
                                 <template x-for="imei in item.imeis">
-                                    <span class="bg-purple-900/60 text-purple-300 text-[10px] px-1.5 py-0.5 rounded font-mono" x-text="imei"></span>
+                                    <span class="bg-purple-900/60 text-purple-300 text-[10px] px-1.5 py-0.5 rounded font-mono" x-text="imei.codigo_imei || imei"></span>
                                 </template>
                             </div>
                         </template>
@@ -464,6 +464,46 @@
                 </div>
             </div>
 
+            {{-- Info de pago digital (QR / Transferencia) --}}
+            <div x-show="orden.tipoComprobante !== 'cotizacion' && orden.pagos.some(p => ['yape','plin','transferencia'].includes(p.metodo))" x-cloak>
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Datos de pago</p>
+                <template x-for="(pago, pi) in orden.pagos" :key="'info' + pi">
+                    <div x-show="['yape','plin','transferencia'].includes(pago.metodo) && pagosConfig[pago.metodo]">
+
+                        {{-- Yape / Plin --}}
+                        <div x-show="['yape','plin'].includes(pago.metodo) && pagosConfig[pago.metodo]"
+                             class="bg-slate-700/60 rounded-xl p-3 mb-2 flex items-center gap-4">
+                            <template x-if="pagosConfig[pago.metodo]?.qr_url">
+                                <img :src="pagosConfig[pago.metodo].qr_url" class="w-20 h-20 rounded-lg bg-white p-1 flex-shrink-0" alt="QR">
+                            </template>
+                            <div>
+                                <p class="text-xs font-bold text-white capitalize" x-text="pago.metodo"></p>
+                                <p class="text-xs text-slate-300 mt-0.5" x-text="pagosConfig[pago.metodo]?.titular || ''"></p>
+                                <p class="text-sm font-bold text-green-400 mt-0.5" x-text="pagosConfig[pago.metodo]?.numero || ''"></p>
+                            </div>
+                        </div>
+
+                        {{-- Transferencia --}}
+                        <div x-show="pago.metodo === 'transferencia' && pagosConfig['transferencia']"
+                             class="bg-slate-700/60 rounded-xl p-3 mb-2 text-xs space-y-1">
+                            <p class="font-bold text-white mb-1">Transferencia Bancaria</p>
+                            <template x-if="pagosConfig['transferencia']?.banco">
+                                <p class="text-slate-300">Banco: <span class="text-white font-semibold" x-text="pagosConfig['transferencia'].banco"></span></p>
+                            </template>
+                            <template x-if="pagosConfig['transferencia']?.numero">
+                                <p class="text-slate-300">N° Cuenta: <span class="text-white font-mono font-semibold" x-text="pagosConfig['transferencia'].numero"></span></p>
+                            </template>
+                            <template x-if="pagosConfig['transferencia']?.cci">
+                                <p class="text-slate-300">CCI: <span class="text-white font-mono" x-text="pagosConfig['transferencia'].cci"></span></p>
+                            </template>
+                            <template x-if="pagosConfig['transferencia']?.titular">
+                                <p class="text-slate-300">A nombre de: <span class="text-white font-semibold" x-text="pagosConfig['transferencia'].titular"></span></p>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
         </div>
 
         {{-- Footer --}}
@@ -625,48 +665,112 @@
 <div x-show="mostrarModalIMEI" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
     <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="mostrarModalIMEI = false; imeisTemp = []"></div>
     <div class="relative bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl mx-4">
+
+        {{-- Header --}}
         <div class="p-5 border-b border-slate-700">
-            <h3 class="text-lg font-bold text-white">Ingresar IMEIs</h3>
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i class="fas fa-microchip text-purple-400"></i> Seleccionar IMEI / Serie
+            </h3>
             <p class="text-sm text-slate-400 mt-0.5 truncate"
                x-text="productoActual ? (productoActual.nombre + (varianteActual?.nombre_completo ? ' — ' + varianteActual.nombre_completo : '')) : ''"></p>
         </div>
-        <div class="p-5 space-y-4">
-            <div class="flex gap-2">
-                <input type="text" x-model="imeiActual"
-                       @keydown.enter.prevent="agregarIMEI()"
-                       maxlength="15"
-                       placeholder="15 dígitos numéricos"
-                       class="flex-1 bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-500 font-mono placeholder-slate-500 tracking-widest">
-                <button @click="agregarIMEI()"
-                        class="bg-purple-600 hover:bg-purple-500 text-white px-4 rounded-xl font-semibold text-sm transition-colors">
-                    <i class="fas fa-plus"></i>
-                </button>
+
+        <div class="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+
+            {{-- Cargando --}}
+            <div x-show="cargandoImeis" class="text-center py-8 text-slate-400">
+                <i class="fas fa-spinner fa-spin text-2xl mb-2 block text-purple-400"></i>
+                <p class="text-sm">Buscando IMEIs disponibles…</p>
             </div>
-            <div class="space-y-1.5 max-h-48 overflow-y-auto">
-                <template x-for="(imei, i) in imeisTemp" :key="i">
-                    <div class="flex items-center justify-between bg-slate-700 rounded-lg px-3 py-2.5">
-                        <div class="flex items-center gap-2">
-                            <span class="text-purple-400 text-xs font-bold" x-text="(i+1) + '.'"></span>
-                            <span class="text-sm font-mono text-white tracking-widest" x-text="imei"></span>
+
+            {{-- Lista de IMEIs disponibles --}}
+            <div x-show="!cargandoImeis">
+                <div x-show="imeisDisponibles.length > 0">
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                        Disponibles en almacén
+                        <span class="text-purple-400" x-text="'(' + imeisDisponibles.length + ')'"></span>
+                    </p>
+                    <div class="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                        <template x-for="imei in imeisDisponibles" :key="imei.id">
+                            <button @click="toggleImei(imei)"
+                                :class="isImeiSeleccionado(imei)
+                                    ? 'bg-purple-600/30 border-purple-500 text-white'
+                                    : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-purple-500 hover:bg-slate-600'"
+                                class="w-full flex items-center justify-between border rounded-xl px-4 py-2.5 transition-all text-left">
+                                <div class="flex items-center gap-3">
+                                    <i :class="isImeiSeleccionado(imei) ? 'fa-check-circle text-purple-400' : 'fa-circle text-slate-600'"
+                                       class="fas text-base flex-shrink-0"></i>
+                                    <div>
+                                        <p class="font-mono text-sm font-bold tracking-wider" x-text="imei.codigo_imei"></p>
+                                        <p x-show="imei.color" class="text-xs text-slate-400 mt-0.5" x-text="imei.color"></p>
+                                    </div>
+                                </div>
+                                <span x-show="isImeiSeleccionado(imei)"
+                                      class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-semibold">Selec.</span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                {{-- Sin IMEIs en sistema --}}
+                <div x-show="imeisDisponibles.length === 0" class="bg-amber-900/30 border border-amber-700/50 rounded-xl px-4 py-3 mb-2">
+                    <p class="text-amber-400 text-sm flex items-center gap-2">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Sin IMEIs registrados en este almacén. Ingrésalos manualmente.
+                    </p>
+                </div>
+
+                {{-- Seleccionados manualmente (de imeisTemp que no tienen id) --}}
+                <div x-show="imeisTemp.some(i => !i.id)" class="mt-2">
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Ingresados manualmente</p>
+                    <template x-for="(imei, i) in imeisTemp.filter(i => !i.id)" :key="i">
+                        <div class="flex items-center justify-between bg-slate-700 rounded-lg px-3 py-2 mb-1">
+                            <span class="font-mono text-sm text-white" x-text="imei.codigo_imei"></span>
+                            <button @click="quitarImeiManual(imei.codigo_imei)" class="text-slate-500 hover:text-red-400">
+                                <i class="fas fa-times text-xs"></i>
+                            </button>
                         </div>
-                        <button @click="eliminarIMEI(i)" class="text-slate-500 hover:text-red-400 transition-colors">
-                            <i class="fas fa-trash-alt text-xs"></i>
+                    </template>
+                </div>
+
+                {{-- Ingreso manual (colapsable) --}}
+                <div x-data="{ abierto: false }" class="border-t border-slate-700 pt-3 mt-2">
+                    <button @click="abierto = !abierto"
+                            class="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition-colors">
+                        <i :class="abierto ? 'fa-chevron-down' : 'fa-chevron-right'" class="fas text-[10px]"></i>
+                        Ingresar IMEI manualmente
+                    </button>
+                    <div x-show="abierto" x-cloak class="mt-2 flex gap-2">
+                        <input type="text" x-model="imeiActual"
+                               @keydown.enter.prevent="agregarIMEIManual()"
+                               maxlength="15"
+                               placeholder="15 dígitos"
+                               class="flex-1 bg-slate-700 border border-slate-600 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-500 font-mono placeholder-slate-500">
+                        <button @click="agregarIMEIManual()"
+                                class="bg-purple-600 hover:bg-purple-500 text-white px-3 rounded-xl text-sm transition-colors">
+                            <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                </template>
-                <div x-show="imeisTemp.length === 0" x-cloak class="text-center text-slate-600 text-sm py-6">
-                    <i class="fas fa-microchip text-2xl mb-2 block"></i>Sin IMEIs ingresados
                 </div>
             </div>
-            <div class="flex gap-3">
+
+        </div>
+
+        {{-- Footer --}}
+        <div class="p-4 border-t border-slate-700 flex items-center justify-between gap-3">
+            <p class="text-sm text-slate-400">
+                <span x-show="imeisTemp.length > 0" class="text-purple-400 font-bold" x-text="imeisTemp.length + ' seleccionado(s)'"></span>
+                <span x-show="imeisTemp.length === 0" class="text-slate-500">Sin selección</span>
+            </p>
+            <div class="flex gap-2">
                 <button @click="mostrarModalIMEI = false; imeisTemp = []"
-                        class="flex-1 border border-slate-600 text-slate-300 hover:bg-slate-700 rounded-xl py-2.5 font-semibold text-sm transition-colors">
+                        class="border border-slate-600 text-slate-300 hover:bg-slate-700 rounded-xl py-2 px-4 font-semibold text-sm transition-colors">
                     Cancelar
                 </button>
                 <button @click="confirmarIMEIs()" :disabled="imeisTemp.length === 0"
-                        class="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-xl py-2.5 font-bold text-sm transition-colors">
+                        class="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-xl py-2 px-5 font-bold text-sm transition-colors">
                     <i class="fas fa-check mr-1"></i>
-                    Agregar <span x-text="imeisTemp.length ? '(' + imeisTemp.length + ')' : ''"></span>
+                    Agregar <span x-text="'(' + imeisTemp.length + ')'"></span>
                 </button>
             </div>
         </div>
@@ -708,6 +812,7 @@ function posApp() {
         categoriaActiva: null,
         guardando:       false,
         showPago:        false,
+        pagosConfig:     @json($pagosConfig),
 
         // Órdenes (tabs)
         ordenes:         [crearOrden(1)],
@@ -721,6 +826,8 @@ function posApp() {
         varianteActual:       null,
         imeiActual:           '',
         imeisTemp:            [],
+        imeisDisponibles:     [],
+        cargandoImeis:        false,
 
         // Modal cliente rápido
         showModalCliente:  false,
@@ -827,7 +934,7 @@ function posApp() {
             if (producto.stock_actual === 0 && producto.tipo_inventario !== 'serie') return;
             if (producto.tipo_inventario === 'serie') {
                 this.productoActual = producto;
-                this.mostrarModalIMEI = true;
+                this.abrirModalIMEI();
                 return;
             }
             const existente = this.orden.carrito.find(i => i.producto_id === producto.id && !i.variante_id);
@@ -850,7 +957,7 @@ function posApp() {
             const precioFinal = parseFloat(this.productoActual.precio_venta) + parseFloat(v.sobreprecio || 0);
             const nombreCompleto = this.productoActual.nombre + (v.nombre_completo ? ' — ' + v.nombre_completo : '');
             if (this.productoActual.tipo_inventario === 'serie') {
-                this.mostrarModalIMEI = true;
+                this.abrirModalIMEI();
                 return;
             }
             if (!v.tiene_stock) { alert('Esta variante no tiene stock disponible'); return; }
@@ -953,14 +1060,48 @@ function posApp() {
         },
 
         // ---- Modal IMEI ----
-        async agregarIMEI() {
+        async abrirModalIMEI() {
+            this.imeisTemp = [];
+            this.imeiActual = '';
+            this.imeisDisponibles = [];
+            this.cargandoImeis = true;
+            this.mostrarModalIMEI = true;
+            try {
+                const params = new URLSearchParams({
+                    producto_id: this.productoActual.id,
+                    almacen_id:  this.orden.almacenId,
+                });
+                if (this.varianteActual?.id) params.append('variante_id', this.varianteActual.id);
+                const res = await fetch('{{ route("ventas.imeis-disponibles") }}?' + params.toString());
+                this.imeisDisponibles = await res.json();
+            } catch(e) {
+                console.error('Error al cargar IMEIs', e);
+                this.imeisDisponibles = [];
+            } finally {
+                this.cargandoImeis = false;
+            }
+        },
+        toggleImei(imei) {
+            const idx = this.imeisTemp.findIndex(i => i.id === imei.id);
+            if (idx >= 0) {
+                this.imeisTemp.splice(idx, 1);
+            } else {
+                this.imeisTemp.push({ id: imei.id, codigo_imei: imei.codigo_imei });
+            }
+        },
+        isImeiSeleccionado(imei) {
+            return this.imeisTemp.some(i => i.id === imei.id);
+        },
+        agregarIMEIManual() {
             if (!this.imeiActual) return;
             if (!/^\d{15}$/.test(this.imeiActual)) { alert('El IMEI debe tener exactamente 15 dígitos'); return; }
-            if (this.imeisTemp.includes(this.imeiActual)) { alert('Este IMEI ya fue ingresado'); return; }
-            this.imeisTemp.push(this.imeiActual);
+            if (this.imeisTemp.some(i => i.codigo_imei === this.imeiActual)) { alert('Este IMEI ya fue ingresado'); return; }
+            this.imeisTemp.push({ id: null, codigo_imei: this.imeiActual });
             this.imeiActual = '';
         },
-        eliminarIMEI(i) { this.imeisTemp.splice(i, 1); },
+        quitarImeiManual(codigo_imei) {
+            this.imeisTemp = this.imeisTemp.filter(i => i.codigo_imei !== codigo_imei);
+        },
         confirmarIMEIs() {
             if (!this.imeisTemp.length) return;
             const v = this.varianteActual;
@@ -970,11 +1111,11 @@ function posApp() {
                 producto_id: this.productoActual.id, variante_id: v ? v.id : null,
                 nombre: nombreCompleto, precio_unitario: precioFinal,
                 cantidad: this.imeisTemp.length, stock_disponible: this.imeisTemp.length,
-                tipo_inventario: 'serie', imeis: [...this.imeisTemp]
+                tipo_inventario: 'serie', imeis: this.imeisTemp.map(i => ({ codigo_imei: i.codigo_imei }))
             });
             this.mostrarModalIMEI = false;
             this.productoActual = null; this.varianteActual = null;
-            this.imeiActual = ''; this.imeisTemp = [];
+            this.imeiActual = ''; this.imeisTemp = []; this.imeisDisponibles = [];
         },
 
         // ---- Búsqueda dinámica de cliente ----

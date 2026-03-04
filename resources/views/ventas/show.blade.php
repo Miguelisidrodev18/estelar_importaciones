@@ -44,7 +44,15 @@
                 <h1 class="text-2xl font-bold text-gray-900">Detalle de Venta</h1>
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 flex-wrap">
+                <a href="{{ route('ventas.pdf', [$venta, 'formato' => 'a4']) }}" target="_blank"
+                   class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
+                    <i class="fas fa-file-pdf"></i> PDF A4
+                </a>
+                <a href="{{ route('ventas.pdf', [$venta, 'formato' => 'ticket']) }}" target="_blank"
+                   class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
+                    <i class="fas fa-receipt"></i> Ticket 80mm
+                </a>
                 <button onclick="window.print()"
                         class="inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
                     <i class="fas fa-print"></i> Imprimir

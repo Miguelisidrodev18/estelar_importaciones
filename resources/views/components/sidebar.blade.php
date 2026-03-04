@@ -28,18 +28,27 @@
                 cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }},
                 catalogoOpen: {{ request()->routeIs('catalogo.*') ? 'true' : 'false' }},
                 tiendaOpen: {{ request()->routeIs('tienda.*') ? 'true' : 'false' }},
-                adminOpen: {{ request()->routeIs('admin.empresa.*') || request()->routeIs('admin.sucursales.*') ? 'true' : 'false' }}
+                adminOpen: {{ request()->routeIs('admin.empresa.*') || request()->routeIs('admin.sucursales.*') || request()->routeIs('admin.cajas.*') ? 'true' : 'false' }}
             }">
 
-        <div class="p-6 border-b border-blue-700 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <i class="fas fa-home text-3xl text-blue-300"></i>
-                <div>
-                    <h1 class="text-xl font-bold">CORPORACIÓN</h1>
-                    <p class="text-sm text-blue-300">ADIVON SAC</p>
+        @php $empresa = \App\Models\Empresa::instancia(); @endphp
+        <div class="p-4 border-b border-blue-700 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+                @if($empresa?->logo_url)
+                    <img src="{{ $empresa->logo_url }}" alt="Logo" class="h-10 w-10 object-contain rounded-lg bg-white/10 p-0.5 shrink-0">
+                @else
+                    <i class="fas fa-home text-2xl text-blue-300 shrink-0"></i>
+                @endif
+                <div class="min-w-0">
+                    <h1 class="text-sm font-bold leading-tight truncate">{{ $empresa?->nombre_display ?? 'CORPORACIÓN' }}</h1>
+                    @if($empresa && $empresa->nombre_comercial && $empresa->nombre_comercial !== $empresa->razon_social)
+                        <p class="text-[11px] text-blue-300 truncate">{{ $empresa->razon_social }}</p>
+                    @elseif(!$empresa)
+                        <p class="text-[11px] text-blue-300 truncate">ADIVON SAC</p>
+                    @endif
                 </div>
             </div>
-            <button @click="sidebarOpen = false" class="md:hidden text-blue-300 hover:text-white">
+            <button @click="sidebarOpen = false" class="md:hidden text-blue-300 hover:text-white shrink-0">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -258,7 +267,7 @@
                     {{-- Administración --}}
                     <li>
                         <button @click="adminOpen = !adminOpen"
-                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.empresa.*') || request()->routeIs('admin.sucursales.*') ? 'bg-blue-700' : '' }}">
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.empresa.*') || request()->routeIs('admin.sucursales.*') || request()->routeIs('admin.cajas.*') ? 'bg-blue-700' : '' }}">
                             <span class="flex items-center">
                                 <i class="fas fa-cogs mr-3"></i>Administración
                             </span>
@@ -275,6 +284,19 @@
                                 <a href="{{ route('admin.sucursales.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.sucursales.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-store mr-3 text-sm"></i>Sucursales
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.cajas.dashboard') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.cajas.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-cash-register mr-3 text-sm"></i>
+                                    <span>Supervisión Cajas</span>
+                                    @php $_alertasCaja = app(\App\Http\Controllers\Admin\AdminCajaController::class)->contarAlertas(); @endphp
+                                    @if($_alertasCaja > 0)
+                                        <span class="ml-auto bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold shrink-0">
+                                            {{ $_alertasCaja > 9 ? '9+' : $_alertasCaja }}
+                                        </span>
+                                    @endif
                                 </a>
                             </li>
                         </ul>

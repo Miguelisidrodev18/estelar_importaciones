@@ -1,0 +1,328 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Caja;
+use App\Models\MovimientoCaja;
+use App\Models\Sucursal;
+use App\Models\User;
+use App\Services\CajaService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class AdminCajaController extends Controller
+{
+    public function __construct(protected CajaService $cajaService) {}
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HU-ADMIN-CAJA-01: Dashboard Ejecutivo en Tiempo Real
+    // ─────────────────────────────────────────────────────────────────────────
+    public function dashboard()
+    {
+        $hoy = now()->toDateString();
+
+        // Cajas abiertas ahora
+        $cajasAbiertas = Caja::abiertas()->with(['usuario', 'sucursal'])->get();
+
+        // Cajas cerradas hoy
+        $cajasCerradasHoy = Caja::cerradas()->whereDate('fecha', $hoy)->count();
+
+        // Total ventas hoy
+        $totalVentasHoy = MovimientoCaja::whereHas('caja', fn($q) => $q->whereDate('fecha', $hoy))
+            ->where('tipo', 'ingreso')->whereNotNull('venta_id')
+            ->sum('monto');
+
+        // Total efectivo hoy
+        $totalEfectivoHoy = MovimientoCaja::whereHas('caja', fn($q) => $q->whereDate('fecha', $hoy))
+            ->where('tipo', 'ingreso')->whereNotNull('venta_id')
+            ->where('metodo_pago', 'efectivo')->sum('monto');
+
+        // Diferencias acumuladas del mes
+        $diferenciasMes = Caja::cerradas()
+            ->whereYear('fecha', now()->year)->whereMonth('fecha', now()->month)
+            ->sum('diferencia_cierre');
+
+        // Estado por sucursal
+        $sucursales = Sucursal::where('estado', true)->with('almacen')->get();
+        $estadoSucursales = $sucursales->map(function ($suc) use ($cajasAbiertas) {
+            $cajaAbierta  = $cajasAbiertas->where('sucursal_id', $suc->id)->first();
+            $ultimaCaja   = Caja::where('sucursal_id', $suc->id)->latest('fecha_apertura')->first();
+            $horasAbierta = $cajaAbierta ? now()->diffInHours($cajaAbierta->fecha_apertura) : null;
+            $alerta       = $cajaAbierta && $horasAbierta > 12;
+
+            return [
+                'sucursal'      => $suc,
+                'caja_abierta'  => $cajaAbierta,
+                'ultima_caja'   => $ultimaCaja,
+                'horas_abierta' => $horasAbierta,
+                'alerta'        => $alerta,
+                'estado_label'  => $cajaAbierta ? ($alerta ? 'warning' : 'open') : 'closed',
+            ];
+        });
+
+        // Top 5 vendedores del día
+        $topVendedores = DB::table('movimientos_caja as m')
+            ->join('caja as c', 'c.id', '=', 'm.caja_id')
+            ->join('users as u', 'u.id', '=', 'c.user_id')
+            ->whereDate('c.fecha', $hoy)
+            ->where('m.tipo', 'ingreso')->whereNotNull('m.venta_id')
+            ->groupBy('c.user_id', 'u.name')
+            ->select('u.name', DB::raw('SUM(m.monto) as total'), DB::raw('COUNT(m.id) as ventas'))
+            ->orderByDesc('total')->limit(5)->get();
+
+        // Breakdown por método de pago
+        $metodoPago = DB::table('movimientos_caja as m')
+            ->join('caja as c', 'c.id', '=', 'm.caja_id')
+            ->whereDate('c.fecha', $hoy)
+            ->where('m.tipo', 'ingreso')->whereNotNull('m.venta_id')
+            ->groupBy('m.metodo_pago')
+            ->select('m.metodo_pago', DB::raw('SUM(m.monto) as total'))
+            ->get()->keyBy('metodo_pago');
+
+        $alertasCount = $this->contarAlertas();
+
+        return view('admin.cajas.dashboard', compact(
+            'cajasAbiertas', 'cajasCerradasHoy', 'totalVentasHoy', 'totalEfectivoHoy',
+            'diferenciasMes', 'estadoSucursales', 'topVendedores', 'metodoPago', 'alertasCount'
+        ));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HU-ADMIN-CAJA-02: Listado con filtros avanzados y exportación
+    // ─────────────────────────────────────────────────────────────────────────
+    public function index(Request $request)
+    {
+        $query = Caja::with(['usuario', 'sucursal', 'almacen']);
+
+        if ($request->filled('sucursal_id')) $query->where('sucursal_id', $request->sucursal_id);
+        if ($request->filled('estado'))      $query->where('estado', $request->estado);
+        if ($request->filled('user_id'))     $query->where('user_id', $request->user_id);
+        if ($request->filled('fecha_desde')) $query->whereDate('fecha', '>=', $request->fecha_desde);
+        if ($request->filled('fecha_hasta')) $query->whereDate('fecha', '<=', $request->fecha_hasta);
+
+        // Export CSV
+        if ($request->filled('export') && $request->export === 'csv') {
+            return $this->exportarCsv($query->orderByDesc('fecha_apertura')->get());
+        }
+        // Export PDF
+        if ($request->filled('export') && $request->export === 'pdf') {
+            $cajas = $query->orderByDesc('fecha_apertura')->get();
+            $pdf = Pdf::loadView('admin.cajas.export-pdf', compact('cajas'))->setPaper('a4', 'landscape');
+            return $pdf->download('cajas_' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        $cajas     = $query->orderByDesc('fecha_apertura')->paginate(25)->withQueryString();
+        $sucursales = Sucursal::where('estado', true)->get();
+        $usuarios  = User::orderBy('name')->get();
+        $alertasCount = $this->contarAlertas();
+
+        return view('admin.cajas.index', compact('cajas', 'sucursales', 'usuarios', 'alertasCount'));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HU-ADMIN-CAJA-03: Detalle con panel de supervisión
+    // ─────────────────────────────────────────────────────────────────────────
+    public function show(Caja $caja)
+    {
+        $caja->load(['usuario', 'sucursal', 'almacen', 'movimientos.usuario', 'movimientos.venta']);
+        $arqueo = $this->cajaService->getArqueo($caja);
+        $alertasCount = $this->contarAlertas();
+
+        return view('admin.cajas.show', compact('caja', 'arqueo', 'alertasCount'));
+    }
+
+    public function forzarCierre(Request $request, Caja $caja)
+    {
+        $request->validate(['observaciones' => 'required|string|min:10']);
+
+        if ($caja->estado !== 'abierta') {
+            return back()->with('error', 'Esta caja ya está cerrada.');
+        }
+
+        // Auditoría del cierre forzado
+        MovimientoCaja::create([
+            'caja_id'       => $caja->id,
+            'user_id'       => auth()->id(),
+            'tipo'          => 'egreso',
+            'monto'         => 0.00,
+            'concepto'      => 'CIERRE FORZADO POR ADMINISTRADOR',
+            'observaciones' => $request->observaciones,
+            'metodo_pago'   => 'efectivo',
+        ]);
+
+        $caja->update([
+            'estado'               => 'cerrada',
+            'fecha_cierre'         => now(),
+            'monto_real_cierre'    => $caja->monto_final,
+            'diferencia_cierre'    => 0,
+            'observaciones_cierre' => '[FORZADO por ' . auth()->user()->name . '] ' . $request->observaciones,
+        ]);
+
+        return redirect()->route('admin.cajas.show', $caja)->with('success', 'Caja cerrada forzosamente.');
+    }
+
+    public function ajustarDiferencia(Request $request, Caja $caja)
+    {
+        $request->validate([
+            'monto_ajuste'  => 'required|numeric|not_in:0',
+            'motivo_ajuste' => 'required|string|min:5',
+        ]);
+
+        $monto = abs((float) $request->monto_ajuste);
+        $tipo  = (float) $request->monto_ajuste >= 0 ? 'ingreso' : 'egreso';
+
+        MovimientoCaja::create([
+            'caja_id'       => $caja->id,
+            'user_id'       => auth()->id(),
+            'tipo'          => $tipo,
+            'monto'         => $monto,
+            'concepto'      => 'AJUSTE ADMINISTRATIVO: ' . $request->motivo_ajuste,
+            'metodo_pago'   => 'efectivo',
+        ]);
+
+        if ($caja->estado === 'cerrada') {
+            $caja->update(['diferencia_cierre' => ($caja->diferencia_cierre ?? 0) + (float) $request->monto_ajuste]);
+        }
+
+        return back()->with('success', 'Ajuste de S/ ' . number_format($monto, 2) . ' registrado.');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HU-ADMIN-CAJA-04: Apertura remota
+    // ─────────────────────────────────────────────────────────────────────────
+    public function aperturaRemota()
+    {
+        $sucursales   = Sucursal::where('estado', true)->with('almacen')->get();
+        $usuarios     = User::whereNotNull('almacen_id')->orderBy('name')->get();
+        $alertasCount = $this->contarAlertas();
+
+        return view('admin.cajas.apertura-remota', compact('sucursales', 'usuarios', 'alertasCount'));
+    }
+
+    public function storeAperturaRemota(Request $request)
+    {
+        $request->validate([
+            'sucursal_id'   => 'required|exists:sucursales,id',
+            'user_id'       => 'required|exists:users,id',
+            'monto_inicial' => 'required|numeric|min:0',
+            'observaciones' => 'nullable|string',
+        ]);
+
+        $sucursal = Sucursal::findOrFail($request->sucursal_id);
+
+        $yaAbierta = Caja::where('user_id', $request->user_id)->where('estado', 'abierta')->exists();
+        if ($yaAbierta) {
+            return back()->withInput()->with('error', 'Este usuario ya tiene una caja abierta.');
+        }
+
+        $obs = '[APERTURA REMOTA por ' . auth()->user()->name . ']';
+        if ($request->filled('observaciones')) $obs .= ' ' . $request->observaciones;
+
+        $caja = Caja::create([
+            'user_id'                => $request->user_id,
+            'almacen_id'             => $sucursal->almacen_id,
+            'sucursal_id'            => $sucursal->id,
+            'fecha'                  => now()->toDateString(),
+            'fecha_apertura'         => now(),
+            'monto_inicial'          => $request->monto_inicial,
+            'monto_final'            => $request->monto_inicial,
+            'estado'                 => 'abierta',
+            'observaciones_apertura' => $obs,
+        ]);
+
+        return redirect()->route('admin.cajas.show', $caja)
+            ->with('success', 'Caja abierta remotamente en ' . $sucursal->nombre . '.');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HU-ADMIN-CAJA-05: Alertas y notificaciones
+    // ─────────────────────────────────────────────────────────────────────────
+    public function alertas()
+    {
+        $ayer = now()->subDay()->toDateString();
+
+        $cajasLargas = Caja::abiertas()
+            ->where('fecha_apertura', '<', now()->subHours(12))
+            ->with(['usuario', 'sucursal'])->get()
+            ->map(fn($c) => [
+                'tipo'    => 'caja_larga',
+                'mensaje' => 'Lleva ' . now()->diffInHours($c->fecha_apertura) . 'h abierta — ' . ($c->usuario->name ?? '?') . ' · ' . ($c->sucursal?->nombre ?? 'Sin sucursal'),
+                'caja'    => $c,
+                'nivel'   => 'warning',
+            ]);
+
+        $diferencias = Caja::cerradas()
+            ->whereRaw('ABS(diferencia_cierre) > 100')
+            ->whereDate('fecha', '>=', now()->subDays(7))
+            ->with(['usuario', 'sucursal'])->get()
+            ->map(fn($c) => [
+                'tipo'    => 'diferencia',
+                'mensaje' => 'Diferencia S/ ' . number_format(abs($c->diferencia_cierre), 2) . ' — ' . ($c->usuario->name ?? '?') . ' · ' . ($c->sucursal?->nombre ?? 'Sin sucursal'),
+                'caja'    => $c,
+                'nivel'   => 'danger',
+            ]);
+
+        $sinCerrar = Caja::abiertas()
+            ->whereDate('fecha', '<', now()->toDateString())
+            ->with(['usuario', 'sucursal'])->get()
+            ->map(fn($c) => [
+                'tipo'    => 'sin_cerrar',
+                'mensaje' => 'Caja del ' . $c->fecha->format('d/m/Y') . ' sin cerrar — ' . ($c->usuario->name ?? '?') . ' · ' . ($c->sucursal?->nombre ?? 'Sin sucursal'),
+                'caja'    => $c,
+                'nivel'   => 'danger',
+            ]);
+
+        $alertas      = collect()->merge($sinCerrar)->merge($cajasLargas)->merge($diferencias);
+        $alertasCount = $alertas->count();
+
+        return view('admin.cajas.alertas', compact('alertas', 'alertasCount'));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers privados
+    // ─────────────────────────────────────────────────────────────────────────
+    private function exportarCsv($cajas)
+    {
+        $filename = 'cajas_' . now()->format('Y-m-d_Hi') . '.csv';
+        $headers  = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($cajas) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF"); // BOM UTF-8
+            fputcsv($handle, ['ID', 'Cajero', 'Sucursal', 'Fecha', 'Apertura', 'Cierre', 'M.Inicial', 'T.Ventas', 'T.Ingresos', 'T.Egresos', 'M.Final', 'Diferencia', 'Estado']);
+            foreach ($cajas as $c) {
+                fputcsv($handle, [
+                    $c->id,
+                    $c->usuario?->name ?? '',
+                    $c->sucursal?->nombre ?? '',
+                    $c->fecha,
+                    $c->fecha_apertura,
+                    $c->fecha_cierre ?? '',
+                    $c->monto_inicial,
+                    $c->total_ventas,
+                    $c->total_ingresos,
+                    $c->total_egresos,
+                    $c->monto_final,
+                    $c->diferencia_cierre ?? '',
+                    $c->estado,
+                ]);
+            }
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function contarAlertas(): int
+    {
+        $largas    = Caja::abiertas()->where('fecha_apertura', '<', now()->subHours(12))->count();
+        $difs      = Caja::cerradas()->whereRaw('ABS(diferencia_cierre) > 100')->whereDate('fecha', '>=', now()->subDays(7))->count();
+        $sinCerrar = Caja::abiertas()->whereDate('fecha', '<', now()->toDateString())->count();
+        return $largas + $difs + $sinCerrar;
+    }
+}

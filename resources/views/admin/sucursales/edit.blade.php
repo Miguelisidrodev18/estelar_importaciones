@@ -149,9 +149,19 @@
 
         {{-- ─── TAB: SERIES ──────────────────────────────────────────────────── --}}
         <div x-show="tab === 'series'" x-cloak class="p-6">
-            <h3 class="font-semibold text-gray-800 flex items-center gap-2 mb-5">
-                <i class="fas fa-list-ol text-blue-600"></i> Series de Comprobantes
-            </h3>
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-list-ol text-blue-600"></i> Series de Comprobantes
+                </h3>
+                <form action="{{ route('admin.sucursales.generar-series', $sucursal) }}" method="POST">
+                    @csrf
+                    <button type="submit"
+                        onclick="return confirm('¿Generar las series estándar faltantes (FA, BA, FC, FD, T, CO)?')"
+                        class="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-2 rounded-lg transition-colors border border-indigo-200">
+                        <i class="fas fa-magic"></i> Generar series estándar
+                    </button>
+                </form>
+            </div>
 
             @if($sucursal->series->isEmpty())
                 <div class="text-center py-12 text-gray-400">

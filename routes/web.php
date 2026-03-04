@@ -16,6 +16,7 @@ use App\Http\Controllers\DashboardController;
 // ===================== ADMIN =====================
 use App\Http\Controllers\Admin\EmpresaController;
 use App\Http\Controllers\Admin\SucursalController;
+use App\Http\Controllers\Admin\AdminCajaController;
 
 // ===================== INVENTARIO =====================
 use App\Http\Controllers\CategoriaController;
@@ -327,6 +328,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', [VentaController::class, 'create'])->name('create');
         Route::post('/', [VentaController::class, 'store'])->name('store');
         Route::get('/{venta}', [VentaController::class, 'show'])->name('show');
+        Route::get('/{venta}/pdf', [VentaController::class, 'pdf'])->name('pdf');
         Route::post('/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->middleware('role:Administrador,Tienda')->name('confirmar-pago');
         Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
     });
@@ -402,6 +404,7 @@ Route::middleware('auth')->group(function () {
         // Empresa (singleton)
         Route::get('/empresa', [EmpresaController::class, 'edit'])->name('empresa.edit');
         Route::put('/empresa', [EmpresaController::class, 'update'])->name('empresa.update');
+        Route::get('/consultar-ruc/{ruc}', [EmpresaController::class, 'consultarRuc'])->name('empresa.consultar-ruc');
 
         // Sucursales
         Route::get('/sucursales', [SucursalController::class, 'index'])->name('sucursales.index');
@@ -411,6 +414,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/sucursales/{sucursal}', [SucursalController::class, 'update'])->name('sucursales.update');
         Route::delete('/sucursales/{sucursal}', [SucursalController::class, 'destroy'])->name('sucursales.destroy');
         Route::get('/sucursales/{sucursal}/comprobantes', [SucursalController::class, 'comprobantes'])->name('sucursales.comprobantes');
+        Route::post('/sucursales/{sucursal}/generar-series', [SucursalController::class, 'generarSeries'])->name('sucursales.generar-series');
 
         // Series de comprobantes de una sucursal
         Route::put('/sucursales/{sucursal}/series/{serie}', [SucursalController::class, 'updateSerie'])->name('sucursales.series.update');
@@ -418,6 +422,16 @@ Route::middleware('auth')->group(function () {
 
         // Pagos digitales de una sucursal
         Route::put('/sucursales/{sucursal}/pagos', [SucursalController::class, 'updatePagos'])->name('sucursales.pagos.update');
+
+        // ── Admin Caja (Supervisión) ──────────────────────────────────────────
+        Route::get('/cajas/dashboard', [AdminCajaController::class, 'dashboard'])->name('cajas.dashboard');
+        Route::get('/cajas/alertas', [AdminCajaController::class, 'alertas'])->name('cajas.alertas');
+        Route::get('/cajas/apertura-remota', [AdminCajaController::class, 'aperturaRemota'])->name('cajas.apertura-remota');
+        Route::post('/cajas/apertura-remota', [AdminCajaController::class, 'storeAperturaRemota'])->name('cajas.apertura-remota.store');
+        Route::get('/cajas', [AdminCajaController::class, 'index'])->name('cajas.index');
+        Route::get('/cajas/{caja}', [AdminCajaController::class, 'show'])->name('cajas.show');
+        Route::post('/cajas/{caja}/forzar-cierre', [AdminCajaController::class, 'forzarCierre'])->name('cajas.forzar-cierre');
+        Route::post('/cajas/{caja}/ajustar-diferencia', [AdminCajaController::class, 'ajustarDiferencia'])->name('cajas.ajustar-diferencia');
     });
 
     // ========================================

@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Venta;
 use App\Models\Cliente;
+use App\Models\Empresa;
 use App\Models\Producto;
 use App\Models\ProductoVariante;
 use App\Models\Almacen;
 use App\Models\Categoria;
 use App\Models\Imei;
+use App\Models\Sucursal;
 use App\Services\VentaService;
 use App\Services\VarianteService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class VentaController extends Controller
@@ -92,8 +95,21 @@ class VentaController extends Controller
                 ];
             });
 
+        // Pagos digitales configurados para la sucursal del usuario
+        $sucursal = Sucursal::where('almacen_id', $almacenPredeterminado)->first();
+        $pagosConfig = $sucursal
+            ? $sucursal->pagos()->where('activo', true)->get()
+                ->mapWithKeys(fn($p) => [$p->tipo_pago => [
+                    'titular' => $p->titular,
+                    'numero'  => $p->numero,
+                    'banco'   => $p->banco,
+                    'cci'     => $p->cci,
+                    'qr_url'  => $p->qr_imagen_path ? asset('storage/' . $p->qr_imagen_path) : null,
+                ]])
+            : collect();
+
         return view('ventas.create', compact(
-            'clientes', 'productos', 'almacenes', 'categorias', 'almacenPredeterminado'
+            'clientes', 'productos', 'almacenes', 'categorias', 'almacenPredeterminado', 'pagosConfig'
         ));
     }
 
@@ -164,9 +180,40 @@ class VentaController extends Controller
 
     public function show(Venta $venta)
     {
-        $venta->load('vendedor', 'confirmador', 'cliente', 'almacen', 'detalles.producto.categoria', 'detalles.variante.color', 'detalles.imei');
+        $venta->load('vendedor', 'confirmador', 'cliente', 'almacen', 'sucursal', 'serieComprobante',
+            'detalles.producto.categoria', 'detalles.variante.color', 'detalles.imei');
 
         return view('ventas.show', compact('venta'));
+    }
+
+    public function pdf(Request $request, Venta $venta)
+    {
+        $formato = $request->get('formato', 'a4'); // a4 | ticket
+
+        $venta->load('vendedor', 'cliente', 'almacen', 'sucursal', 'serieComprobante',
+            'detalles.producto', 'detalles.variante.color', 'detalles.imei');
+
+        $empresa  = Empresa::first() ?? new Empresa(['razon_social' => config('app.name'), 'ruc' => '']);
+        $sucursal = $venta->sucursal ?? Sucursal::where('almacen_id', $venta->almacen_id)->first();
+        $pagos    = $sucursal
+            ? $sucursal->pagos()->where('activo', true)->get()->keyBy('tipo_pago')
+            : collect();
+
+        $view = $formato === 'ticket' ? 'pdf.factura-ticket' : 'pdf.factura-a4';
+
+        $pdf = Pdf::loadView($view, compact('venta', 'empresa', 'sucursal', 'pagos'));
+
+        if ($formato === 'ticket') {
+            // 80mm = 226.77pt ancho, altura dinámica amplia
+            $pdf->setPaper([0, 0, 226.77, 841.89], 'portrait');
+        } else {
+            $pdf->setPaper('A4', 'portrait');
+        }
+
+        $pdf->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => true, 'defaultFont' => 'sans-serif']);
+
+        $filename = 'comprobante-' . ($venta->numero_documento ?? $venta->codigo) . '.pdf';
+        return $pdf->stream($filename);
     }
 
     public function confirmarPago(Request $request, Venta $venta)
@@ -193,12 +240,14 @@ class VentaController extends Controller
     public function imeisDisponibles(Request $request)
     {
         $productoId = $request->input('producto_id');
-        $almacenId = $request->input('almacen_id');
+        $almacenId  = $request->input('almacen_id');
+        $varianteId = $request->input('variante_id');
 
         $imeis = Imei::where('producto_id', $productoId)
             ->where('almacen_id', $almacenId)
-            ->where('estado', 'disponible')
-            ->get(['id', 'codigo_imei', 'serie', 'color']);
+            ->where('estado_imei', 'en_stock')
+            ->when($varianteId, fn($q) => $q->where('variante_id', $varianteId))
+            ->get(['id', 'codigo_imei', 'color']);
 
         return response()->json($imeis);
     }

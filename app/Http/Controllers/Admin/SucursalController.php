@@ -194,6 +194,18 @@ class SucursalController extends Controller
             ->with('success', 'Configuración de pagos guardada.');
     }
 
+    // ── HU-03: Generar series estándar faltantes ───────────────────────────────
+
+    public function generarSeries(Sucursal $sucursal)
+    {
+        $numSucursal = (int) substr($sucursal->codigo, 1);
+        $this->sucursalService->generarSeriesEstandar($sucursal, $numSucursal);
+
+        return redirect()->route('admin.sucursales.edit', $sucursal)
+            ->with('success', 'Series estándar generadas (se omitieron las que ya existían).')
+            ->with('_tab', 'series');
+    }
+
     // ── HU-05: Comprobantes emitidos ───────────────────────────────────────────
 
     public function comprobantes(Sucursal $sucursal)
