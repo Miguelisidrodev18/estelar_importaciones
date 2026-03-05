@@ -10,6 +10,7 @@ use App\Models\ProductoVariante;
 use App\Models\Almacen;
 use App\Models\Categoria;
 use App\Models\Imei;
+use App\Models\StockAlmacen;
 use App\Models\Sucursal;
 use App\Services\VentaService;
 use App\Services\VarianteService;
@@ -66,34 +67,56 @@ class VentaController extends Controller
         $productos = Producto::where('estado', 'activo')
             ->with(['categoria', 'variantesActivas.color'])
             ->orderBy('nombre')
+            ->get();
+
+        // Stock por almacén para productos de cantidad
+        $stockPorAlmacen = StockAlmacen::whereIn('producto_id', $productos->pluck('id'))
             ->get()
-            ->map(function($p) {
-                $variantes = $p->variantesActivas->map(fn($v) => [
-                    'id'              => $v->id,
-                    'sku'             => $v->sku,
-                    'color_id'        => $v->color_id,
-                    'color_nombre'    => $v->color?->nombre,
-                    'color_hex'       => $v->color?->codigo_hex,
-                    'capacidad'       => $v->capacidad,
-                    'sobreprecio'     => (float)$v->sobreprecio,
-                    'stock_actual'    => (int)$v->stock_actual,
-                    'nombre_completo' => $v->nombre_completo,
-                    'tiene_stock'     => $v->tieneStock(),
-                ]);
-                return [
-                    'id'              => $p->id,
-                    'nombre'          => $p->nombre,
-                    'codigo'          => $p->codigo,
-                    'codigo_barras'   => $p->codigo_barras ?? null,
-                    'categoria_id'    => $p->categoria_id,
-                    'tipo_inventario' => $p->tipo_inventario,
-                    'stock_actual'    => (int) $p->stock_actual,
-                    'precio_venta'    => (float) $p->precio_venta,
-                    'imagen'          => $p->imagen_url ?? null,
-                    'tiene_variantes' => $variantes->isNotEmpty(),
-                    'variantes'       => $variantes,
-                ];
-            });
+            ->groupBy('producto_id')
+            ->map(fn($rows) => $rows->pluck('cantidad', 'almacen_id'));
+
+        // Stock por almacén para productos de serie (contar IMEIs en_stock)
+        $imeisPorAlmacen = Imei::whereIn('producto_id', $productos->pluck('id'))
+            ->where('estado_imei', 'en_stock')
+            ->selectRaw('producto_id, almacen_id, COUNT(*) as total')
+            ->groupBy('producto_id', 'almacen_id')
+            ->get()
+            ->groupBy('producto_id')
+            ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
+
+        $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen) {
+            $variantes = $p->variantesActivas->map(fn($v) => [
+                'id'              => $v->id,
+                'sku'             => $v->sku,
+                'color_id'        => $v->color_id,
+                'color_nombre'    => $v->color?->nombre,
+                'color_hex'       => $v->color?->codigo_hex,
+                'capacidad'       => $v->capacidad,
+                'sobreprecio'     => (float)$v->sobreprecio,
+                'stock_actual'    => (int)$v->stock_actual,
+                'nombre_completo' => $v->nombre_completo,
+                'tiene_stock'     => $v->tieneStock(),
+            ]);
+
+            $stockMap = $p->tipo_inventario === 'serie'
+                ? ($imeisPorAlmacen[$p->id] ?? collect())->toArray()
+                : ($stockPorAlmacen[$p->id] ?? collect())->toArray();
+
+            return [
+                'id'               => $p->id,
+                'nombre'           => $p->nombre,
+                'codigo'           => $p->codigo,
+                'codigo_barras'    => $p->codigo_barras ?? null,
+                'categoria_id'     => $p->categoria_id,
+                'tipo_inventario'  => $p->tipo_inventario,
+                'stock_actual'     => (int) $p->stock_actual,
+                'stock_por_almacen'=> $stockMap,  // {almacen_id: qty}
+                'precio_venta'     => (float) $p->precio_venta,
+                'imagen'           => $p->imagen_url ?? null,
+                'tiene_variantes'  => $variantes->isNotEmpty(),
+                'variantes'        => $variantes,
+            ];
+        });
 
         // Pagos digitales configurados para la sucursal del usuario
         $sucursal = Sucursal::where('almacen_id', $almacenPredeterminado)->first();
@@ -127,12 +150,13 @@ class VentaController extends Controller
             'pagos_detalle'            => 'nullable|array',
             'pagos_detalle.*.metodo'   => 'required_with:pagos_detalle|in:efectivo,transferencia,yape,plin',
             'pagos_detalle.*.monto'    => 'required_with:pagos_detalle|numeric|min:0.01',
-            'detalles'                 => 'required|array|min:1',
-            'detalles.*.producto_id'   => 'required|exists:productos,id',
-            'detalles.*.variante_id'   => 'nullable|exists:producto_variantes,id',
-            'detalles.*.cantidad'      => 'required|integer|min:1',
-            'detalles.*.precio_unitario' => 'required|numeric|min:0.01',
-            'detalles.*.imei_id'       => 'nullable|exists:imeis,id',
+            'detalles'                       => 'required|array|min:1',
+            'detalles.*.producto_id'         => 'required|exists:productos,id',
+            'detalles.*.variante_id'         => 'nullable|exists:producto_variantes,id',
+            'detalles.*.cantidad'            => 'required|integer|min:1',
+            'detalles.*.precio_unitario'     => 'required|numeric|min:0.01',
+            'detalles.*.imeis'               => 'nullable|array',
+            'detalles.*.imeis.*.codigo_imei' => 'nullable|string',
         ], [
             'detalles.required' => 'Debe agregar al menos un producto',
         ]);
@@ -246,8 +270,11 @@ class VentaController extends Controller
         $imeis = Imei::where('producto_id', $productoId)
             ->where('almacen_id', $almacenId)
             ->where('estado_imei', 'en_stock')
-            ->when($varianteId, fn($q) => $q->where('variante_id', $varianteId))
-            ->get(['id', 'codigo_imei', 'color']);
+            ->when($varianteId, fn($q) => $q->where(function ($inner) use ($varianteId) {
+                // Mostrar IMEIs de la variante seleccionada O sin variante asignada (compatibilidad)
+                $inner->where('variante_id', $varianteId)->orWhereNull('variante_id');
+            }))
+            ->get(['id', 'codigo_imei', 'color_id']);
 
         return response()->json($imeis);
     }

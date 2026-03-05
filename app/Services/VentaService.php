@@ -50,12 +50,13 @@ class VentaService
 
                 // Crear detalle de venta
                 $detalleVenta = DetalleVenta::create([
-                    'venta_id' => $venta->id,
-                    'producto_id' => $detalle['producto_id'],
-                    'cantidad' => $detalle['cantidad'],
+                    'venta_id'        => $venta->id,
+                    'producto_id'     => $detalle['producto_id'],
+                    'variante_id'     => $detalle['variante_id'] ?? null,
+                    'cantidad'        => $detalle['cantidad'],
                     'precio_unitario' => $precioUnitario,
-                    'subtotal' => $subtotalDetalle,
-                    'precio_id' => $precioInfo['id_precio'] ?? null
+                    'subtotal'        => $subtotalDetalle,
+                    'precio_id'       => $precioInfo['id_precio'] ?? null,
                 ]);
 
                 // Si es producto con IMEI, marcar los IMEIs como vendidos
@@ -109,6 +110,12 @@ class VentaService
     private function validarStockDisponible(array $detalles, int $almacenId)
     {
         foreach ($detalles as $detalle) {
+            // Productos serie/IMEI: el stock se controla por unidad individual
+            if (!empty($detalle['imeis'])) {
+                $this->validarImeisDisponibles($detalle['imeis'], $almacenId);
+                continue;
+            }
+
             $stock = StockAlmacen::where('producto_id', $detalle['producto_id'])
                 ->where('almacen_id', $almacenId)
                 ->first();
@@ -116,11 +123,6 @@ class VentaService
             if (!$stock || $stock->cantidad < $detalle['cantidad']) {
                 $producto = \App\Models\Producto::find($detalle['producto_id']);
                 throw new \Exception("Stock insuficiente para {$producto->nombre}. Disponible: " . ($stock->cantidad ?? 0));
-            }
-
-            // Validar IMEIs si es producto serie
-            if (!empty($detalle['imeis'])) {
-                $this->validarImeisDisponibles($detalle['imeis'], $almacenId);
             }
         }
     }
@@ -153,9 +155,8 @@ class VentaService
             Imei::where('codigo_imei', $imeiData['codigo_imei'])
                 ->update([
                     'estado_imei' => 'vendido',
-                    'fecha_venta' => now(),
-                    'venta_id' => $ventaId,
-                    'detalle_venta_id' => $detalleVentaId
+                    'fecha_venta'  => now(),
+                    'venta_id'     => $ventaId,
                 ]);
         }
     }
@@ -165,33 +166,53 @@ class VentaService
      */
     private function descontarStock(int $productoId, int $almacenId, int $cantidad, array $imeis = [])
     {
-        $stock = StockAlmacen::where('producto_id', $productoId)
-            ->where('almacen_id', $almacenId)
-            ->first();
+        $producto      = \App\Models\Producto::find($productoId);
+        $stockAnterior = 0;
+        $stockNuevo    = 0;
 
-        if ($stock) {
-            $stockAnterior = $stock->cantidad;
-            $stock->decrement('cantidad', $cantidad);
+        if (!empty($imeis)) {
+            // Producto serie/IMEI: el stock se controla por IMEI individual.
+            // Los IMEIs ya fueron marcados como 'vendido' antes de llegar aquí.
+            $stockNuevo    = Imei::where('producto_id', $productoId)
+                                 ->where('almacen_id', $almacenId)
+                                 ->where('estado_imei', 'en_stock')
+                                 ->count();
+            $stockAnterior = $stockNuevo + $cantidad;
 
-            // Actualizar stock global del producto
-            $producto = \App\Models\Producto::find($productoId);
-            $totalStock = StockAlmacen::where('producto_id', $productoId)->sum('cantidad');
+            // Actualizar stock_actual global del producto
+            $totalStock = Imei::where('producto_id', $productoId)
+                               ->where('estado_imei', 'en_stock')
+                               ->count();
             $producto->update(['stock_actual' => $totalStock]);
+        } else {
+            // Producto por cantidad: usar StockAlmacen
+            $stock = StockAlmacen::where('producto_id', $productoId)
+                ->where('almacen_id', $almacenId)
+                ->first();
 
-            // Registrar movimiento de inventario
-            MovimientoInventario::create([
-                'producto_id' => $productoId,
-                'almacen_id' => $almacenId,
-                'user_id' => auth()->id(),
-                'tipo_movimiento' => 'salida',
-                'cantidad' => $cantidad,
-                'stock_anterior' => $stockAnterior,
-                'stock_nuevo' => $stock->cantidad,
-                'motivo' => 'Venta',
-                'estado' => 'completado',
-                'imeis' => json_encode($imeis)
-            ]);
+            if ($stock) {
+                $stockAnterior = $stock->cantidad;
+                $stock->decrement('cantidad', $cantidad);
+                $stockNuevo = $stock->cantidad;
+
+                $totalStock = StockAlmacen::where('producto_id', $productoId)->sum('cantidad');
+                $producto->update(['stock_actual' => $totalStock]);
+            }
         }
+
+        // Registrar movimiento de inventario
+        MovimientoInventario::create([
+            'producto_id'     => $productoId,
+            'almacen_id'      => $almacenId,
+            'user_id'         => auth()->id(),
+            'tipo_movimiento' => 'salida',
+            'cantidad'        => $cantidad,
+            'stock_anterior'  => $stockAnterior,
+            'stock_nuevo'     => $stockNuevo,
+            'motivo'          => 'Venta',
+            'estado'          => 'completado',
+            'imeis'           => !empty($imeis) ? json_encode($imeis) : null,
+        ]);
     }
 
     /**

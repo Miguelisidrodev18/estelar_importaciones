@@ -165,7 +165,15 @@
                             </div>
                             <div class="p-2">
                                 <p class="text-[11px] text-gray-700 dark:text-gray-200 font-medium line-clamp-2 leading-tight mb-1" x-text="producto.nombre"></p>
-                                <p class="text-sm font-bold text-blue-600 dark:text-blue-400" x-text="'S/ ' + producto.precio_venta.toFixed(2)"></p>
+                                <div class="flex items-center justify-between gap-1">
+                                    <p class="text-sm font-bold text-blue-600 dark:text-blue-400" x-text="'S/ ' + producto.precio_venta.toFixed(2)"></p>
+                                    <span x-show="orden.almacenId && producto.tipo_inventario !== 'serie'" x-cloak
+                                          class="text-[9px] font-semibold text-gray-400 dark:text-gray-500 shrink-0"
+                                          x-text="stockEnAlmacen(producto) + ' u.'"></span>
+                                    <span x-show="orden.almacenId && producto.tipo_inventario === 'serie'" x-cloak
+                                          class="text-[9px] font-semibold text-purple-400 shrink-0"
+                                          x-text="stockEnAlmacen(producto) + ' IMEI'"></span>
+                                </div>
                             </div>
                         </div>
                     </template>
@@ -983,8 +991,23 @@ function posApp() {
                 return true;
             });
         },
-        get productosConStock()  { return this._productosFiltrados.filter(p => p.tipo_inventario === 'serie' || p.stock_actual > 0); },
-        get productosSinStock()  { return this._productosFiltrados.filter(p => p.tipo_inventario !== 'serie' && p.stock_actual === 0); },
+        // Stock del producto en el almacén seleccionado (0 si no hay almacén elegido = global)
+        stockEnAlmacen(p) {
+            if (!this.orden.almacenId) return p.stock_actual;
+            return parseInt(p.stock_por_almacen?.[this.orden.almacenId] ?? 0);
+        },
+        get productosConStock()  {
+            return this._productosFiltrados.filter(p =>
+                p.tipo_inventario === 'serie'
+                    ? (this.orden.almacenId ? this.stockEnAlmacen(p) > 0 : true)
+                    : this.stockEnAlmacen(p) > 0
+            );
+        },
+        get productosSinStock()  {
+            return this._productosFiltrados.filter(p =>
+                p.tipo_inventario !== 'serie' && this.stockEnAlmacen(p) === 0
+            );
+        },
 
         // ══════════════════════════════════════
         // INIT
@@ -1081,8 +1104,9 @@ function posApp() {
                 this.mostrarModalVariante = true;
                 return;
             }
-            if (producto.stock_actual === 0 && producto.tipo_inventario !== 'serie') {
-                this.toast('warning', 'Sin stock disponible');
+            const stockAlmacen = this.stockEnAlmacen(producto);
+            if (stockAlmacen === 0 && producto.tipo_inventario !== 'serie') {
+                this.toast('warning', 'Sin stock en este almacén');
                 return;
             }
             if (producto.tipo_inventario === 'serie') {
@@ -1092,7 +1116,7 @@ function posApp() {
             }
             const existente = this.orden.carrito.find(i => i.producto_id === producto.id && !i.variante_id);
             if (existente) {
-                if (existente.cantidad < producto.stock_actual) {
+                if (existente.cantidad < stockAlmacen) {
                     existente.cantidad++;
                     this.toast('success', producto.nombre + ' ×' + existente.cantidad);
                 } else {
@@ -1102,7 +1126,7 @@ function posApp() {
                 this.orden.carrito.push({
                     producto_id: producto.id, variante_id: null,
                     nombre: producto.nombre, precio_unitario: producto.precio_venta,
-                    cantidad: 1, stock_disponible: producto.stock_actual,
+                    cantidad: 1, stock_disponible: stockAlmacen,
                     tipo_inventario: producto.tipo_inventario, imeis: []
                 });
                 this.toast('success', producto.nombre + ' agregado');
