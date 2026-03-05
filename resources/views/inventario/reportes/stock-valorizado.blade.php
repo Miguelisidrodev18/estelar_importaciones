@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Valorizado · Inventario</title>
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="bg-gray-100">
+<x-sidebar :role="auth()->user()->role->nombre" />
+
+<div class="md:ml-64 min-h-screen">
+
+    {{-- Header --}}
+    <div class="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-gray-500 mb-0.5">
+                <span>Inventario</span>
+                <span>/</span>
+                <span class="text-gray-700 font-medium">Stock Valorizado</span>
+            </div>
+            <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-coins text-amber-500"></i>
+                Stock Valorizado por Sucursal
+            </h1>
+            <p class="text-sm text-gray-500">Capital invertido y utilidad potencial del inventario</p>
+        </div>
+        @if($productos->count())
+            <a href="{{ request()->fullUrlWithQuery(['export' => 'csv']) }}"
+               class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition">
+                <i class="fas fa-file-csv"></i> Exportar Excel
+            </a>
+        @endif
+    </div>
+
+    <div class="p-6 space-y-5">
+
+        {{-- Filters --}}
+        <form method="GET" class="bg-white rounded-xl shadow-sm p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Sucursal</label>
+                    <select name="sucursal_id" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todas las sucursales</option>
+                        @foreach($sucursales as $s)
+                            <option value="{{ $s->id }}" {{ $sucursalId == $s->id ? 'selected' : '' }}>{{ $s->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Categoría</label>
+                    <select name="categoria_id" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todas las categorías</option>
+                        @foreach($categorias as $c)
+                            <option value="{{ $c->id }}" {{ $categoriaId == $c->id ? 'selected' : '' }}>{{ $c->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Marca</label>
+                    <select name="marca_id" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todas las marcas</option>
+                        @foreach($marcas as $m)
+                            <option value="{{ $m->id }}" {{ $marcaId == $m->id ? 'selected' : '' }}>{{ $m->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex items-end gap-2">
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2">
+                        <i class="fas fa-filter"></i> Aplicar
+                    </button>
+                    <a href="{{ route('inventario.reportes.stock-valorizado') }}"
+                       class="px-4 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </div>
+            </div>
+        </form>
+
+        {{-- KPI Cards --}}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-blue-500">
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Productos</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1">{{ number_format($totales['items']) }}</p>
+                <p class="text-xs text-blue-500 mt-1">{{ number_format($totales['unidades']) }} unidades</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-orange-500">
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Val. Compra</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1">S/ {{ number_format($totales['valor_compra'], 2) }}</p>
+                <p class="text-xs text-orange-500 mt-1">Capital invertido</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-green-500">
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Val. Venta</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1">S/ {{ number_format($totales['valor_venta'], 2) }}</p>
+                <p class="text-xs text-green-500 mt-1">A precio de lista</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-purple-500">
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Utilidad Potencial</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1">S/ {{ number_format($totales['utilidad'], 2) }}</p>
+                @php $margenGlobal = $totales['valor_venta'] > 0 ? ($totales['utilidad'] / $totales['valor_venta'] * 100) : 0; @endphp
+                <p class="text-xs text-purple-500 mt-1">{{ number_format($margenGlobal, 1) }}% margen</p>
+            </div>
+        </div>
+
+        {{-- Table --}}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            @if($productos->isEmpty())
+                <div class="p-12 text-center">
+                    <i class="fas fa-box-open text-4xl text-gray-300 mb-3 block"></i>
+                    <p class="text-gray-500 font-medium">No hay productos con stock valorizado</p>
+                    <p class="text-sm text-gray-400 mt-1">Ajusta los filtros o verifica que los productos tengan costo configurado</p>
+                </div>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Producto</th>
+                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Categoría</th>
+                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Marca</th>
+                                <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo</th>
+                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
+                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">P. Compra</th>
+                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">P. Venta</th>
+                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Val. Compra</th>
+                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Val. Venta</th>
+                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Margen</th>
+                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Utilidad</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach($productos as $p)
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="px-4 py-3 font-medium text-gray-800">{{ $p['nombre'] }}</td>
+                                    <td class="px-4 py-3 text-gray-500">{{ $p['categoria'] }}</td>
+                                    <td class="px-4 py-3 text-gray-500">{{ $p['marca'] }}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                                            {{ $p['tipo'] === 'serie' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
+                                            {{ ucfirst($p['tipo']) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($p['stock']) }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-600 font-mono">{{ $p['precio_compra'] > 0 ? 'S/ '.number_format($p['precio_compra'], 2) : '—' }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-600 font-mono">{{ $p['precio_venta'] > 0 ? 'S/ '.number_format($p['precio_venta'], 2) : '—' }}</td>
+                                    <td class="px-4 py-3 text-right font-semibold text-orange-700">S/ {{ number_format($p['valor_compra'], 2) }}</td>
+                                    <td class="px-4 py-3 text-right font-semibold text-green-700">S/ {{ number_format($p['valor_venta'], 2) }}</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="font-semibold {{ $p['margen_pct'] >= 20 ? 'text-green-600' : ($p['margen_pct'] >= 10 ? 'text-amber-600' : 'text-red-600') }}">
+                                            {{ $p['margen_pct'] }}%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-semibold {{ $p['utilidad'] > 0 ? 'text-purple-700' : 'text-red-600' }}">
+                                        S/ {{ number_format($p['utilidad'], 2) }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="bg-gray-50 border-t-2 border-gray-300">
+                            <tr>
+                                <td colspan="4" class="px-4 py-3 text-sm font-bold text-gray-700">
+                                    TOTALES — {{ number_format($totales['items']) }} productos
+                                </td>
+                                <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($totales['unidades']) }}</td>
+                                <td colspan="2"></td>
+                                <td class="px-4 py-3 text-right font-bold text-orange-700">S/ {{ number_format($totales['valor_compra'], 2) }}</td>
+                                <td class="px-4 py-3 text-right font-bold text-green-700">S/ {{ number_format($totales['valor_venta'], 2) }}</td>
+                                <td class="px-4 py-3 text-right font-bold text-gray-700">{{ number_format($margenGlobal, 1) }}%</td>
+                                <td class="px-4 py-3 text-right font-bold text-purple-700">S/ {{ number_format($totales['utilidad'], 2) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            @endif
+        </div>
+
+    </div>
+</div>
+</body>
+</html>

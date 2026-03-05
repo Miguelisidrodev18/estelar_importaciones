@@ -348,8 +348,24 @@
                         <div class="bg-gray-50 px-6 py-4 border-t-2 border-gray-200">
                             <div class="flex justify-end">
                                 <div class="w-80 space-y-3">
+
+                                    {{-- Toggle: precio incluye IGV --}}
+                                    <div id="togglePrecioIgvWrap" class="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                        <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-amber-800" for="precio_incluye_igv">
+                                            <i class="fas fa-tags text-amber-500"></i>
+                                            ¿El precio ingresado ya incluye IGV?
+                                        </label>
+                                        <input type="hidden" name="precio_incluye_igv" value="0">
+                                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                            <input type="checkbox" id="precio_incluye_igv" name="precio_incluye_igv" value="1"
+                                                   class="sr-only peer">
+                                            <div class="w-9 h-5 bg-gray-300 peer-checked:bg-amber-500 rounded-full transition-colors"></div>
+                                            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+                                        </label>
+                                    </div>
+
                                     <div class="flex justify-between text-sm">
-                                        <span class="text-gray-600">Subtotal:</span>
+                                        <span class="text-gray-600">Subtotal <span id="lblSinIgv" class="text-xs text-gray-400 hidden">(sin IGV)</span>:</span>
                                         <span id="subtotal" class="font-medium text-gray-900">S/ 0.00</span>
                                     </div>
                                     <div class="flex justify-between items-center text-sm">
@@ -1181,29 +1197,49 @@
         const simbolo = moneda === 'USD' ? '$' : 'S/';
         const tc      = parseFloat(document.getElementById('tipo_cambio')?.value) || 0;
 
-        let subtotalGeneral = 0;
+        // Suma bruta de (cantidad × precio) tal como el usuario los ingresó
+        let sumaBruta = 0;
         document.querySelectorAll('#detallesBody tr').forEach(row => {
             const match = row.id?.match(/producto_(\d+)/);
             if (match) {
                 const el = document.getElementById(`subtotal_${match[1]}`);
-                if (el) subtotalGeneral += parseFloat(el.innerText.replace(/[^\d.]/g, '')) || 0;
+                if (el) sumaBruta += parseFloat(el.innerText.replace(/[^\d.]/g, '')) || 0;
             }
         });
 
-        // IGV y tipo de operación SUNAT
-        const tipoOperacion = document.getElementById('tipo_operacion').value;
-        const incluyeIGV    = document.getElementById('incluir_igv').checked;
+        // Opciones de IGV
+        const tipoOperacion  = document.getElementById('tipo_operacion').value;
+        const incluyeIGV     = document.getElementById('incluir_igv').checked;
+        const precioConIGV   = document.getElementById('precio_incluye_igv').checked;
 
-        let igv   = 0;
-        let total = subtotalGeneral;
+        let subtotalNeto = sumaBruta;
+        let igv          = 0;
+        let total        = sumaBruta;
 
         if (tipoOperacion === '01' && incluyeIGV) {
-            igv   = subtotalGeneral * 0.18;
-            total = subtotalGeneral + igv;
+            if (precioConIGV) {
+                // El precio YA incluye IGV → extraer
+                subtotalNeto = sumaBruta / 1.18;
+                igv          = sumaBruta - subtotalNeto;
+                total        = sumaBruta;               // precio ingresado = total final
+            } else {
+                // El precio NO incluye IGV → sumar
+                subtotalNeto = sumaBruta;
+                igv          = sumaBruta * 0.18;
+                total        = sumaBruta + igv;
+            }
         }
 
-        // Mostrar en la moneda seleccionada
-        document.getElementById('subtotal').innerText = `${simbolo} ${subtotalGeneral.toFixed(2)}`;
+        // Mostrar etiqueta de subtotal
+        const lblSinIgv = document.getElementById('lblSinIgv');
+        if (precioConIGV && tipoOperacion === '01' && incluyeIGV) {
+            lblSinIgv.classList.remove('hidden');
+        } else {
+            lblSinIgv.classList.add('hidden');
+        }
+
+        // Mostrar valores
+        document.getElementById('subtotal').innerText = `${simbolo} ${subtotalNeto.toFixed(2)}`;
         document.getElementById('igv').innerText      = `${simbolo} ${igv.toFixed(2)}`;
         document.getElementById('total').innerText    = `${simbolo} ${total.toFixed(2)}`;
 
@@ -1218,14 +1254,17 @@
             eqDiv.classList.add('hidden');
         }
 
-        // Deshabilitar visualmente el checkbox si no aplica IGV
+        // Deshabilitar opciones IGV si tipo de operación no es gravado
         const igvCheckbox = document.getElementById('incluir_igv');
         const igvLabel    = igvCheckbox.parentElement;
+        const toggleWrap  = document.getElementById('togglePrecioIgvWrap');
         if (tipoOperacion !== '01') {
             igvCheckbox.checked = false;
             igvLabel.classList.add('opacity-40', 'pointer-events-none');
+            toggleWrap.classList.add('opacity-40', 'pointer-events-none');
         } else {
             igvLabel.classList.remove('opacity-40', 'pointer-events-none');
+            toggleWrap.classList.remove('opacity-40', 'pointer-events-none');
         }
     }
     // ============================================
@@ -2133,6 +2172,9 @@
 
         // Recalcular totales al cambiar tipo de operación SUNAT
         document.getElementById('tipo_operacion').addEventListener('change', calcularTotales);
+
+        // Recalcular totales al cambiar toggle "precio incluye IGV"
+        document.getElementById('precio_incluye_igv').addEventListener('change', calcularTotales);
 
         // Ejecutar cálculo inicial para reflejar el tipo de operación por defecto
         calcularTotales();

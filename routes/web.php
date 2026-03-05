@@ -239,6 +239,13 @@ Route::middleware('auth')->group(function () {
             Route::delete('/productos/variantes/{variante}', [ProductoController::class, 'destroyVariante'])->name('productos.variantes.destroy');
         });
 
+        // REPORTES DE INVENTARIO (HU-INVENTARIO-06/07/08)
+        Route::middleware('role:Administrador')->group(function () {
+            Route::get('/reportes/stock-valorizado', [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'stockValorizado'])->name('reportes.stock-valorizado');
+            Route::get('/reportes/kardex',           [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'kardex'])->name('reportes.kardex');
+            Route::get('/reportes/abc',              [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'analisisAbc'])->name('reportes.abc');
+        });
+
     });
 
     // ========================================
@@ -426,6 +433,7 @@ Route::middleware('auth')->group(function () {
         // ── Admin Caja (Supervisión) ──────────────────────────────────────────
         Route::get('/cajas/dashboard', [AdminCajaController::class, 'dashboard'])->name('cajas.dashboard');
         Route::get('/cajas/alertas', [AdminCajaController::class, 'alertas'])->name('cajas.alertas');
+        Route::get('/cajas/reportes', [AdminCajaController::class, 'reportes'])->name('cajas.reportes');
         Route::get('/cajas/apertura-remota', [AdminCajaController::class, 'aperturaRemota'])->name('cajas.apertura-remota');
         Route::post('/cajas/apertura-remota', [AdminCajaController::class, 'storeAperturaRemota'])->name('cajas.apertura-remota.store');
         Route::get('/cajas', [AdminCajaController::class, 'index'])->name('cajas.index');

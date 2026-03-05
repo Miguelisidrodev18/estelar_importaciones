@@ -117,6 +117,24 @@
                                     <i class="fas fa-exchange-alt mr-3 text-sm"></i>Movimientos
                                 </a>
                             </li>
+                            <li>
+                                <a href="{{ route('inventario.reportes.stock-valorizado') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.reportes.stock-valorizado') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-coins mr-3 text-sm"></i>Stock Valorizado
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('inventario.reportes.kardex') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.reportes.kardex') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-book-open mr-3 text-sm"></i>Kardex
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('inventario.reportes.abc') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.reportes.abc') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-chart-bar mr-3 text-sm"></i>Análisis ABC
+                                </a>
+                            </li>
                         </ul>
                     </li>
 

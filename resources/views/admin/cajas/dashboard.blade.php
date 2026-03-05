@@ -37,6 +37,10 @@
                class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">
                 <i class="fas fa-cash-register mr-1"></i> Apertura Remota
             </a>
+            <a href="{{ route('admin.cajas.reportes') }}"
+               class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+                <i class="fas fa-chart-bar mr-1"></i> Reportes
+            </a>
             <a href="{{ route('admin.cajas.index') }}"
                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
                 <i class="fas fa-list mr-1"></i> Historial
@@ -71,7 +75,7 @@
                 <p class="text-2xl font-bold {{ $diferenciasMes < 0 ? 'text-red-600' : 'text-gray-800' }} mt-1">
                     S/ {{ number_format($diferenciasMes, 2) }}
                 </p>
-                <p class="text-xs text-gray-400 mt-1">{{ now()->translatedFormat('F Y') }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ now()->format('m/Y') }}</p>
             </div>
         </div>
 

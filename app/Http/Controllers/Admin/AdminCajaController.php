@@ -318,6 +318,74 @@ class AdminCajaController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // HU-ADMIN-CAJA-06: Reportes Comparativos
+    // ─────────────────────────────────────────────────────────────────────────
+    public function reportes(Request $request)
+    {
+        $desde = $request->filled('desde') ? $request->desde : now()->subDays(29)->toDateString();
+        $hasta = $request->filled('hasta') ? $request->hasta : now()->toDateString();
+
+        $sucursales = Sucursal::where('estado', true)->orderBy('nombre')->get();
+
+        // ── Ventas por sucursal en el período ────────────────────────────────
+        $ventasPorSucursal = DB::table('movimientos_caja as m')
+            ->join('caja as c', 'c.id', '=', 'm.caja_id')
+            ->join('sucursales as s', 's.id', '=', 'c.sucursal_id')
+            ->whereBetween('c.fecha', [$desde, $hasta])
+            ->where('m.tipo', 'ingreso')->whereNotNull('m.venta_id')
+            ->groupBy('c.sucursal_id', 's.nombre')
+            ->select('s.nombre', DB::raw('SUM(m.monto) as total'), DB::raw('COUNT(DISTINCT c.id) as cajas'))
+            ->orderByDesc('total')->get();
+
+        // ── Diferencias por sucursal ─────────────────────────────────────────
+        $diferenciasPorSucursal = DB::table('caja as c')
+            ->join('sucursales as s', 's.id', '=', 'c.sucursal_id')
+            ->whereBetween('c.fecha', [$desde, $hasta])
+            ->where('c.estado', 'cerrada')
+            ->whereNotNull('c.diferencia_cierre')
+            ->groupBy('c.sucursal_id', 's.nombre')
+            ->select('s.nombre', DB::raw('SUM(c.diferencia_cierre) as total'), DB::raw('COUNT(*) as cajas'))
+            ->orderBy('total')->get();
+
+        // ── Tendencia diaria de ventas (todas las sucursales) ────────────────
+        $tendenciaDiaria = DB::table('movimientos_caja as m')
+            ->join('caja as c', 'c.id', '=', 'm.caja_id')
+            ->whereBetween('c.fecha', [$desde, $hasta])
+            ->where('m.tipo', 'ingreso')->whereNotNull('m.venta_id')
+            ->groupBy('c.fecha')
+            ->select('c.fecha', DB::raw('SUM(m.monto) as total'))
+            ->orderBy('c.fecha')->get();
+
+        // ── Métodos de pago por sucursal ─────────────────────────────────────
+        $metodoPorSucursal = DB::table('movimientos_caja as m')
+            ->join('caja as c', 'c.id', '=', 'm.caja_id')
+            ->join('sucursales as s', 's.id', '=', 'c.sucursal_id')
+            ->whereBetween('c.fecha', [$desde, $hasta])
+            ->where('m.tipo', 'ingreso')->whereNotNull('m.venta_id')
+            ->groupBy('c.sucursal_id', 's.nombre', 'm.metodo_pago')
+            ->select('s.nombre as sucursal', 'm.metodo_pago', DB::raw('SUM(m.monto) as total'))
+            ->get()
+            ->groupBy('sucursal');
+
+        // ── KPIs del período ─────────────────────────────────────────────────
+        $kpis = [
+            'total_ventas'    => $ventasPorSucursal->sum('total'),
+            'total_cajas'     => DB::table('caja')->whereBetween('fecha', [$desde, $hasta])->count(),
+            'promedio_por_dia'=> $tendenciaDiaria->avg('total') ?? 0,
+            'mejor_dia'       => $tendenciaDiaria->sortByDesc('total')->first(),
+            'dif_total'       => $diferenciasPorSucursal->sum('total'),
+        ];
+
+        $alertasCount = $this->contarAlertas();
+
+        return view('admin.cajas.reportes', compact(
+            'desde', 'hasta', 'sucursales',
+            'ventasPorSucursal', 'diferenciasPorSucursal',
+            'tendenciaDiaria', 'metodoPorSucursal', 'kpis', 'alertasCount'
+        ));
+    }
+
     public function contarAlertas(): int
     {
         $largas    = Caja::abiertas()->where('fecha_apertura', '<', now()->subHours(12))->count();
