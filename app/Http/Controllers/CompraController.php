@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Models\Compra;
 use App\Models\Proveedor;
 use App\Models\Almacen;
+use App\Models\Sucursal;
 use App\Models\Producto;
 use App\Models\ProductoVariante;
 use App\Models\Categoria;
@@ -80,10 +81,11 @@ class CompraController extends Controller
                 ];
             });
 
-        $colores     = Color::where('estado', 'activo')->orderBy('nombre')->get();
-        $categorias  = Categoria::activas()->orderBy('nombre')->get();
+        $colores    = Color::where('estado', 'activo')->orderBy('nombre')->get();
+        $categorias = Categoria::activas()->orderBy('nombre')->get();
+        $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get(['id', 'nombre', 'almacen_id']);
 
-        return view('compras.create', compact('proveedores', 'almacenes', 'productos', 'colores', 'marcas', 'categorias'));
+        return view('compras.create', compact('proveedores', 'almacenes', 'productos', 'colores', 'marcas', 'categorias', 'sucursales'));
     }
 
     public function store(Request $request)

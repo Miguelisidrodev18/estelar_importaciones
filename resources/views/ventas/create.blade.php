@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="es" x-bind:class="{ 'dark': darkMode }">
+<html lang="es"
+      x-data="posApp()"
+      x-init="init()"
+      :class="{ 'dark': darkMode }">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -28,9 +31,7 @@
         .animate-fade-up       { animation: fade-up 0.2s ease; }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 h-screen overflow-hidden font-sans antialiased"
-      x-data="posApp()"
-      x-init="init()">
+<body class="bg-gray-50 dark:bg-gray-900 h-screen overflow-hidden font-sans antialiased">
 
 {{-- ── Sidebar POS ── --}}
 <x-sidebar-pos :role="auth()->user()->role->nombre" />
@@ -266,7 +267,10 @@
                     <template x-for="(item, index) in orden.carrito" :key="index">
                         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 shadow-sm hover:border-blue-200 dark:hover:border-blue-700/50 transition animate-fade-up">
                             <div class="flex items-start justify-between mb-2">
-                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-tight pr-2 line-clamp-2" x-text="item.nombre"></p>
+                                <div class="flex items-start gap-1.5 flex-1 pr-2 min-w-0">
+                                    <span class="shrink-0 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 text-[10px] font-bold rounded px-1 py-0.5 mt-0.5 leading-none" x-text="'#' + (index + 1)"></span>
+                                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-tight line-clamp-2" x-text="item.nombre"></p>
+                                </div>
                                 <button @click="eliminarDelCarrito(index)"
                                         class="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition shrink-0 mt-0.5">
                                     <i class="fas fa-times text-xs"></i>
@@ -708,12 +712,12 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">N° Documento</label>
-                    <div class="flex gap-1.5">
+                    <div class="flex gap-1.5 items-stretch">
                         <input type="text" x-model="nuevoCliente.numero_documento"
                                :maxlength="nuevoCliente.tipo_documento === 'RUC' ? 11 : 8"
                                class="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 font-mono">
                         <button @click="consultarDocumento()" :disabled="buscandoCliente"
-                                class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50 shrink-0">
+                                class="px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition disabled:opacity-50 shrink-0 flex items-center justify-center">
                             <i class="fas" :class="buscandoCliente ? 'fa-spinner fa-spin' : 'fa-search'"></i>
                         </button>
                     </div>
@@ -807,7 +811,7 @@
      MODAL: IMEI
 ============================== --}}
 <div x-show="mostrarModalIMEI" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="mostrarModalIMEI = false"></div>
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="_limpiarModalIMEI()"></div>
     <div class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl animate-fade-up">
         <div class="p-5 border-b border-gray-100 dark:border-gray-700">
             <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
@@ -870,10 +874,15 @@
                 </div>
             </div>
         </div>
-        <div class="flex gap-3 p-5 border-t border-gray-100 dark:border-gray-700">
-            <button @click="mostrarModalIMEI = false"
-                    class="flex-1 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl py-2.5 font-semibold text-sm transition">
+        <div class="flex gap-2 p-5 border-t border-gray-100 dark:border-gray-700">
+            <button @click="_limpiarModalIMEI()"
+                    class="border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl py-2.5 px-4 font-semibold text-sm transition">
                 Cancelar
+            </button>
+            <button @click="confirmarYSeguir()" :disabled="imeisTemp.length === 0"
+                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl py-2.5 font-bold text-sm transition">
+                <i class="fas fa-plus mr-1"></i>
+                Agregar y continuar
             </button>
             <button @click="confirmarIMEIs()" :disabled="imeisTemp.length === 0"
                     class="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white rounded-xl py-2.5 font-bold text-sm transition">
@@ -915,7 +924,7 @@ function crearOrden(id) {
 function posApp() {
     return {
         // ── UI State ──
-        darkMode:        JSON.parse(localStorage.getItem('pos_dark')              ?? 'false'),
+        darkMode:        JSON.parse(localStorage.getItem('pos_dark') ?? 'false'),
         sidebarCollapsed:JSON.parse(localStorage.getItem('pos_sidebar_collapsed') ?? 'false'),
         formatoImpresion:localStorage.getItem('pos_formato')                      ?? 'ticket',
         hora:            new Date().toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', second:'2-digit' }),
@@ -945,6 +954,7 @@ function posApp() {
         imeisTemp:            [],
         imeisDisponibles:     [],
         cargandoImeis:        false,
+        cartItemEditIndex:    null,  // null = nuevo ítem, number = agregar IMEIs a ítem existente
 
         // ── Client modal ──
         showModalCliente: false,
@@ -1162,12 +1172,29 @@ function posApp() {
         vaciarCarrito() { this.orden.carrito = []; },
         incrementarCantidad(index) {
             const item = this.orden.carrito[index];
-            if (item.tipo_inventario !== 'serie' && item.cantidad >= item.stock_disponible) { this.toast('warning', 'Stock máximo alcanzado'); return; }
+            if (item.tipo_inventario === 'serie') {
+                // Para IMEI: abrir modal para registrar el nuevo IMEI
+                const producto = this.productos.find(p => p.id === item.producto_id);
+                if (!producto) return;
+                this.productoActual   = producto;
+                this.varianteActual   = producto.variantes?.find(v => v.id === item.variante_id) ?? null;
+                this.cartItemEditIndex = index;
+                this.abrirModalIMEI();
+                return;
+            }
+            if (item.cantidad >= item.stock_disponible) { this.toast('warning', 'Stock máximo alcanzado'); return; }
             item.cantidad++;
         },
         decrementarCantidad(index) {
-            if (this.orden.carrito[index].cantidad > 1) this.orden.carrito[index].cantidad--;
-            else this.eliminarDelCarrito(index);
+            const item = this.orden.carrito[index];
+            if (item.cantidad > 1) {
+                item.cantidad--;
+                if (item.tipo_inventario === 'serie' && item.imeis?.length > item.cantidad) {
+                    item.imeis.splice(item.cantidad);  // quita el último IMEI
+                }
+            } else {
+                this.eliminarDelCarrito(index);
+            }
         },
         eliminarDelCarrito(index) {
             const nombre = this.orden.carrito[index].nombre;
@@ -1261,7 +1288,13 @@ function posApp() {
                 const params = new URLSearchParams({ producto_id: this.productoActual.id, almacen_id: this.orden.almacenId });
                 if (this.varianteActual?.id) params.append('variante_id', this.varianteActual.id);
                 const res = await fetch('{{ route("ventas.imeis-disponibles") }}?' + params.toString());
-                this.imeisDisponibles = await res.json();
+                let todos = await res.json();
+                // Si estamos editando un ítem existente, excluir los IMEIs que ya tiene
+                if (this.cartItemEditIndex !== null) {
+                    const yaEnCarrito = (this.orden.carrito[this.cartItemEditIndex]?.imeis || []).map(i => i.codigo_imei);
+                    todos = todos.filter(i => !yaEnCarrito.includes(i.codigo_imei));
+                }
+                this.imeisDisponibles = todos;
             } catch(e) {
                 console.error('Error al cargar IMEIs', e);
                 this.imeisDisponibles = [];
@@ -1283,8 +1316,18 @@ function posApp() {
             this.imeiActual = '';
         },
         quitarImeiManual(codigo_imei) { this.imeisTemp = this.imeisTemp.filter(i => i.codigo_imei !== codigo_imei); },
-        confirmarIMEIs() {
-            if (!this.imeisTemp.length) return;
+        _empujarIMEIsAlCarrito() {
+            if (this.cartItemEditIndex !== null) {
+                // Modo edición: agregar nuevos IMEIs al ítem ya existente
+                const item = this.orden.carrito[this.cartItemEditIndex];
+                const nuevos = this.imeisTemp.map(i => ({ codigo_imei: i.codigo_imei }));
+                item.imeis.push(...nuevos);
+                item.cantidad        = item.imeis.length;
+                item.stock_disponible = item.imeis.length;
+                this.toast('success', this.imeisTemp.length + ' IMEI(s) agregado(s)');
+                return;
+            }
+            // Modo nuevo: crear ítem en el carrito
             const v = this.varianteActual;
             const precioFinal    = parseFloat(this.productoActual.precio_venta) + (v ? parseFloat(v.sobreprecio || 0) : 0);
             const nombreCompleto = this.productoActual.nombre + (v?.nombre_completo ? ' — ' + v.nombre_completo : '');
@@ -1295,9 +1338,33 @@ function posApp() {
                 tipo_inventario: 'serie', imeis: this.imeisTemp.map(i => ({ codigo_imei: i.codigo_imei }))
             });
             this.toast('success', this.imeisTemp.length + ' unidad(es) agregada(s)');
-            this.mostrarModalIMEI = false;
-            this.productoActual = null; this.varianteActual = null;
-            this.imeiActual = ''; this.imeisTemp = []; this.imeisDisponibles = [];
+        },
+        _limpiarModalIMEI() {
+            this.mostrarModalIMEI  = false;
+            this.productoActual    = null;
+            this.varianteActual    = null;
+            this.cartItemEditIndex = null;
+            this.imeiActual        = '';
+            this.imeisTemp         = [];
+            this.imeisDisponibles  = [];
+        },
+        confirmarIMEIs() {
+            if (!this.imeisTemp.length) return;
+            this._empujarIMEIsAlCarrito();
+            this._limpiarModalIMEI();
+        },
+        async confirmarYSeguir() {
+            if (!this.imeisTemp.length) return;
+            this._empujarIMEIsAlCarrito();
+            // Guardar contexto y reabrir para el mismo producto/variante/ítem
+            const productoGuardado   = this.productoActual;
+            const varianteGuardada   = this.varianteActual;
+            const editIndexGuardado  = this.cartItemEditIndex;
+            this.imeisTemp = []; this.imeiActual = '';
+            this.productoActual    = productoGuardado;
+            this.varianteActual    = varianteGuardada;
+            this.cartItemEditIndex = editIndexGuardado;
+            await this.abrirModalIMEI();
         },
 
         // ══════════════════════════════════════

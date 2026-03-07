@@ -152,6 +152,26 @@
                             @enderror
                         </div>
 
+                        <!-- Sucursal -->
+                        <div class="relative">
+                            <label for="sucursal_sel" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                Sucursal
+                            </label>
+                            <div class="relative">
+                                <select id="sucursal_sel"
+                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white"
+                                        onchange="filtrarAlmacenesPorSucursal(this.value)">
+                                    <option value="">— Todas las sucursales —</option>
+                                    @foreach($sucursales as $suc)
+                                        <option value="{{ $suc->id }}" data-almacen="{{ $suc->almacen_id }}">
+                                            {{ $suc->nombre }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
+                            </div>
+                        </div>
+
                         <!-- Almacén -->
                         <div class="relative">
                             <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-1.5">
@@ -727,6 +747,45 @@
     // ============================================
     // FUNCIONES DE UTILIDAD
     // ============================================
+    // ============================================
+    // SUCURSAL → ALMACÉN
+    // ============================================
+    // Mapa: sucursal_id → almacen_id (viene del servidor)
+    const sucursalAlmacenMap = @json($sucursales->pluck('almacen_id', 'id'));
+    // Todas las opciones de almacén (guardadas al cargar)
+    let todasOpcionesAlmacen = null;
+
+    function filtrarAlmacenesPorSucursal(sucursalId) {
+        const sel = document.getElementById('almacen_id');
+        if (!todasOpcionesAlmacen) {
+            // Guardar snapshot la primera vez
+            todasOpcionesAlmacen = Array.from(sel.options).map(o => ({ value: o.value, text: o.text }));
+        }
+
+        // Restaurar todas las opciones
+        sel.innerHTML = '';
+        todasOpcionesAlmacen.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.text;
+            sel.appendChild(opt);
+        });
+
+        if (!sucursalId) return;  // sin filtro, mostrar todos
+
+        const almacenId = sucursalAlmacenMap[sucursalId];
+        if (!almacenId) return;  // sucursal sin almacén asignado
+
+        // Auto-seleccionar el almacén de la sucursal y ocultar el resto
+        Array.from(sel.options).forEach(opt => {
+            if (opt.value && String(opt.value) !== String(almacenId)) {
+                opt.style.display = 'none';
+            }
+        });
+        sel.value = almacenId;
+        sel.dispatchEvent(new Event('change'));
+    }
+
     function toggleCondicionPago(valor) {
         const div = document.getElementById('condicion_pago_div');
         const input = document.getElementById('condicion_pago');

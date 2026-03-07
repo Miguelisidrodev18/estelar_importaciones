@@ -35,19 +35,7 @@
         </div>
     @endif
 
-    <div class="p-6 max-w-2xl"
-         x-data="{
-            sucursalId: '{{ old('sucursal_id') }}',
-            userId: '{{ old('user_id') }}',
-            sucursales: @json($sucursales->map(fn($s) => ['id' => $s->id, 'nombre' => $s->nombre, 'almacen_id' => $s->almacen_id])),
-            usuarios: @json($usuarios->map(fn($u) => ['id' => $u->id, 'name' => $u->name, 'almacen_id' => $u->almacen_id])),
-            get usuariosFiltrados() {
-                if (!this.sucursalId) return this.usuarios;
-                const suc = this.sucursales.find(s => s.id == this.sucursalId);
-                if (!suc) return this.usuarios;
-                return this.usuarios.filter(u => u.almacen_id == suc.almacen_id);
-            }
-         }">
+    <div class="p-6 max-w-2xl" x-data="aperturaRemotaApp()">
 
         <div class="bg-white rounded-xl shadow-sm p-6 space-y-5">
 
@@ -128,5 +116,22 @@
         </div>
     </div>
 </div>
+
+<script>
+function aperturaRemotaApp() {
+    return {
+        sucursalId: '{{ old('sucursal_id') }}',
+        userId:     '{{ old('user_id') }}',
+        sucursales: @json($sucursales->map(fn($s) => ['id' => $s->id, 'nombre' => $s->nombre, 'almacen_id' => $s->almacen_id])),
+        usuarios:   @json($usuarios->map(fn($u) => ['id' => $u->id, 'name' => $u->name, 'almacen_id' => $u->almacen_id])),
+        get usuariosFiltrados() {
+            if (!this.sucursalId) return this.usuarios;
+            const suc = this.sucursales.find(s => s.id == this.sucursalId);
+            if (!suc) return this.usuarios;
+            return this.usuarios.filter(u => u.almacen_id == suc.almacen_id);
+        }
+    };
+}
+</script>
 </body>
 </html>
