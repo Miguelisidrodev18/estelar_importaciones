@@ -225,7 +225,12 @@ class VentaController extends Controller
 
         $view = $formato === 'ticket' ? 'pdf.factura-ticket' : 'pdf.factura-a4';
 
-        $pdf = Pdf::loadView($view, compact('venta', 'empresa', 'sucursal', 'pagos'));
+        $pdf = Pdf::setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled'      => true,
+            'defaultFont'          => 'sans-serif',
+            'chroot'               => public_path(),
+        ])->loadView($view, compact('venta', 'empresa', 'sucursal', 'pagos'));
 
         if ($formato === 'ticket') {
             // 80mm = 226.77pt ancho, altura dinámica amplia
@@ -233,8 +238,6 @@ class VentaController extends Controller
         } else {
             $pdf->setPaper('A4', 'portrait');
         }
-
-        $pdf->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => true, 'defaultFont' => 'sans-serif']);
 
         $filename = 'comprobante-' . ($venta->numero_documento ?? $venta->codigo) . '.pdf';
         return $pdf->stream($filename);

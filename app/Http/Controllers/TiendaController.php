@@ -6,7 +6,6 @@ use App\Models\Producto;
 use App\Models\Categoria;
 use App\Models\Almacen;
 use App\Models\StockAlmacen;
-use App\Models\Traslado;
 use App\Models\MovimientoInventario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -66,7 +65,8 @@ class TiendaController extends Controller
     {
         $tiendaActual = auth()->user()->almacen_id;
 
-        $query = Traslado::with(['producto', 'almacenOrigen', 'almacenDestino', 'solicitante'])
+        $query = MovimientoInventario::with(['producto', 'almacen', 'almacenDestino', 'usuario'])
+            ->where('tipo_movimiento', 'transferencia')
             ->where('almacen_destino_id', $tiendaActual)
             ->orderBy('created_at', 'desc');
 
@@ -109,17 +109,19 @@ class TiendaController extends Controller
                 throw new \Exception('Stock insuficiente en el almacén de origen');
             }
 
-            // Crear solicitud
-            $traslado = Traslado::create([
-                'codigo' => 'TR-' . date('Ymd') . '-' . rand(1000, 9999),
-                'producto_id' => $validated['producto_id'],
-                'almacen_origen_id' => $validated['almacen_origen_id'],
-                'almacen_destino_id' => auth()->user()->almacen_id,
-                'cantidad' => $validated['cantidad'],
-                'motivo' => $validated['motivo'] ?? null,
-                'solicitado_por' => auth()->id(),
-                'estado' => 'pendiente',
-                'fecha_solicitud' => now(),
+            // Crear solicitud de traslado como MovimientoInventario pendiente
+            $traslado = MovimientoInventario::create([
+                'producto_id'       => $validated['producto_id'],
+                'almacen_id'        => $validated['almacen_origen_id'],
+                'almacen_destino_id'=> auth()->user()->almacen_id,
+                'user_id'           => auth()->id(),
+                'tipo_movimiento'   => 'transferencia',
+                'cantidad'          => $validated['cantidad'],
+                'stock_anterior'    => $stockOrigen->cantidad,
+                'stock_nuevo'       => $stockOrigen->cantidad,
+                'motivo'            => $validated['motivo'] ?? 'Solicitud desde tienda',
+                'estado'            => 'pendiente',
+                'documento_referencia' => 'SOL-' . date('Ymd') . '-' . rand(1000, 9999),
             ]);
 
             DB::commit();
@@ -142,7 +144,7 @@ class TiendaController extends Controller
     /**
      * Cancelar una solicitud de traslado (solo si está pendiente)
      */
-    public function cancelarSolicitud(Traslado $traslado)
+    public function cancelarSolicitud(MovimientoInventario $traslado)
     {
         try {
             if ($traslado->almacen_destino_id != auth()->user()->almacen_id) {
@@ -153,11 +155,7 @@ class TiendaController extends Controller
                 throw new \Exception('Solo se pueden cancelar solicitudes pendientes');
             }
 
-            $traslado->update([
-                'estado' => 'cancelado',
-                'fecha_cancelacion' => now(),
-                'cancelado_por' => auth()->id(),
-            ]);
+            $traslado->update(['estado' => 'cancelado']);
 
             return response()->json([
                 'success' => true,

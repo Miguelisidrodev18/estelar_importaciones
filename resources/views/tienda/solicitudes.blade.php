@@ -1,14 +1,42 @@
-@extends('layouts.app-layout')
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Solicitudes - {{ config('app.name') }}</title>
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="bg-gray-100">
+    <x-sidebar :role="auth()->user()->role->nombre" />
 
-@section('content')
-<div class="container mx-auto p-6">
-    <!-- Header -->
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 flex items-center">
-            <i class="fas fa-clipboard-list mr-3 text-blue-900"></i>
-            Mis Solicitudes de Traslado
-        </h1>
+    <div class="md:ml-64 min-h-screen bg-gray-100">
+    {{-- Top Bar --}}
+    <div class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="px-6 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-800">
+                <i class="fas fa-clipboard-list text-blue-900 mr-2"></i>
+                Mis Solicitudes de Traslado
+            </h1>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('tienda.inventario.ver') }}" class="text-sm text-blue-700 hover:underline flex items-center gap-1">
+                    <i class="fas fa-boxes"></i> Ver inventario
+                </a>
+                <div class="w-9 h-9 bg-gradient-to-r from-blue-900 to-blue-700 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    {{ substr(auth()->user()->name, 0, 2) }}
+                </div>
+            </div>
+        </div>
     </div>
+
+    <div class="p-6">
+    @if(session('success'))
+        <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+            <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
+        </div>
+    @endif
 
     <!-- Filtros -->
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
@@ -52,12 +80,14 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($solicitudes as $solicitud)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 text-sm font-mono text-gray-900">{{ $solicitud->codigo }}</td>
+                    <td class="px-6 py-4 text-sm font-mono text-gray-900">
+                        {{ $solicitud->documento_referencia ?? ('SOL-' . str_pad($solicitud->id, 6, '0', STR_PAD_LEFT)) }}
+                    </td>
                     <td class="px-6 py-4">
                         <div class="text-sm font-medium text-gray-900">{{ $solicitud->producto->nombre }}</div>
                         <div class="text-xs text-gray-500">{{ $solicitud->producto->codigo }}</div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-600">{{ $solicitud->almacenOrigen->nombre }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">{{ $solicitud->almacen->nombre ?? '—' }}</td>
                     <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ $solicitud->cantidad }}</td>
                     <td class="px-6 py-4 text-sm text-gray-600">{{ $solicitud->created_at->format('d/m/Y H:i') }}</td>
                     <td class="px-6 py-4">
@@ -98,7 +128,8 @@
     <div class="mt-6">
         {{ $solicitudes->links() }}
     </div>
-</div>
+    </div>{{-- /p-6 --}}
+    </div>{{-- /md:ml-64 --}}
 
 <script>
 function cancelarSolicitud(id) {
@@ -134,4 +165,5 @@ function cancelarSolicitud(id) {
     });
 }
 </script>
-@endsection
+</body>
+</html>

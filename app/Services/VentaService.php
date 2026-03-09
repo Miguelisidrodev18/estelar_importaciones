@@ -37,14 +37,8 @@ class VentaService
 
             // Procesar cada detalle
             foreach ($detalles as $detalle) {
-                // Obtener el precio vigente para este producto/cliente
-                $precioInfo = $this->precioRotativoService->obtenerPrecioVigente(
-                    producto: \App\Models\Producto::find($detalle['producto_id']),
-                    cliente: isset($datosVenta['cliente_id']) ? \App\Models\Cliente::find($datosVenta['cliente_id']) : null,
-                    cantidad: $detalle['cantidad']
-                );
-
-                $precioUnitario = $precioInfo['precio'];
+                // Usar el precio confirmado en el POS (el cajero ya lo validó)
+                $precioUnitario  = (float) $detalle['precio_unitario'];
                 $subtotalDetalle = $detalle['cantidad'] * $precioUnitario;
                 $subtotal += $subtotalDetalle;
 
@@ -56,7 +50,6 @@ class VentaService
                     'cantidad'        => $detalle['cantidad'],
                     'precio_unitario' => $precioUnitario,
                     'subtotal'        => $subtotalDetalle,
-                    'precio_id'       => $precioInfo['id_precio'] ?? null,
                 ]);
 
                 // Si es producto con IMEI, marcar los IMEIs como vendidos

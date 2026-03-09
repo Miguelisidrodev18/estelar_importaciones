@@ -4,13 +4,21 @@
 <meta charset="UTF-8">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-@page { margin: 8mm 6mm; }
+@page { margin: 6mm 5mm; }
 body {
     font-family: DejaVu Sans, sans-serif;
     font-size: 7.5pt;
     color: #111;
     background: #fff;
     width: 100%;
+}
+
+/* CONTENEDOR PRINCIPAL CON MÁRGENES LATERALES */
+.page-content {
+    margin-left: 3mm;
+    margin-right: 3mm;
+    padding: 0;
+    width: auto;
 }
 
 .center { text-align: center; }
@@ -40,17 +48,26 @@ body {
 .row-v { display: table-cell; font-size: 7.5pt; }
 
 /* ─── ITEMS ─── */
-table.items { width: 100%; border-collapse: collapse; margin: 4px 0; }
+table.items { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin: 4px 0; 
+    table-layout: fixed; /* Para controlar mejor los anchos */
+}
 table.items thead th {
     font-size: 6.5pt; font-weight: bold; text-align: left;
     border-bottom: 1px solid #333; padding: 2px 1px;
 }
 table.items thead th.r { text-align: right; }
 table.items thead th.c { text-align: center; }
-table.items tbody td { font-size: 7pt; padding: 2px 1px; vertical-align: top; }
+table.items tbody td { font-size: 7pt; padding: 2px 1px; vertical-align: top; word-wrap: break-word; }
 table.items tbody td.r { text-align: right; }
 table.items tbody td.c { text-align: center; }
 table.items tfoot td { font-size: 7pt; padding: 2px 1px; }
+
+/* Ajuste de anchos de columna */
+table.items th:first-child, table.items td:first-child { padding-left: 0; }
+table.items th:last-child, table.items td:last-child { padding-right: 0; }
 
 /* ─── TOTALES ─── */
 .total-row { display: table; width: 100%; padding: 1px 0; }
@@ -63,17 +80,27 @@ table.items tfoot td { font-size: 7pt; padding: 2px 1px; }
 .footer-text { font-size: 6pt; color: #555; text-align: center; line-height: 1.5; margin-top: 4px; }
 .qr-wrap { text-align: center; margin: 6px 0; }
 .qr-img  { width: 70px; height: 70px; }
+
+/* ─── UTILIDADES ─── */
+.px-1 { padding-left: 1px; padding-right: 1px; }
 </style>
 </head>
 <body>
+<div class="page-content">
 
 {{-- ─── EMPRESA ─── --}}
 @php
     $logoFile = $empresa->logo_pdf_path ?: $empresa->logo_path;
-    $logoPath = $logoFile ? str_replace('\\', '/', storage_path('app/public/' . $logoFile)) : null;
+    $logoPath = $logoFile ? storage_path('app/public/' . $logoFile) : null;
+    $logoSrc  = null;
+    if ($logoPath && file_exists($logoPath)) {
+        $ext     = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+        $mime    = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : "image/$ext";
+        $logoSrc = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoPath));
+    }
 @endphp
-@if($logoPath && file_exists($logoPath))
-    <img src="{{ $logoPath }}" class="empresa-logo" alt="Logo">
+@if($logoSrc)
+    <img src="{{ $logoSrc }}" class="empresa-logo" alt="Logo">
 @endif
 <div class="empresa-nombre">{{ $empresa->razon_social }}</div>
 <div class="empresa-info">
@@ -99,7 +126,7 @@ table.items tfoot td { font-size: 7pt; padding: 2px 1px; }
 {{-- ─── FECHA / PAGO ─── --}}
 <div class="row">
     <div class="row-l">Fecha Emisión:</div>
-    <div class="row-v">{{ $venta->fecha->format('d-m-Y') }} / {{ $venta->created_at->format('H:i') }} PM</div>
+    <div class="row-v">{{ $venta->fecha->format('d-m-Y') }} / {{ $venta->created_at->format('h:i A') }}</div>
 </div>
 @php $metodosLabel = ['efectivo'=>'Efectivo','yape'=>'Yape','plin'=>'Plin','transferencia'=>'Transferencia','mixto'=>'Mixto']; @endphp
 <div class="row">
@@ -123,11 +150,11 @@ table.items tfoot td { font-size: 7pt; padding: 2px 1px; }
 <table class="items">
     <thead>
         <tr>
-            <th style="width:50px">Código</th>
+            <th style="width:38px">Cód.</th>
             <th>Descripción</th>
-            <th class="c" style="width:22px">Cant</th>
-            <th class="r" style="width:40px">Precio</th>
-            <th class="r" style="width:44px">Importe</th>
+            <th class="c" style="width:18px">Qty</th>
+            <th class="r" style="width:36px">P.Unit</th>
+            <th class="r" style="width:38px">Total</th>
         </tr>
     </thead>
     <tbody>
@@ -179,9 +206,18 @@ table.items tfoot td { font-size: 7pt; padding: 2px 1px; }
     <div class="center bold" style="font-size:7pt">{{ ucfirst($venta->metodo_pago) }}</div>
     @if($pg->titular)<div class="center" style="font-size:6.5pt">{{ $pg->titular }}</div>@endif
     @if($pg->numero) <div class="center bold" style="font-size:8pt">{{ $pg->numero }}</div>@endif
-    @if($pg->qr_imagen_path && file_exists(storage_path('app/public/' . $pg->qr_imagen_path)))
+    @php
+        $qrPagoPath = $pg->qr_imagen_path ? storage_path('app/public/' . $pg->qr_imagen_path) : null;
+        $qrPagoSrc  = null;
+        if ($qrPagoPath && file_exists($qrPagoPath)) {
+            $qrExt    = strtolower(pathinfo($qrPagoPath, PATHINFO_EXTENSION));
+            $qrMime   = in_array($qrExt, ['jpg','jpeg']) ? 'image/jpeg' : "image/$qrExt";
+            $qrPagoSrc = 'data:' . $qrMime . ';base64,' . base64_encode(file_get_contents($qrPagoPath));
+        }
+    @endphp
+    @if($qrPagoSrc)
         <div class="qr-wrap">
-            <img src="{{ storage_path('app/public/' . $pg->qr_imagen_path) }}" class="qr-img">
+            <img src="{{ $qrPagoSrc }}" class="qr-img">
         </div>
     @endif
 @elseif($venta->metodo_pago === 'transferencia' && $pagos->get('transferencia'))
@@ -216,5 +252,6 @@ table.items tfoot td { font-size: 7pt; padding: 2px 1px; }
     <em>Generado en sistema Adivon ERP</em>
 </div>
 
+</div> {{-- Cierre de page-content --}}
 </body>
 </html>

@@ -1,15 +1,47 @@
-@extends('layouts.app-layout')
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario Tiendas - {{ config('app.name') }}</title>
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="bg-gray-100">
+    <x-sidebar :role="auth()->user()->role->nombre" />
 
-@section('content')
-<div class="container mx-auto p-6">
-    <!-- Header -->
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 flex items-center">
-            <i class="fas fa-store mr-3 text-blue-900"></i>
-            Inventario entre Tiendas
-        </h1>
-        <p class="text-gray-600 mt-1">Consulta el stock disponible en todas las tiendas</p>
+    <div class="md:ml-64 min-h-screen bg-gray-100">
+    {{-- Top Bar --}}
+    <div class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="px-6 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-800">
+                <i class="fas fa-store-alt text-blue-900 mr-2"></i>
+                Inventario entre Tiendas
+            </h1>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('tienda.inventario.solicitudes') }}" class="text-sm text-blue-700 hover:underline flex items-center gap-1">
+                    <i class="fas fa-clipboard-list"></i> Mis solicitudes
+                </a>
+                <div class="w-9 h-9 bg-gradient-to-r from-blue-900 to-blue-700 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    {{ substr(auth()->user()->name, 0, 2) }}
+                </div>
+            </div>
+        </div>
     </div>
+
+    <div class="p-6">
+    @if(session('success'))
+        <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+            <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <i class="fas fa-exclamation-circle mr-2"></i>{{ session('error') }}
+        </div>
+    @endif
 
     <!-- Información de tienda actual -->
     <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg mb-6">
@@ -130,7 +162,7 @@
     <div class="mt-6">
         {{ $productos->links() }}
     </div>
-</div>
+    </div>{{-- /p-6 --}}
 
 <!-- Modal de solicitud de traslado -->
 <div id="modalTraslado" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
@@ -259,4 +291,6 @@ document.getElementById('formTraslado').addEventListener('submit', function(e) {
     });
 });
 </script>
-@endsection
+    </div>{{-- /md:ml-64 --}}
+</body>
+</html>

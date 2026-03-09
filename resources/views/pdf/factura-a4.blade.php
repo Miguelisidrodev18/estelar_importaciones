@@ -5,7 +5,7 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 @page { margin: 18mm 16mm; }
-body { font-family: DejaVu Sans, sans-serif; font-size: 8.5pt; color: #1a1a1a; background: #fff; }
+body { font-family: DejaVu Sans, sans-serif; font-size: 8.5pt; color: #1a1a1a; background: #fff; margin: 18mm 16mm; }
 
 /* ─── HEADER ─── */
 .header { display: table; width: 100%; border-collapse: collapse; margin-bottom: 8px; }
@@ -88,10 +88,16 @@ table.items tfoot td { padding: 3px 6px; font-size: 7.5pt; }
     <div class="header-left">
         @php
             $logoFile = $empresa->logo_pdf_path ?: $empresa->logo_path;
-            $logoPath = $logoFile ? str_replace('\\', '/', storage_path('app/public/' . $logoFile)) : null;
+            $logoPath = $logoFile ? storage_path('app/public/' . $logoFile) : null;
+            $logoSrc  = null;
+            if ($logoPath && file_exists($logoPath)) {
+                $ext     = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                $mime    = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : "image/$ext";
+                $logoSrc = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoPath));
+            }
         @endphp
-        @if($logoPath && file_exists($logoPath))
-            <img src="{{ $logoPath }}" class="logo" alt="Logo">
+        @if($logoSrc)
+            <img src="{{ $logoSrc }}" class="logo" alt="Logo">
         @endif
         <div class="empresa-nombre">{{ $empresa->razon_social }}</div>
         @if($empresa->nombre_comercial)

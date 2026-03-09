@@ -18,13 +18,19 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-gray-900 antialiased">
+        @php $empresa = \App\Models\Empresa::instancia(); @endphp
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gradient-to-br from-[#034C8C] via-[#4F758C] to-[#FF3950]">
             <div>
                 <a href="/" class="flex items-center justify-center mb-6">
-                    <i class="fas fa-home text-white text-6xl drop-shadow-lg"></i>
+                    @if($empresa?->logo_url)
+                        <img src="{{ $empresa->logo_url }}" alt="Logo"
+                             class="h-24 w-24 object-contain drop-shadow-xl rounded-xl bg-white/10 p-1">
+                    @else
+                        <i class="fas fa-home text-white text-6xl drop-shadow-lg"></i>
+                    @endif
                 </a>
                 <h1 class="text-center text-3xl font-bold text-white mb-2 drop-shadow-lg">
-                    CORPORACIÓN ADIVON SAC
+                    {{ $empresa?->nombre_display ?? 'CORPORACIÓN ADIVON SAC' }}
                 </h1>
                 <p class="text-center text-white/80 mb-8">
                     Sistema de Gestión de Importaciones
@@ -36,7 +42,7 @@
             </div>
 
             <div class="mt-6 text-center text-white/70 text-sm">
-                <p>&copy; {{ date('Y') }} Corporación Adivon SAC. Todos los derechos reservados.</p>
+                <p>&copy; {{ date('Y') }} {{ $empresa?->nombre_display ?? 'Corporación Adivon SAC' }}. Todos los derechos reservados.</p>
             </div>
         </div>
     </body>

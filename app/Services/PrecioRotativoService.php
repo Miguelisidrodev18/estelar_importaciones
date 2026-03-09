@@ -20,7 +20,7 @@ class PrecioRotativoService
         ?Cliente $cliente = null, 
         ?Proveedor $proveedor = null,
         float $cantidad = 1,
-        string $tipoPrecio = 'venta_normal'
+        string $tipoPrecio = 'venta_regular'
     ) {
         $query = ProductoPrecio::where('producto_id', $producto->id)
             ->where('activo', true)
@@ -112,7 +112,7 @@ class PrecioRotativoService
         // Crear o actualizar precio para este proveedor
         $precioExistente = ProductoPrecio::where('producto_id', $producto->id)
             ->where('proveedor_id', $proveedor->id)
-            ->where('tipo_precio', 'venta_normal')
+            ->where('tipo_precio', 'venta_regular')
             ->where('activo', true)
             ->first();
 
@@ -124,7 +124,7 @@ class PrecioRotativoService
         // Crear nuevo precio vigente
         ProductoPrecio::create([
             'producto_id' => $producto->id,
-            'tipo_precio' => 'venta_normal',
+            'tipo_precio' => 'venta_regular',
             'precio' => round($precioVenta, 2),
             'moneda' => 'PEN',
             'fecha_inicio' => now(),
