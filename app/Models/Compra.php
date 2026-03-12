@@ -36,6 +36,12 @@ class Compra extends Model
         'concepto_adicional',
         'transportista',
         'placa_vehiculo',
+        'tipo_compra',
+        'numero_dua',
+        'numero_manifiesto',
+        'flete',
+        'seguro',
+        'otros_gastos',
         'estado',
         'fecha_anulacion',
         'motivo_anulacion',
@@ -54,6 +60,9 @@ class Compra extends Model
         'tipo_cambio' => 'decimal:4',
         'descuento_global' => 'decimal:2',
         'monto_adicional' => 'decimal:2',
+        'flete' => 'decimal:2',
+        'seguro' => 'decimal:2',
+        'otros_gastos' => 'decimal:2',
     ];
 
     // Constantes para valores fijos

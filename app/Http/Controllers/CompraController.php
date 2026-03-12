@@ -115,6 +115,14 @@ class CompraController extends Controller
             'guia_remision' => 'nullable|string|max:50',
             'transportista' => 'nullable|string|max:255',
             'placa_vehiculo' => 'nullable|string|max:10',
+
+            // Tipo de compra e importación
+            'tipo_compra' => 'required|in:local,nacional,importacion',
+            'numero_dua' => 'nullable|string|max:50',
+            'numero_manifiesto' => 'nullable|string|max:50',
+            'flete' => 'nullable|numeric|min:0',
+            'seguro' => 'nullable|numeric|min:0',
+            'otros_gastos' => 'nullable|numeric|min:0',
             
             // Detalles de productos
             'detalles' => 'required|array|min:1',
@@ -161,15 +169,30 @@ class CompraController extends Controller
                 $subtotal += $validated['monto_adicional'];
             }
 
+            // Agregar costos de importación si aplica
+            $flete       = (float)($validated['flete'] ?? 0);
+            $seguro      = (float)($validated['seguro'] ?? 0);
+            $otrosGastos = (float)($validated['otros_gastos'] ?? 0);
+            $subtotal   += $flete + $seguro + $otrosGastos;
+
             // Calcular IGV según tipo de operación SUNAT y estado del checkbox
             $incluyeIgv    = filter_var($validated['incluye_igv'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $precioConIgv  = filter_var($request->input('precio_incluye_igv', false), FILTER_VALIDATE_BOOLEAN);
             $tipoOperacion = $validated['tipo_operacion'] ?? '01';
 
             $igv   = 0;
             $total = $subtotal;
             if ($tipoOperacion === '01' && $incluyeIgv) {
-                $igv   = round($subtotal * 0.18, 2);
-                $total = $subtotal + $igv;
+                if ($precioConIgv) {
+                    // Los precios ingresados YA incluyen IGV: extraer la base
+                    $subtotalBase = round($subtotal / 1.18, 2);
+                    $igv          = round($subtotal - $subtotalBase, 2);
+                    $subtotal     = $subtotalBase;
+                    $total        = $subtotalBase + $igv; // = precio original
+                } else {
+                    $igv   = round($subtotal * 0.18, 2);
+                    $total = $subtotal + $igv;
+                }
             }
 
             // Aplicar tipo de cambio si es USD
@@ -206,6 +229,12 @@ class CompraController extends Controller
                 'transportista' => $validated['transportista'] ?? null,
                 'placa_vehiculo' => $validated['placa_vehiculo'] ?? null,
                 'observaciones' => $validated['observaciones'] ?? null,
+                'tipo_compra' => $validated['tipo_compra'],
+                'numero_dua' => $validated['numero_dua'] ?? null,
+                'numero_manifiesto' => $validated['numero_manifiesto'] ?? null,
+                'flete' => $flete,
+                'seguro' => $seguro,
+                'otros_gastos' => $otrosGastos,
             ];
 
             // Registrar la compra usando el servicio
@@ -407,22 +436,20 @@ public function importarIMEI(Request $request)
     {
         try {
             DB::beginTransaction();
-            
+
             if ($compra->estado === 'anulado') {
                 throw new \Exception('La compra ya está anulada');
             }
-            
+
             $this->compraService->anularCompra($compra);
-            
+
             DB::commit();
-            
-            return redirect()
-                ->route('compras.show', $compra)
-                ->with('success', 'Compra anulada exitosamente');
-                
+
+            return response()->json(['success' => true, 'message' => 'Compra anulada exitosamente']);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al anular: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
     }
 

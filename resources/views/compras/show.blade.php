@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalle de Compra - CORPORACIÓN ADIVON SAC</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Compra #{{ $compra->numero_factura }} - CORPORACIÓN ADIVON SAC</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -13,7 +14,7 @@
     <x-sidebar :role="auth()->user()->role->nombre" />
 
     <div class="md:ml-64 p-4 md:p-8">
-        <!-- Header con breadcrumb y acciones -->
+        <!-- Breadcrumb + Header -->
         <div class="mb-6">
             <div class="flex items-center text-sm text-gray-500 mb-2">
                 <a href="{{ route('admin.dashboard') }}" class="hover:text-blue-900">Dashboard</a>
@@ -22,285 +23,454 @@
                 <i class="fas fa-chevron-right mx-2 text-xs"></i>
                 <span class="text-gray-700 font-medium">Compra #{{ $compra->numero_factura }}</span>
             </div>
-
-            <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-gray-900 flex items-center">
-                    <i class="fas fa-file-invoice mr-3 text-blue-900"></i>
-                    Detalle de Compra
-                </h1>
-                <div class="flex space-x-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <i class="fas fa-file-invoice mr-3 text-blue-900"></i>
+                        Detalle de Compra
+                    </h1>
+                    @php
+                        $tipoLabel = ['local' => 'Local', 'nacional' => 'Nacional', 'importacion' => 'Importación'];
+                        $tipoColor = ['local' => 'green', 'nacional' => 'blue', 'importacion' => 'orange'];
+                        $tc = $compra->tipo_compra ?? 'local';
+                        $color = $tipoColor[$tc] ?? 'gray';
+                    @endphp
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold
+                        {{ $color === 'green' ? 'bg-green-100 text-green-800' : ($color === 'blue' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800') }}">
+                        @if($tc === 'importacion') <i class="fas fa-ship mr-1"></i>
+                        @elseif($tc === 'nacional') <i class="fas fa-file-invoice mr-1"></i>
+                        @else <i class="fas fa-store mr-1"></i>
+                        @endif
+                        {{ $tipoLabel[$tc] ?? 'Local' }}
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
                     @if($compra->estado != 'anulado')
-                        <a href="{{ route('compras.edit', $compra) }}" 
-                           class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center">
-                            <i class="fas fa-edit mr-2"></i>Editar
+                        <a href="{{ route('compras.edit', $compra) }}"
+                           class="px-4 py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition text-sm flex items-center gap-1.5">
+                            <i class="fas fa-edit"></i>Editar
                         </a>
                         <button onclick="anularCompra({{ $compra->id }})"
-                                class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition flex items-center">
-                            <i class="fas fa-ban mr-2"></i>Anular
+                                class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition text-sm flex items-center gap-1.5">
+                            <i class="fas fa-ban"></i>Anular
                         </button>
                     @endif
-                    <a href="{{ route('compras.index') }}" 
-                       class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center">
-                        <i class="fas fa-arrow-left mr-2"></i>Volver
+                    <a href="{{ route('compras.index') }}"
+                       class="px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition text-sm flex items-center gap-1.5">
+                        <i class="fas fa-arrow-left"></i>Volver
                     </a>
                 </div>
             </div>
         </div>
 
-        <!-- Mensajes de éxito/error -->
+        <!-- Alertas -->
         @if(session('success'))
-            <div class="mb-6 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg flex items-start">
-                <i class="fas fa-check-circle mt-0.5 mr-3 text-lg"></i>
+            <div class="mb-5 bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded-xl flex items-start gap-3">
+                <i class="fas fa-check-circle mt-0.5 text-lg"></i>
                 <span>{{ session('success') }}</span>
             </div>
         @endif
-
         @if(session('error'))
-            <div class="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg flex items-start">
-                <i class="fas fa-exclamation-circle mt-0.5 mr-3 text-lg"></i>
+            <div class="mb-5 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-xl flex items-start gap-3">
+                <i class="fas fa-exclamation-circle mt-0.5 text-lg"></i>
                 <span>{{ session('error') }}</span>
             </div>
         @endif
 
-        <!-- Grid principal -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Columna izquierda: Información de la compra -->
-            <div class="lg:col-span-1 space-y-6">
-                <!-- Tarjeta de estado -->
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                        <h2 class="text-lg font-bold text-white flex items-center">
-                            <i class="fas fa-info-circle mr-2"></i>
-                            Estado de la Compra
-                        </h2>
-                    </div>
-                    <div class="p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <span class="text-sm text-gray-600">Estado:</span>
-                            @if($compra->estado == 'completado')
-                                <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                                    <i class="fas fa-check-circle mr-1"></i>Completado
-                                </span>
-                            @elseif($compra->estado == 'pendiente')
-                                <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
-                                    <i class="fas fa-clock mr-1"></i>Pendiente
-                                </span>
-                            @elseif($compra->estado == 'anulado')
-                                <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                                    <i class="fas fa-ban mr-1"></i>Anulado
-                                </span>
-                            @else
-                                <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">
-                                    {{ $compra->estado }}
-                                </span>
-                            @endif
-                        </div>
-
-                        <div class="space-y-3 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Código:</span>
-                                <span class="font-medium text-gray-900">{{ $compra->codigo }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">N° Factura:</span>
-                                <span class="font-medium text-gray-900">{{ $compra->numero_factura }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Fecha Emisión:</span>
-                                <span class="font-medium text-gray-900">{{ $compra->fecha->format('d/m/Y') }}</span>
-                            </div>
-                            @if($compra->fecha_vencimiento)
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Fecha Vencimiento:</span>
-                                <span class="font-medium text-gray-900">{{ $compra->fecha_vencimiento->format('d/m/Y') }}</span>
-                            </div>
-                            @endif
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Registrado por:</span>
-                                <span class="font-medium text-gray-900">{{ $compra->usuario->name }}</span>
-                            </div>
-                        </div>
-                    </div>
+        <!-- ═══════════════════════════════════════════════════
+             FILA DE TARJETAS RESUMEN
+             ═══════════════════════════════════════════════════ -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <!-- Estado -->
+            <div class="bg-white rounded-xl shadow p-4 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0
+                    {{ $compra->estado === 'completado' ? 'bg-green-100' : ($compra->estado === 'anulado' ? 'bg-red-100' : 'bg-gray-100') }}">
+                    <i class="fas fa-{{ $compra->estado === 'completado' ? 'check-circle text-green-600' : ($compra->estado === 'anulado' ? 'ban text-red-600' : 'clock text-gray-500') }}"></i>
                 </div>
-
-                <!-- Tarjeta de proveedor -->
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-purple-700 to-purple-600 px-6 py-4">
-                        <h2 class="text-lg font-bold text-white flex items-center">
-                            <i class="fas fa-truck mr-2"></i>
-                            Proveedor
-                        </h2>
-                    </div>
-                    <div class="p-6">
-                        <h3 class="font-semibold text-gray-900">{{ $compra->proveedor->nombre_comercial ?? $compra->proveedor->razon_social }}</h3>
-                        <p class="text-sm text-gray-600 mt-1">RUC: {{ $compra->proveedor->ruc }}</p>
-                        @if($compra->proveedor->direccion)
-                            <p class="text-sm text-gray-500 mt-2">{{ $compra->proveedor->direccion }}</p>
-                        @endif
-                    </div>
-                </div>
-
-                <!-- Tarjeta de almacén -->
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-green-700 to-green-600 px-6 py-4">
-                        <h2 class="text-lg font-bold text-white flex items-center">
-                            <i class="fas fa-warehouse mr-2"></i>
-                            Almacén Destino
-                        </h2>
-                    </div>
-                    <div class="p-6">
-                        <h3 class="font-semibold text-gray-900">{{ $compra->almacen->nombre }}</h3>
-                        @if($compra->almacen->ubicacion)
-                            <p class="text-sm text-gray-500 mt-1">{{ $compra->almacen->ubicacion }}</p>
-                        @endif
-                    </div>
-                </div>
-
-                <!-- Tarjeta de pago -->
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-4">
-                        <h2 class="text-lg font-bold text-white flex items-center">
-                            <i class="fas fa-credit-card mr-2"></i>
-                            Información de Pago
-                        </h2>
-                    </div>
-                    <div class="p-6 space-y-3">
-                        <div class="flex justify-between text-sm">
-                            <span class="text-gray-600">Forma de Pago:</span>
-                            <span class="font-medium text-gray-900">{{ ucfirst($compra->forma_pago) }}</span>
-                        </div>
-                        {{-- Mostrar días de crédito SOLO si forma_pago es 'credito' --}}
-                            @if($compra->forma_pago === 'credito' && $compra->condicion_pago)
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Crédito:</span>
-                                <span class="font-medium text-gray-900">{{ $compra->condicion_pago }} días</span>
-                            </div>
-                            @endif
-                        <div class="flex justify-between text-sm">
-                            <span class="text-gray-600">Moneda:</span>
-                            <span class="font-medium text-gray-900">{{ $compra->tipo_moneda }} ({{ $compra->moneda_simbolo }})</span>
-                        </div>
-                        <div class="border-t pt-3 mt-3">
-                            <div class="flex justify-between text-base font-bold">
-                                <span class="text-gray-700">Total:</span>
-                                <span class="text-blue-900">{{ $compra->total_formateado }}</span>
-                            </div>
-                        </div>
-                    </div>
+                <div>
+                    <p class="text-xs text-gray-500">Estado</p>
+                    <p class="font-semibold text-gray-900 text-sm capitalize">{{ $compra->estado }}</p>
                 </div>
             </div>
+            <!-- Código -->
+            <div class="bg-white rounded-xl shadow p-4 flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                    <i class="fas fa-hashtag text-blue-700"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Código</p>
+                    <p class="font-semibold text-gray-900 text-sm font-mono">{{ $compra->codigo }}</p>
+                </div>
+            </div>
+            <!-- Fecha -->
+            <div class="bg-white rounded-xl shadow p-4 flex items-center gap-3">
+                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
+                    <i class="fas fa-calendar text-purple-700"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Fecha Emisión</p>
+                    <p class="font-semibold text-gray-900 text-sm">{{ $compra->fecha->format('d/m/Y') }}</p>
+                </div>
+            </div>
+            <!-- Total -->
+            <div class="bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl shadow p-4 flex items-center gap-3">
+                <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
+                    <i class="fas fa-dollar-sign text-white"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-blue-200">Total</p>
+                    <p class="font-bold text-white text-lg">{{ $compra->moneda_simbolo }} {{ number_format($compra->total, 2) }}</p>
+                </div>
+            </div>
+        </div>
 
-            <!-- Columna derecha: Productos -->
-            <div class="lg:col-span-2 space-y-6">
-                <!-- Tarjeta de productos -->
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
-                        <h2 class="text-lg font-bold text-white flex items-center">
-                            <i class="fas fa-boxes mr-2"></i>
-                            Productos de la Compra
+        <!-- ═══════════════════════════════════════════════════
+             GRID PRINCIPAL
+             ═══════════════════════════════════════════════════ -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- ─── COLUMNA IZQUIERDA ─── -->
+            <div class="space-y-5">
+
+                <!-- Información de la compra -->
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-4">
+                        <h2 class="font-bold text-white flex items-center gap-2 text-sm">
+                            <i class="fas fa-info-circle"></i> Información de la Compra
                         </h2>
                     </div>
-                    
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-100">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Producto</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Marca</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Modelo</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Color</th>
-                                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Cant.</th>
-                                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Precio Unit.</th>
-                                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($compra->detalles as $detalle)
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4">
-                                        <p class="font-medium text-gray-900">{{ $detalle->producto->nombre }}</p>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-sm text-gray-600">{{ $detalle->producto->marca->nombre ?? '-' }}</span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-sm text-gray-600">{{ $detalle->producto->modelo->nombre ?? '-' }}</span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-sm text-gray-600">{{ $detalle->producto->color->nombre ?? '-' }}</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-right font-medium">{{ $detalle->cantidad }}</td>
-                                    <td class="px-6 py-4 text-right">{{ number_format($detalle->precio_unitario, 2) }}</td>
-                                    <td class="px-6 py-4 text-right font-semibold text-blue-900">
-                                        {{ number_format($detalle->cantidad * $detalle->precio_unitario, 2) }}
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            <tfoot class="bg-gray-50">
-                                <tr>
-                                    <td colspan="6" class="px-6 py-3 text-right font-bold text-gray-700">Subtotal:</td>
-                                    <td class="px-6 py-3 text-right font-bold text-blue-900">{{ number_format($compra->subtotal, 2) }}</td>
-                                </tr>
-                                <tr>
-                                    <td colspan="6" class="px-6 py-3 text-right font-bold text-gray-700">IGV (18%):</td>
-                                    <td class="px-6 py-3 text-right font-bold text-blue-900">{{ number_format($compra->igv, 2) }}</td>
-                                </tr>
-                                <tr>
-                                    <td colspan="6" class="px-6 py-3 text-right font-bold text-gray-900 text-lg">Total:</td>
-                                    <td class="px-6 py-3 text-right font-bold text-blue-900 text-lg">{{ number_format($compra->total, 2) }}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    <div class="p-5 space-y-2.5 text-sm">
+                        @php
+                            $rows = [
+                                ['N° Factura', $compra->numero_factura, 'font-mono font-semibold'],
+                                ['Registrado por', $compra->usuario->name ?? '—', ''],
+                                ['Tipo operación SUNAT', $compra->tipo_operacion_texto ?? $compra->tipo_operacion, 'text-xs'],
+                                ['Tipo de compra', $tipoLabel[$tc] ?? 'Local', ''],
+                            ];
+                            if ($compra->fecha_vencimiento) {
+                                $rows[] = ['Vencimiento', $compra->fecha_vencimiento->format('d/m/Y'), ''];
+                            }
+                            if ($compra->guia_remision) {
+                                $rows[] = ['Guía de remisión', $compra->guia_remision, 'font-mono'];
+                            }
+                            if ($compra->transportista) {
+                                $rows[] = ['Transportista', $compra->transportista, ''];
+                            }
+                        @endphp
+                        @foreach($rows as [$label, $value, $cls])
+                        <div class="flex justify-between items-start gap-2">
+                            <span class="text-gray-500 shrink-0">{{ $label }}:</span>
+                            <span class="font-medium text-gray-900 text-right {{ $cls }}">{{ $value }}</span>
+                        </div>
+                        @endforeach
                     </div>
-
-                    @if($compra->observaciones)
-                    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                        <h4 class="font-medium text-gray-700 mb-1">Observaciones:</h4>
-                        <p class="text-sm text-gray-600">{{ $compra->observaciones }}</p>
-                    </div>
-                    @endif
                 </div>
 
-                <!-- Tarjeta de cuentas por pagar (si existe) -->
-                @if($compra->cuentaPorPagar)
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-red-700 to-red-600 px-6 py-4">
-                        <h2 class="text-lg font-bold text-white flex items-center">
-                            <i class="fas fa-credit-card mr-2"></i>
-                            Cuenta por Pagar
+                <!-- Proveedor -->
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <div class="bg-gradient-to-r from-purple-700 to-purple-600 px-5 py-4">
+                        <h2 class="font-bold text-white flex items-center gap-2 text-sm">
+                            <i class="fas fa-truck"></i> Proveedor
                         </h2>
                     </div>
-                    <div class="p-6">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div>
-                                <p class="text-xs text-gray-500">Monto Total</p>
-                                <p class="text-lg font-bold text-gray-900">{{ number_format($compra->cuentaPorPagar->monto_total, 2) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500">Monto Pagado</p>
-                                <p class="text-lg font-bold text-green-600">{{ number_format($compra->cuentaPorPagar->monto_pagado, 2) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500">Saldo Pendiente</p>
-                                <p class="text-lg font-bold text-red-600">{{ number_format($compra->cuentaPorPagar->saldo_pendiente, 2) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500">Fecha Vencimiento</p>
-                                <p class="text-lg font-bold text-gray-900">{{ $compra->cuentaPorPagar->fecha_vencimiento->format('d/m/Y') }}</p>
-                            </div>
+                    <div class="p-5 text-sm">
+                        <p class="font-semibold text-gray-900 text-base">{{ $compra->proveedor->nombre_comercial ?? $compra->proveedor->razon_social }}</p>
+                        @if(($compra->proveedor->nombre_comercial ?? '') !== ($compra->proveedor->razon_social ?? ''))
+                            <p class="text-gray-500 mt-0.5">{{ $compra->proveedor->razon_social }}</p>
+                        @endif
+                        <p class="text-blue-700 font-mono mt-1">RUC: {{ $compra->proveedor->ruc }}</p>
+                        @if($compra->proveedor->direccion)
+                            <p class="text-gray-500 mt-1 text-xs">{{ $compra->proveedor->direccion }}</p>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Almacén + Pago -->
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <div class="bg-gradient-to-r from-green-700 to-green-600 px-5 py-4">
+                        <h2 class="font-bold text-white flex items-center gap-2 text-sm">
+                            <i class="fas fa-warehouse"></i> Almacén &amp; Pago
+                        </h2>
+                    </div>
+                    <div class="p-5 space-y-2.5 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Almacén destino:</span>
+                            <span class="font-semibold text-gray-900">{{ $compra->almacen->nombre }}</span>
                         </div>
-                        <div class="mt-4 flex justify-end">
-                            <a href="{{ route('cuentas-por-pagar.show', $compra->cuentaPorPagar) }}" 
-                               class="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 text-sm">
-                                Ver detalle de cuenta
-                            </a>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Forma de pago:</span>
+                            <span class="font-medium text-gray-900 capitalize">{{ $compra->forma_pago }}</span>
+                        </div>
+                        @if($compra->forma_pago === 'credito' && $compra->condicion_pago)
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Días de crédito:</span>
+                            <span class="font-medium text-gray-900">{{ $compra->condicion_pago }} días</span>
+                        </div>
+                        @endif
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Moneda:</span>
+                            <span class="font-medium text-gray-900">{{ $compra->tipo_moneda }} ({{ $compra->moneda_simbolo }})</span>
+                        </div>
+                        @if($compra->tipo_moneda === 'USD' && $compra->tipo_cambio)
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Tipo de cambio:</span>
+                            <span class="font-medium text-gray-900">S/ {{ number_format($compra->tipo_cambio, 3) }}</span>
+                        </div>
+                        @endif
+                        <div class="pt-2 border-t border-gray-100 flex justify-between font-bold text-base">
+                            <span class="text-gray-700">Total:</span>
+                            <span class="text-blue-900">{{ $compra->moneda_simbolo }} {{ number_format($compra->total, 2) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Datos Importación (solo si tipo_compra = importacion) -->
+                @if($tc === 'importacion')
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <div class="bg-gradient-to-r from-orange-600 to-orange-500 px-5 py-4">
+                        <h2 class="font-bold text-white flex items-center gap-2 text-sm">
+                            <i class="fas fa-ship"></i> Datos de Importación
+                        </h2>
+                    </div>
+                    <div class="p-5 space-y-2.5 text-sm">
+                        @if($compra->numero_dua)
+                        <div class="flex justify-between gap-2">
+                            <span class="text-gray-500 shrink-0">N° DUA:</span>
+                            <span class="font-mono font-semibold text-gray-900">{{ $compra->numero_dua }}</span>
+                        </div>
+                        @endif
+                        @if($compra->numero_manifiesto)
+                        <div class="flex justify-between gap-2">
+                            <span class="text-gray-500 shrink-0">N° Manifiesto:</span>
+                            <span class="font-mono font-semibold text-gray-900">{{ $compra->numero_manifiesto }}</span>
+                        </div>
+                        @endif
+                        <div class="pt-2 border-t border-orange-100 space-y-1.5">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Flete:</span>
+                                <span class="font-medium">S/ {{ number_format($compra->flete ?? 0, 2) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Seguro:</span>
+                                <span class="font-medium">S/ {{ number_format($compra->seguro ?? 0, 2) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Otros gastos:</span>
+                                <span class="font-medium">S/ {{ number_format($compra->otros_gastos ?? 0, 2) }}</span>
+                            </div>
+                            <div class="flex justify-between pt-1 border-t border-orange-200 font-bold text-orange-800">
+                                <span>Total CIF:</span>
+                                <span>S/ {{ number_format(($compra->flete ?? 0) + ($compra->seguro ?? 0) + ($compra->otros_gastos ?? 0), 2) }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 @endif
-            </div>
-        </div>
+
+                <!-- Cuenta por Pagar -->
+                @if($compra->cuentaPorPagar)
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <div class="bg-gradient-to-r from-red-700 to-red-600 px-5 py-4">
+                        <h2 class="font-bold text-white flex items-center gap-2 text-sm">
+                            <i class="fas fa-credit-card"></i> Cuenta por Pagar
+                        </h2>
+                    </div>
+                    <div class="p-5">
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="bg-gray-50 rounded-xl p-3 text-center">
+                                <p class="text-xs text-gray-500 mb-1">Monto Total</p>
+                                <p class="text-base font-bold text-gray-900">{{ number_format($compra->cuentaPorPagar->monto_total, 2) }}</p>
+                            </div>
+                            <div class="bg-green-50 rounded-xl p-3 text-center">
+                                <p class="text-xs text-gray-500 mb-1">Pagado</p>
+                                <p class="text-base font-bold text-green-600">{{ number_format($compra->cuentaPorPagar->monto_pagado, 2) }}</p>
+                            </div>
+                            <div class="bg-red-50 rounded-xl p-3 text-center">
+                                <p class="text-xs text-gray-500 mb-1">Saldo</p>
+                                <p class="text-base font-bold text-red-600">{{ number_format($compra->cuentaPorPagar->saldo_pendiente, 2) }}</p>
+                            </div>
+                            <div class="bg-blue-50 rounded-xl p-3 text-center">
+                                <p class="text-xs text-gray-500 mb-1">Vencimiento</p>
+                                <p class="text-sm font-bold text-blue-900">{{ $compra->cuentaPorPagar->fecha_vencimiento->format('d/m/Y') }}</p>
+                            </div>
+                        </div>
+                        <a href="{{ route('cuentas-por-pagar.show', $compra->cuentaPorPagar) }}"
+                           class="mt-4 block text-center px-4 py-2 bg-blue-900 text-white rounded-xl hover:bg-blue-800 text-sm transition">
+                            Ver detalle de cuenta
+                        </a>
+                    </div>
+                </div>
+                @endif
+
+            </div>{{-- /col-left --}}
+
+            <!-- ─── COLUMNA DERECHA (productos + totales) ─── -->
+            <div class="lg:col-span-2 space-y-5">
+
+                <!-- Tabla de productos -->
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4 flex items-center justify-between">
+                        <h2 class="font-bold text-white flex items-center gap-2">
+                            <i class="fas fa-boxes"></i> Productos de la Compra
+                        </h2>
+                        <span class="bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                            {{ $compra->detalles->count() }} {{ $compra->detalles->count() === 1 ? 'ítem' : 'ítems' }}
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Producto</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca / Modelo</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Color</th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Cant.</th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Unit.</th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach($compra->detalles as $detalle)
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="px-5 py-4">
+                                        <p class="font-semibold text-gray-900">{{ $detalle->producto->nombre }}</p>
+                                        @if($detalle->codigo_barras)
+                                            <p class="text-xs text-gray-400 font-mono mt-0.5">{{ $detalle->codigo_barras }}</p>
+                                        @endif
+                                        @if($detalle->imeis->count())
+                                            <p class="text-xs text-purple-600 mt-0.5">
+                                                <i class="fas fa-microchip mr-1"></i>{{ $detalle->imeis->count() }} IMEI(s)
+                                            </p>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-4">
+                                        @php
+                                            $marca = $detalle->producto->marca?->nombre ?? $detalle->producto->marca?->nombre ?? null;
+                                            $modelo = $detalle->modelo?->nombre ?? $detalle->producto->modelo?->nombre ?? null;
+                                        @endphp
+                                        <span class="text-gray-700">{{ $marca ?? '-' }}</span>
+                                        @if($modelo)
+                                            <span class="text-gray-400 mx-1">/</span>
+                                            <span class="text-gray-600">{{ $modelo }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-4">
+                                        @php $color = $detalle->color?->nombre ?? $detalle->producto->color?->nombre ?? null; @endphp
+                                        @if($color)
+                                            <span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">{{ $color }}</span>
+                                        @else
+                                            <span class="text-gray-400">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-4 text-right font-semibold text-gray-900">{{ $detalle->cantidad }}</td>
+                                    <td class="px-5 py-4 text-right text-gray-700">
+                                        {{ $compra->moneda_simbolo }} {{ number_format($detalle->precio_unitario, 2) }}
+                                    </td>
+                                    <td class="px-5 py-4 text-right font-semibold text-blue-900">
+                                        {{ $compra->moneda_simbolo }} {{ number_format($detalle->cantidad * $detalle->precio_unitario, 2) }}
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Totales -->
+                    <div class="border-t border-gray-200 px-6 py-5 bg-gray-50">
+                        <div class="flex justify-end">
+                            <div class="w-72 space-y-2 text-sm">
+                                @php
+                                    $sumaProductos = $compra->detalles->sum(fn($d) => $d->cantidad * $d->precio_unitario);
+                                    $cifTotal = ($compra->flete ?? 0) + ($compra->seguro ?? 0) + ($compra->otros_gastos ?? 0);
+                                @endphp
+
+                                <div class="flex justify-between text-gray-600">
+                                    <span>Productos:</span>
+                                    <span>{{ $compra->moneda_simbolo }} {{ number_format($sumaProductos, 2) }}</span>
+                                </div>
+
+                                @if($tc === 'importacion' && $cifTotal > 0)
+                                <div class="flex justify-between text-orange-700">
+                                    <span>Costos CIF (flete + seguro + otros):</span>
+                                    <span>{{ $compra->moneda_simbolo }} {{ number_format($cifTotal, 2) }}</span>
+                                </div>
+                                @endif
+
+                                @if($compra->monto_adicional > 0)
+                                <div class="flex justify-between text-gray-600">
+                                    <span>{{ $compra->concepto_adicional ?? 'Monto adicional' }}:</span>
+                                    <span>{{ $compra->moneda_simbolo }} {{ number_format($compra->monto_adicional, 2) }}</span>
+                                </div>
+                                @endif
+
+                                <div class="flex justify-between pt-2 border-t border-gray-200 text-gray-700">
+                                    <span>Subtotal (base):</span>
+                                    <span class="font-semibold">{{ $compra->moneda_simbolo }} {{ number_format($compra->subtotal, 2) }}</span>
+                                </div>
+
+                                @if($compra->igv > 0)
+                                <div class="flex justify-between text-gray-600">
+                                    <span>IGV (18%):</span>
+                                    <span>{{ $compra->moneda_simbolo }} {{ number_format($compra->igv, 2) }}</span>
+                                </div>
+                                @endif
+
+                                <div class="flex justify-between pt-2 border-t-2 border-blue-200 font-bold text-base">
+                                    <span class="text-gray-900">Total:</span>
+                                    <span class="text-blue-900">{{ $compra->moneda_simbolo }} {{ number_format($compra->total, 2) }}</span>
+                                </div>
+
+                                @if($compra->tipo_moneda === 'USD' && $compra->tipo_cambio)
+                                <div class="flex justify-between text-xs text-gray-500 pt-1">
+                                    <span>Equivalente en soles (TC {{ number_format($compra->tipo_cambio, 3) }}):</span>
+                                    <span class="font-medium text-gray-700">S/ {{ number_format($compra->total * $compra->tipo_cambio, 2) }}</span>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    @if($compra->observaciones)
+                    <div class="px-6 py-4 border-t border-gray-100">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                            <i class="fas fa-comment mr-1"></i>Observaciones
+                        </p>
+                        <p class="text-sm text-gray-700">{{ $compra->observaciones }}</p>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- IMEIs (si los hay) -->
+                @php $detallesConImeis = $compra->detalles->filter(fn($d) => $d->imeis->count() > 0); @endphp
+                @if($detallesConImeis->isNotEmpty())
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <div class="bg-gradient-to-r from-purple-700 to-purple-600 px-6 py-4">
+                        <h2 class="font-bold text-white flex items-center gap-2">
+                            <i class="fas fa-microchip"></i> IMEIs Registrados
+                        </h2>
+                    </div>
+                    <div class="p-5 space-y-4">
+                        @foreach($detallesConImeis as $detalle)
+                        <div>
+                            <p class="font-semibold text-gray-800 text-sm mb-2">{{ $detalle->producto->nombre }}</p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($detalle->imeis as $imei)
+                                <span class="px-2.5 py-1 bg-purple-50 border border-purple-200 rounded-lg text-xs font-mono text-purple-800">
+                                    {{ $imei->codigo_imei }}
+                                </span>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+            </div>{{-- /col-right --}}
+
+        </div>{{-- /grid --}}
     </div>
 
     <script>
@@ -323,22 +493,16 @@
                             'Content-Type': 'application/json'
                         }
                     })
-                    .then(response => response.json())
+                    .then(r => r.json())
                     .then(data => {
                         if (data.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: '¡Anulada!',
-                                text: 'La compra ha sido anulada correctamente.',
-                                timer: 2000
-                            }).then(() => location.reload());
+                            Swal.fire({ icon: 'success', title: '¡Anulada!', text: 'La compra ha sido anulada correctamente.', timer: 2000 })
+                                .then(() => location.reload());
                         } else {
                             Swal.fire('Error', data.message, 'error');
                         }
                     })
-                    .catch(() => {
-                        Swal.fire('Error', 'No se pudo conectar al servidor', 'error');
-                    });
+                    .catch(() => Swal.fire('Error', 'No se pudo conectar al servidor', 'error'));
                 }
             });
         }

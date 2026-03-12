@@ -254,7 +254,7 @@ class VentaController extends Controller
     public function confirmarPago(Request $request, Venta $venta)
     {
         $validated = $request->validate([
-            'metodo_pago' => 'required|in:efectivo,transferencia,yape,plin',
+            'metodo_pago' => 'required|in:efectivo,transferencia,yape,plin,mixto',
         ]);
 
         try {
