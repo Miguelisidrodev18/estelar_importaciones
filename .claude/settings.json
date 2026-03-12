@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"posApp\\\\|igv\\\\|IGV\\\\|precio_con_igv\\\\|incluye_igv\" /c/xampp/htdocs/proyecto_importaciones/importaciones/resources/views/ventas/ --include=*.blade.php --include=*.js)",
+      "Bash(grep -r \"obtenerPrecios\\\\|function obtenerPrecios\" /c/xampp/htdocs/proyecto_importaciones/importaciones/app --include=*.php)"
+    ]
+  }
+}

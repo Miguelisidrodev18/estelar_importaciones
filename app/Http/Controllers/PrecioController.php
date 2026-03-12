@@ -27,15 +27,34 @@ class PrecioController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Producto::with(['categoria', 'marca', 'modelo', 'precios' => function($q) {
-            $q->where('activo', true)->latest();
-        }]);
+        // Stats globales (independientes de filtros)
+        // Precio 0 se considera "sin precio"
+        $totalProductos = Producto::where('estado', 'activo')->count();
+        $conPrecio      = Producto::where('estado', 'activo')
+                            ->whereHas('precios', fn($q) => $q->where('activo', true)->where('precio', '>', 0))
+                            ->count();
+        $sinPrecio      = $totalProductos - $conPrecio;
+        $margenPromedio = ProductoPrecio::where('activo', true)->where('precio', '>', 0)->whereNotNull('margen')->avg('margen');
 
-        // Filtros
+        $query = Producto::where('estado', 'activo')
+            ->with(['categoria', 'precios' => function($q) {
+                $q->where('activo', true)
+                  ->whereNull('almacen_id')
+                  ->where('tipo_precio', 'venta_regular')
+                  ->latest();
+            }]);
+
+        // Tab: sin precio (incluye productos sin registro de precio o con precio = 0)
+        if ($request->get('tab') === 'sin_precio') {
+            $query->whereDoesntHave('precios', fn($q) => $q->where('activo', true)->where('precio', '>', 0));
+        }
+
+        // Filtro por categoría
         if ($request->filled('categoria_id')) {
             $query->where('categoria_id', $request->categoria_id);
         }
 
+        // Búsqueda
         if ($request->filled('buscar')) {
             $query->where(function($q) use ($request) {
                 $q->where('nombre', 'like', '%' . $request->buscar . '%')
@@ -43,10 +62,13 @@ class PrecioController extends Controller
             });
         }
 
-        $productos = $query->paginate(20);
+        $productos  = $query->orderBy('nombre')->paginate(25)->withQueryString();
         $categorias = Categoria::where('estado', 'activo')->orderBy('nombre')->get();
 
-        return view('precios.index', compact('productos', 'categorias'));
+        return view('precios.index', compact(
+            'productos', 'categorias',
+            'totalProductos', 'conPrecio', 'sinPrecio', 'margenPromedio'
+        ));
     }
     /**
     * Mostrar formulario para editar un precio específico
@@ -127,6 +149,7 @@ class PrecioController extends Controller
             'precio_mayorista'=> 'nullable|numeric|min:0.01',
             'margen'          => 'required|numeric|min:0|max:1000',
             'observaciones'   => 'nullable|string|max:500',
+            'incluye_igv'     => 'nullable|boolean',
             'replicar_tiendas'=> 'nullable|boolean',
         ]);
 
@@ -153,6 +176,7 @@ class PrecioController extends Controller
                 'precio_compra'    => $validated['precio_compra'],
                 'precio_mayorista' => $validated['precio_mayorista'] ?? null,
                 'margen'           => $validated['margen'],
+                'incluye_igv'      => !empty($validated['incluye_igv']),
                 'observaciones'    => $validated['observaciones'] ?? null,
                 'proveedor_id'     => $validated['proveedor_id'] ?? null,
                 'activo'           => true,
@@ -213,6 +237,7 @@ class PrecioController extends Controller
                         'precio_compra'    => $validated['precio_compra'],
                         'precio_mayorista' => $validated['precio_mayorista'] ?? null,
                         'margen'           => $validated['margen'],
+                        'incluye_igv'      => !empty($validated['incluye_igv']),
                         'proveedor_id'     => $validated['proveedor_id'] ?? null,
                         'activo'           => true,
                         'creado_por'       => auth()->id(),
@@ -258,6 +283,7 @@ class PrecioController extends Controller
             'observaciones'    => 'nullable|string|max:500',
             'fecha_inicio'     => 'nullable|date',
             'fecha_fin'        => 'nullable|date|after_or_equal:fecha_inicio',
+            'incluye_igv'      => 'nullable|boolean',
             'activo'           => 'boolean',
         ]);
 
@@ -281,6 +307,7 @@ class PrecioController extends Controller
                 'precio_compra'    => $validated['precio_compra'],
                 'precio_mayorista' => $validated['precio_mayorista'] ?? null,
                 'margen'           => $validated['margen'],
+                'incluye_igv'      => !empty($validated['incluye_igv']),
                 'observaciones'    => $validated['observaciones'] ?? null,
                 'fecha_inicio'     => $validated['fecha_inicio'] ?? null,
                 'fecha_fin'        => $validated['fecha_fin'] ?? null,

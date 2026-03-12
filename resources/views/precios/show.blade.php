@@ -344,6 +344,7 @@
 
                     {{-- Campo oculto precio_venta --}}
                     <input type="hidden" name="precio_venta" :value="precioVenta || ''">
+                    <input type="hidden" name="incluye_igv" :value="incluyeIgv ? 1 : 0">
 
                     {{-- Precio mayorista --}}
                     <div>

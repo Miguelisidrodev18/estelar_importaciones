@@ -1135,7 +1135,10 @@ function posApp() {
             } else {
                 this.orden.carrito.push({
                     producto_id: producto.id, variante_id: null,
-                    nombre: producto.nombre, precio_unitario: producto.precio_venta,
+                    nombre: producto.nombre,
+                    precio_unitario: producto.incluye_igv
+                        ? Math.round((producto.precio_venta / 1.18) * 100) / 100
+                        : producto.precio_venta,
                     cantidad: 1, stock_disponible: stockAlmacen,
                     tipo_inventario: producto.tipo_inventario, imeis: []
                 });
@@ -1160,7 +1163,10 @@ function posApp() {
             } else {
                 this.orden.carrito.push({
                     producto_id: this.productoActual.id, variante_id: v.id,
-                    nombre: nombreCompleto, precio_unitario: precioFinal,
+                    nombre: nombreCompleto,
+                    precio_unitario: this.productoActual.incluye_igv
+                        ? Math.round((precioFinal / 1.18) * 100) / 100
+                        : precioFinal,
                     cantidad: 1, stock_disponible: v.stock_actual,
                     tipo_inventario: this.productoActual.tipo_inventario, imeis: []
                 });
@@ -1333,7 +1339,10 @@ function posApp() {
             const nombreCompleto = this.productoActual.nombre + (v?.nombre_completo ? ' — ' + v.nombre_completo : '');
             this.orden.carrito.push({
                 producto_id: this.productoActual.id, variante_id: v ? v.id : null,
-                nombre: nombreCompleto, precio_unitario: precioFinal,
+                nombre: nombreCompleto,
+                precio_unitario: this.productoActual.incluye_igv
+                    ? Math.round((precioFinal / 1.18) * 100) / 100
+                    : precioFinal,
                 cantidad: this.imeisTemp.length, stock_disponible: this.imeisTemp.length,
                 tipo_inventario: 'serie', imeis: this.imeisTemp.map(i => ({ codigo_imei: i.codigo_imei }))
             });

@@ -19,6 +19,7 @@ class ProductoPrecio extends Model
         'precio_compra',
         'precio_mayorista',
         'margen',
+        'incluye_igv',
         'observaciones',
         'moneda',
         'fecha_inicio',
@@ -35,7 +36,8 @@ class ProductoPrecio extends Model
     protected $casts = [
         'fecha_inicio' => 'datetime',
         'fecha_fin' => 'datetime',
-        'activo' => 'boolean'
+        'activo' => 'boolean',
+        'incluye_igv' => 'boolean'
     ];
 
     public function producto()

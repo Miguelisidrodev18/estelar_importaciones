@@ -63,6 +63,7 @@ class PrecioRotativoService
         if ($precio) {
             return [
                 'precio' => $precio->precio,
+                'incluye_igv' => (bool) $precio->incluye_igv,
                 'moneda' => $precio->moneda,
                 'tipo' => $precio->tipo_precio,
                 'proveedor_id' => $precio->proveedor_id,
@@ -74,6 +75,7 @@ class PrecioRotativoService
         // Si no hay precio configurado, usar el precio base del producto
         return [
             'precio' => $producto->precio_venta ?? 0,
+            'incluye_igv' => false,
             'moneda' => 'PEN',
             'tipo' => 'base',
             'proveedor_id' => null,

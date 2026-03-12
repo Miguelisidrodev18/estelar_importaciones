@@ -72,6 +72,7 @@ class ProductoController extends Controller
                 'nombre' => $producto->nombre,
                 'codigo_interno' => $producto->codigo_interno,
                 'precio_venta' => $precioInfo['precio'],
+                'incluye_igv' => $precioInfo['incluye_igv'],
                 'stock_actual' => $stock,
                 'tipo_inventario' => $producto->tipo_inventario,
                 'requiere_imei' => $producto->tipo_inventario === 'serie',

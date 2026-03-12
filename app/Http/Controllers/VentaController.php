@@ -65,7 +65,12 @@ class VentaController extends Controller
             : ($user->almacen_id ?: null);
 
         $productos = Producto::where('estado', 'activo')
-            ->with(['categoria', 'variantesActivas.color'])
+            ->with(['categoria', 'variantesActivas.color', 'precios' => function ($q) {
+                $q->where('activo', true)
+                  ->whereNull('almacen_id')
+                  ->where('tipo_precio', 'venta_regular')
+                  ->latest();
+            }])
             ->orderBy('nombre')
             ->get();
 
@@ -85,6 +90,8 @@ class VentaController extends Controller
             ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
 
         $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen) {
+            $precioActivo = $p->precios->first();
+
             $variantes = $p->variantesActivas->map(fn($v) => [
                 'id'              => $v->id,
                 'sku'             => $v->sku,
@@ -112,6 +119,7 @@ class VentaController extends Controller
                 'stock_actual'     => (int) $p->stock_actual,
                 'stock_por_almacen'=> $stockMap,  // {almacen_id: qty}
                 'precio_venta'     => (float) $p->precio_venta,
+                'incluye_igv'      => (bool) ($precioActivo?->incluye_igv ?? false),
                 'imagen'           => $p->imagen_url ?? null,
                 'tiene_variantes'  => $variantes->isNotEmpty(),
                 'variantes'        => $variantes,
