@@ -253,10 +253,16 @@ class MovimientoInventario extends Model
     {
         return $this->belongsTo(User::class, 'usuario_confirma_id');
     }
-      // NUEVA RELACIÓN: IMEI
+      // NUEVA RELACIÓN: IMEI (legado - un solo IMEI)
     public function imei()
     {
         return $this->belongsTo(Imei::class, 'imei_id');
+    }
+
+    // IMEIs seleccionados al confirmar el traslado (múltiples)
+    public function imeisTrasladados()
+    {
+        return $this->hasMany(TrasladoImei::class, 'movimiento_id');
     }
     /**
      * Crear un movimiento de inventario y actualizar el stock del producto

@@ -94,6 +94,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Factura</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Compra</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Pago</th>
@@ -112,6 +113,22 @@
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ $compra->proveedor->razon_social ?? '-' }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-500">{{ $compra->numero_factura }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-500">{{ $compra->fecha->format('d/m/Y') }}</td>
+
+                                {{-- Tipo de Compra --}}
+                                <td class="px-6 py-4">
+                                    @php
+                                        $tc = match($compra->tipo_compra ?? 'local') {
+                                            'local'       => ['label' => 'Local',       'class' => 'bg-blue-100 text-blue-800',   'icon' => 'fa-store'],
+                                            'nacional'    => ['label' => 'Nacional',    'class' => 'bg-indigo-100 text-indigo-800', 'icon' => 'fa-flag'],
+                                            'importacion' => ['label' => 'Importación', 'class' => 'bg-orange-100 text-orange-800', 'icon' => 'fa-ship'],
+                                            default       => ['label' => ucfirst($compra->tipo_compra ?? 'local'), 'class' => 'bg-gray-100 text-gray-800', 'icon' => 'fa-tag'],
+                                        };
+                                    @endphp
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full {{ $tc['class'] }}">
+                                        <i class="fas {{ $tc['icon'] }} mr-1"></i>{{ $tc['label'] }}
+                                    </span>
+                                </td>
+
                                 <td class="px-6 py-4 text-sm font-semibold text-gray-900">S/ {{ number_format($compra->total, 2) }}</td>
                                 
                                 {{-- Estado Compra --}}

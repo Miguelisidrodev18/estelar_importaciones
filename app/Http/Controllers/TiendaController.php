@@ -6,6 +6,7 @@ use App\Models\Producto;
 use App\Models\Categoria;
 use App\Models\Almacen;
 use App\Models\StockAlmacen;
+use App\Models\Imei;
 use App\Models\MovimientoInventario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,13 +43,36 @@ class TiendaController extends Controller
         }
 
         $productos = $query->paginate(20);
-        
-        // Obtener stock por almacén para cada producto
+
+        $productoIds = $productos->pluck('id');
+
+        // Stock por almacén (productos de cantidad)
+        $stocksPorProducto = StockAlmacen::whereIn('producto_id', $productoIds)
+            ->get()
+            ->groupBy('producto_id')
+            ->map(fn($rows) => $rows->keyBy('almacen_id'));
+
+        // Conteo de IMEIs en_stock por producto y almacén (productos de serie)
+        $imeisPorProducto = Imei::whereIn('producto_id', $productoIds)
+            ->where('estado_imei', 'en_stock')
+            ->selectRaw('producto_id, almacen_id, COUNT(*) as total')
+            ->groupBy('producto_id', 'almacen_id')
+            ->get()
+            ->groupBy('producto_id')
+            ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
+
         foreach ($productos as $producto) {
-            $producto->stocks = StockAlmacen::where('producto_id', $producto->id)
-                ->with('almacen')
-                ->get()
-                ->keyBy('almacen_id');
+            if ($producto->tipo_inventario === 'serie') {
+                // Para serie: construir pseudo-stocks desde el conteo de IMEIs
+                $imeiMap = $imeisPorProducto[$producto->id] ?? collect();
+                $producto->stocks = $imeiMap->mapWithKeys(fn($total, $almacenId) => [
+                    $almacenId => (object)['cantidad' => $total, 'almacen_id' => $almacenId],
+                ]);
+                $producto->es_serie = true;
+            } else {
+                $producto->stocks = $stocksPorProducto[$producto->id] ?? collect();
+                $producto->es_serie = false;
+            }
         }
 
         $categorias = Categoria::where('estado', 'activo')->orderBy('nombre')->get();

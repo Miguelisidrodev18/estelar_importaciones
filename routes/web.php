@@ -357,6 +357,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('traslados')->name('traslados.')->middleware('auth')->group(function () {
         Route::middleware('role:Administrador,Almacenero')->group(function () {
             Route::get('/', [TrasladoController::class, 'index'])->name('index');
+            Route::get('/stock', [TrasladoController::class, 'stock'])->name('stock');
             Route::get('/create', [TrasladoController::class, 'create'])->name('create');
             Route::post('/', [TrasladoController::class, 'store'])->name('store');
         });

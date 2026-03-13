@@ -208,10 +208,39 @@
 
                     {{-- Traslados --}}
                     <li>
-                        <a href="{{ route('traslados.index') }}"
-                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.*') ? 'bg-blue-700' : '' }}">
-                            <i class="fas fa-truck-loading mr-3"></i>Traslados
-                        </a>
+                        <button @click="trasladosOpen = !trasladosOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-truck-loading mr-3"></i>Traslados
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': trasladosOpen }"></i>
+                        </button>
+                        <ul x-show="trasladosOpen" x-transition class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('traslados.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.index') || request()->routeIs('traslados.show') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-exchange-alt mr-3 text-sm"></i>Historial
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('traslados.stock') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.stock') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-boxes mr-3 text-sm"></i>Ver Stock
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('traslados.pendientes') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.pendientes') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-clock mr-3 text-sm"></i>Pendientes
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('traslados.create') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.create') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-plus mr-3 text-sm"></i>Nuevo Traslado
+                                </a>
+                            </li>
+                        </ul>
                     </li>
 
                     {{-- Caja --}}
@@ -413,10 +442,39 @@
 
                     {{-- Traslados --}}
                     <li>
-                        <a href="{{ route('traslados.index') }}"
-                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.*') ? 'bg-blue-700' : '' }}">
-                            <i class="fas fa-truck-loading mr-3"></i>Traslados
-                        </a>
+                        <button @click="trasladosOpen = !trasladosOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-truck-loading mr-3"></i>Traslados
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': trasladosOpen }"></i>
+                        </button>
+                        <ul x-show="trasladosOpen" x-transition class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('traslados.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.index') || request()->routeIs('traslados.show') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-exchange-alt mr-3 text-sm"></i>Historial
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('traslados.stock') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.stock') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-boxes mr-3 text-sm"></i>Ver Stock
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('traslados.pendientes') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.pendientes') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-clock mr-3 text-sm"></i>Pendientes
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('traslados.create') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('traslados.create') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-plus mr-3 text-sm"></i>Nuevo Traslado
+                                </a>
+                            </li>
+                        </ul>
                     </li>
 
                     {{-- Catálogo --}}

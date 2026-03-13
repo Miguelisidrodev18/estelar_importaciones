@@ -121,10 +121,20 @@
                             $stock = $producto->stocks[$almacen->id] ?? null;
                             $cantidad = $stock ? $stock->cantidad : 0;
                             $esMiTienda = $almacen->id == $tiendaActual->id;
+                            $esSerie = $producto->es_serie ?? false;
                         @endphp
                         <td class="px-3 py-4 text-center">
                             @if($esMiTienda)
-                                <span class="font-bold text-blue-600">{{ $cantidad }}</span>
+                                @if($cantidad > 0)
+                                    <span class="font-bold text-blue-600">
+                                        {{ $cantidad }}
+                                        @if($esSerie)
+                                            <span class="text-[10px] font-normal text-purple-500 ml-0.5">IMEI</span>
+                                        @endif
+                                    </span>
+                                @else
+                                    <span class="font-bold text-red-400">0</span>
+                                @endif
                             @else
                                 <span class="{{ $cantidad > 0 ? 'text-gray-900' : 'text-gray-400' }}">
                                     {{ $cantidad }}
@@ -139,6 +149,14 @@
                                 ->filter(function($stock, $almacenId) use ($tiendaActual) {
                                     return $almacenId != $tiendaActual->id && $stock->cantidad > 0;
                                 });
+                            // Para serie: también revisar stock_almacen de otras tiendas como origen posible
+                            if (($producto->es_serie ?? false) && $otrasTiendas->isEmpty()) {
+                                $otrasTiendas = \App\Models\StockAlmacen::where('producto_id', $producto->id)
+                                    ->where('almacen_id', '!=', $tiendaActual->id)
+                                    ->where('cantidad', '>', 0)
+                                    ->get()
+                                    ->keyBy('almacen_id');
+                            }
                         @endphp
                         
                         @if($otrasTiendas->count() > 0)

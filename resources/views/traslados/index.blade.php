@@ -23,6 +23,9 @@
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-gray-800">Traslados entre Almacenes</h2>
             <div class="flex gap-3">
+                <a href="{{ route('traslados.stock') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg">
+                    <i class="fas fa-boxes mr-2"></i>Ver Stock
+                </a>
                 <a href="{{ route('traslados.pendientes') }}" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg">
                     <i class="fas fa-clock mr-2"></i>Pendientes
                 </a>
