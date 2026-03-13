@@ -80,7 +80,7 @@ class VentaController extends Controller
             ->groupBy('producto_id')
             ->map(fn($rows) => $rows->pluck('cantidad', 'almacen_id'));
 
-        // Stock por almacén para productos de serie (contar IMEIs en_stock)
+        // Stock por almacén para productos de serie (contar IMEIs en_stock) — nivel producto
         $imeisPorAlmacen = Imei::whereIn('producto_id', $productos->pluck('id'))
             ->where('estado_imei', 'en_stock')
             ->selectRaw('producto_id, almacen_id, COUNT(*) as total')
@@ -89,20 +89,34 @@ class VentaController extends Controller
             ->groupBy('producto_id')
             ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
 
-        $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen) {
+        // Stock por almacén POR VARIANTE (solo serie tienen IMEI con variante_id)
+        $imeisPorVariante = Imei::whereIn('producto_id', $productos->pluck('id'))
+            ->where('estado_imei', 'en_stock')
+            ->whereNotNull('variante_id')
+            ->selectRaw('variante_id, almacen_id, COUNT(*) as total')
+            ->groupBy('variante_id', 'almacen_id')
+            ->get()
+            ->groupBy('variante_id')
+            ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
+
+        $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen, $imeisPorVariante) {
             $precioActivo = $p->precios->first();
+            $esSerie      = $p->tipo_inventario === 'serie';
 
             $variantes = $p->variantesActivas->map(fn($v) => [
-                'id'              => $v->id,
-                'sku'             => $v->sku,
-                'color_id'        => $v->color_id,
-                'color_nombre'    => $v->color?->nombre,
-                'color_hex'       => $v->color?->codigo_hex,
-                'capacidad'       => $v->capacidad,
-                'sobreprecio'     => (float)$v->sobreprecio,
-                'stock_actual'    => (int)$v->stock_actual,
-                'nombre_completo' => $v->nombre_completo,
-                'tiene_stock'     => $v->tieneStock(),
+                'id'                => $v->id,
+                'sku'               => $v->sku,
+                'color_id'          => $v->color_id,
+                'color_nombre'      => $v->color?->nombre,
+                'color_hex'         => $v->color?->codigo_hex,
+                'capacidad'         => $v->capacidad,
+                'sobreprecio'       => (float)$v->sobreprecio,
+                'stock_actual'      => (int)$v->stock_actual,
+                'stock_por_almacen' => $esSerie
+                    ? ($imeisPorVariante[$v->id] ?? collect())->toArray()
+                    : [],   // para no-serie no hay desglose por almacén
+                'nombre_completo'   => $v->nombre_completo,
+                'tiene_stock'       => $v->tieneStock(),
             ]);
 
             $stockMap = $p->tipo_inventario === 'serie'
@@ -118,7 +132,7 @@ class VentaController extends Controller
                 'tipo_inventario'  => $p->tipo_inventario,
                 'stock_actual'     => (int) $p->stock_actual,
                 'stock_por_almacen'=> $stockMap,  // {almacen_id: qty}
-                'precio_venta'     => (float) $p->precio_venta,
+                'precio_venta'     => (float) ($precioActivo?->precio ?? $p->precio_venta),
                 'incluye_igv'      => (bool) ($precioActivo?->incluye_igv ?? false),
                 'imagen'           => $p->imagen_url ?? null,
                 'tiene_variantes'  => $variantes->isNotEmpty(),

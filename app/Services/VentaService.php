@@ -62,7 +62,8 @@ class VentaService
                     $detalle['producto_id'],
                     $datosVenta['almacen_id'],
                     $detalle['cantidad'],
-                    $detalle['imeis'] ?? []
+                    $detalle['imeis'] ?? [],
+                    $detalle['variante_id'] ?? null
                 );
             }
 
@@ -157,7 +158,7 @@ class VentaService
     /**
      * Descontar stock del almacén
      */
-    private function descontarStock(int $productoId, int $almacenId, int $cantidad, array $imeis = [])
+    private function descontarStock(int $productoId, int $almacenId, int $cantidad, array $imeis = [], ?int $varianteId = null)
     {
         $producto      = \App\Models\Producto::find($productoId);
         $stockAnterior = 0;
@@ -177,6 +178,15 @@ class VentaService
                                ->where('estado_imei', 'en_stock')
                                ->count();
             $producto->update(['stock_actual' => $totalStock]);
+
+            // Actualizar stock_actual de la variante (conteo de IMEIs en_stock para esa variante)
+            if ($varianteId) {
+                $stockVariante = Imei::where('variante_id', $varianteId)
+                                     ->where('estado_imei', 'en_stock')
+                                     ->count();
+                \App\Models\ProductoVariante::where('id', $varianteId)
+                    ->update(['stock_actual' => $stockVariante]);
+            }
         } else {
             // Producto por cantidad: usar StockAlmacen
             $stock = StockAlmacen::where('producto_id', $productoId)
@@ -190,6 +200,16 @@ class VentaService
 
                 $totalStock = StockAlmacen::where('producto_id', $productoId)->sum('cantidad');
                 $producto->update(['stock_actual' => $totalStock]);
+            }
+
+            // Actualizar stock_actual de la variante (suma de stock_almacen para esa variante)
+            // stock_almacen no tiene variante_id, así que decrementamos directamente
+            if ($varianteId) {
+                $variante = \App\Models\ProductoVariante::find($varianteId);
+                if ($variante) {
+                    $nuevoStock = max(0, $variante->stock_actual - $cantidad);
+                    $variante->update(['stock_actual' => $nuevoStock]);
+                }
             }
         }
 

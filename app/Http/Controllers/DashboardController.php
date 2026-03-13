@@ -194,8 +194,8 @@ class DashboardController extends Controller
             'max_vendido'   => $maxVendido,
 
             // Infraestructura
-            'total_tiendas'        => Almacen::where('tipo', 'tienda')->count(),
-            'total_almacenes'      => Almacen::where('tipo', 'almacen')->count(),
+            'total_sucursales'     => \App\Models\Sucursal::count(),
+            'total_almacenes'      => Almacen::count(),
             'total_proveedores'    => Proveedor::count(),
             'traslados_pendientes' => MovimientoInventario::where('tipo_movimiento', 'transferencia')
                 ->where('estado', 'pendiente')

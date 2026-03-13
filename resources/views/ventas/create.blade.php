@@ -777,9 +777,9 @@
             <div class="grid grid-cols-2 gap-2.5">
                 <template x-for="v in productoActual?.variantes" :key="v.id">
                     <button @click="seleccionarVariante(v)"
-                            :disabled="!v.tiene_stock && productoActual?.tipo_inventario !== 'serie'"
+                            :disabled="stockVarianteEnAlmacen(v) === 0 && productoActual?.tipo_inventario !== 'serie'"
                             class="text-left border rounded-xl p-3 transition group disabled:opacity-40 disabled:cursor-not-allowed"
-                            :class="v.tiene_stock || productoActual?.tipo_inventario === 'serie'
+                            :class="stockVarianteEnAlmacen(v) > 0 || productoActual?.tipo_inventario === 'serie'
                                 ? 'border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                                 : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30'">
                         <div class="flex items-center gap-2 mb-1.5">
@@ -790,8 +790,14 @@
                         </div>
                         <div class="flex items-center justify-between text-xs">
                             <span class="font-mono text-gray-400 dark:text-gray-500" x-text="v.sku"></span>
-                            <span :class="v.tiene_stock ? 'text-green-600 dark:text-green-400' : 'text-red-500'"
-                                  x-text="productoActual?.tipo_inventario === 'serie' ? 'IMEI' : (v.tiene_stock ? v.stock_actual + ' en stock' : 'Sin stock')"></span>
+                            <span :class="stockVarianteEnAlmacen(v) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'"
+                                  x-text="productoActual?.tipo_inventario === 'serie'
+                                      ? (orden.almacenId && v.stock_por_almacen?.[orden.almacenId] !== undefined
+                                          ? v.stock_por_almacen[orden.almacenId] + ' IMEI aquí'
+                                          : v.stock_actual + ' IMEI total')
+                                      : (stockVarianteEnAlmacen(v) > 0
+                                          ? stockVarianteEnAlmacen(v) + ' en stock'
+                                          : 'Sin stock')"></span>
                         </div>
                         <div x-show="v.sobreprecio > 0" class="text-xs text-indigo-600 dark:text-indigo-400 mt-1 font-semibold" x-text="'+S/ ' + v.sobreprecio.toFixed(2)"></div>
                     </button>
@@ -1006,6 +1012,13 @@ function posApp() {
             if (!this.orden.almacenId) return p.stock_actual;
             return parseInt(p.stock_por_almacen?.[this.orden.almacenId] ?? 0);
         },
+        // Stock de una variante en el almacén seleccionado
+        stockVarianteEnAlmacen(v) {
+            if (!this.orden.almacenId || !v.stock_por_almacen || Object.keys(v.stock_por_almacen).length === 0) {
+                return v.stock_actual;  // sin datos por almacén → usar total
+            }
+            return parseInt(v.stock_por_almacen[this.orden.almacenId] ?? 0);
+        },
         get productosConStock()  {
             return this._productosFiltrados.filter(p =>
                 p.tipo_inventario === 'serie'
@@ -1149,16 +1162,17 @@ function posApp() {
         seleccionarVariante(v) {
             this.varianteActual = v;
             this.mostrarModalVariante = false;
-            const precioFinal = parseFloat(this.productoActual.precio_venta) + parseFloat(v.sobreprecio || 0);
+            const precioFinal    = parseFloat(this.productoActual.precio_venta) + parseFloat(v.sobreprecio || 0);
             const nombreCompleto = this.productoActual.nombre + (v.nombre_completo ? ' — ' + v.nombre_completo : '');
+            const stockDisponible = this.stockVarianteEnAlmacen(v);
             if (this.productoActual.tipo_inventario === 'serie') {
                 this.abrirModalIMEI();
                 return;
             }
-            if (!v.tiene_stock) { this.toast('warning', 'Esta variante no tiene stock'); return; }
+            if (stockDisponible === 0) { this.toast('warning', 'Esta variante no tiene stock en este almacén'); return; }
             const existente = this.orden.carrito.find(i => i.producto_id === this.productoActual.id && i.variante_id === v.id);
             if (existente) {
-                if (existente.cantidad < v.stock_actual) existente.cantidad++;
+                if (existente.cantidad < stockDisponible) existente.cantidad++;
                 else { this.toast('warning', 'Stock máximo alcanzado'); }
             } else {
                 this.orden.carrito.push({
@@ -1167,7 +1181,7 @@ function posApp() {
                     precio_unitario: this.productoActual.incluye_igv
                         ? Math.round((precioFinal / 1.18) * 100) / 100
                         : precioFinal,
-                    cantidad: 1, stock_disponible: v.stock_actual,
+                    cantidad: 1, stock_disponible: stockDisponible,
                     tipo_inventario: this.productoActual.tipo_inventario, imeis: []
                 });
                 this.toast('success', nombreCompleto + ' agregado');

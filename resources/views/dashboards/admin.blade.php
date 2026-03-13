@@ -295,8 +295,8 @@
                         <i class="fas fa-store text-blue-900"></i>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500">Tiendas</p>
-                        <p class="text-xl font-bold text-gray-900">{{ $total_tiendas }}</p>
+                        <p class="text-xs text-gray-500">Sucursales</p>
+                        <p class="text-xl font-bold text-gray-900">{{ $total_sucursales }}</p>
                     </div>
                 </div>
 
