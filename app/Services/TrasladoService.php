@@ -33,7 +33,9 @@ class TrasladoService
                 throw new \Exception('Stock insuficiente en almacén origen');
             }
 
-            $numeroGuia = $this->generarNumeroGuia();
+            $numeroGuia = !empty($datos['numero_guia'])
+                ? strtoupper(trim($datos['numero_guia']))
+                : $this->generarNumeroGuia();
 
             $stockAnterior = $stockOrigen->cantidad;
             $stockOrigen->decrement('cantidad', $cantidad);

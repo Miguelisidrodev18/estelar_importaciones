@@ -37,6 +37,7 @@ use App\Http\Controllers\PrecioController;
 use App\Http\Controllers\TiendaController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CuentaPorPagarController;
+use App\Http\Controllers\ReporteVentasController;
 
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
@@ -340,6 +341,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->middleware('role:Administrador,Tienda')->name('confirmar-pago');
         Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
     });
+    // ========================================
+    // MÓDULO DE REPORTES DE VENTAS
+    // ========================================
+    Route::middleware('role:Administrador')->prefix('reportes')->name('reportes.')->group(function () {
+        Route::get('/ventas',     [ReporteVentasController::class, 'index'])->name('ventas');
+        Route::get('/ventas/csv', [ReporteVentasController::class, 'exportCsv'])->name('ventas.csv');
+        Route::get('/ventas/pdf', [ReporteVentasController::class, 'exportPdf'])->name('ventas.pdf');
+    });
+
     // ========================================
     // MÓDULO DE TIENDA (Inventario entre tiendas)
     // ========================================

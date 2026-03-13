@@ -187,6 +187,29 @@
                         </div>
                     </div>
 
+                    {{-- Número de Guía --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                            <i class="fas fa-file-alt mr-1 text-blue-400"></i>Número de Guía
+                            <span class="text-gray-400 font-normal normal-case">(opcional — se auto-genera si se deja vacío)</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-3 flex items-center text-gray-400 text-sm font-mono pointer-events-none">GR-</span>
+                            <input type="text"
+                                   name="numero_guia"
+                                   class="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono uppercase"
+                                   placeholder="Ej: GR-00042 o TRS-2024-001"
+                                   value="{{ old('numero_guia') }}"
+                                   oninput="this.value = this.value.toUpperCase()">
+                        </div>
+                        @error('numero_guia')
+                            <p class="text-red-500 text-xs mt-1"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p>
+                        @enderror
+                        <p class="text-xs text-gray-400 mt-1">
+                            <i class="fas fa-magic mr-1"></i>Si no ingresas uno, el sistema generará automáticamente el siguiente número correlativo.
+                        </p>
+                    </div>
+
                     {{-- Transportista --}}
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">

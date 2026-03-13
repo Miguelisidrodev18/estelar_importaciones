@@ -24,6 +24,7 @@
                 inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }},
                 comprasOpen: {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') || request()->routeIs('cuentas-por-pagar.*') ? 'true' : 'false' }},
                 ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') || request()->routeIs('precios.*') ? 'true' : 'false' }},
+                reportesOpen: {{ request()->routeIs('reportes.*') ? 'true' : 'false' }},
                 trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
                 cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }},
                 catalogoOpen: {{ request()->routeIs('catalogo.*') ? 'true' : 'false' }},
@@ -201,6 +202,25 @@
                                 <a href="{{ route('precios.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('precios.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-tags mr-3 text-sm"></i>Gestión de Precios
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    {{-- Reportes --}}
+                    <li>
+                        <button @click="reportesOpen = !reportesOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('reportes.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-chart-line mr-3"></i>Reportes
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': reportesOpen }"></i>
+                        </button>
+                        <ul x-show="reportesOpen" x-transition class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('reportes.ventas') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('reportes.ventas') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-chart-line mr-3 text-sm"></i>Ventas / Márgenes
                                 </a>
                             </li>
                         </ul>

@@ -58,6 +58,7 @@ class TrasladoController extends Controller
             'almacen_id'        => 'required|exists:almacenes,id',
             'almacen_destino_id'=> 'required|exists:almacenes,id|different:almacen_id',
             'cantidad'          => 'required|integer|min:1',
+            'numero_guia'       => 'nullable|string|max:50|unique:movimientos_inventario,numero_guia',
             'imei_id'           => 'nullable|exists:imeis,id',
             'transportista'     => 'nullable|string|max:255',
             'observaciones'     => 'nullable|string',
