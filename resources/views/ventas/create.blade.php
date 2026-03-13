@@ -593,9 +593,14 @@
 
                 <button @click="procesarPago()"
                         :disabled="orden.carrito.length === 0 || !orden.almacenId || guardando"
-                        class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-200 dark:shadow-blue-900/30">
-                    <i class="fas fa-cash-register"></i>
-                    <span x-show="!guardando">Cobrar <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
+                        :class="orden.tipoComprobante === 'cotizacion' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200 dark:shadow-amber-900/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-blue-900/30'"
+                        class="w-full disabled:opacity-40 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg">
+                    <template x-if="orden.tipoComprobante === 'cotizacion'">
+                        <span x-show="!guardando"><i class="fas fa-file-contract mr-1"></i>Guardar Cotización <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
+                    </template>
+                    <template x-if="orden.tipoComprobante !== 'cotizacion'">
+                        <span x-show="!guardando"><i class="fas fa-cash-register mr-1"></i>Cobrar <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
+                    </template>
                     <span x-show="guardando" x-cloak><i class="fas fa-spinner fa-spin mr-1"></i> Procesando...</span>
                 </button>
             </div>
@@ -636,8 +641,10 @@
     <div class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-sm shadow-2xl animate-fade-up">
 
         <div class="p-5 border-b border-gray-100 dark:border-gray-700">
-            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">Confirmar venta</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Revisa los datos antes de confirmar</p>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100"
+                x-text="orden.tipoComprobante === 'cotizacion' ? 'Guardar Cotización' : 'Confirmar Venta'"></h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5"
+               x-text="orden.tipoComprobante === 'cotizacion' ? 'No se descontará stock ni se registrará pago' : 'Revisa los datos antes de confirmar'"></p>
         </div>
 
         <div class="p-5 space-y-4">
@@ -647,23 +654,29 @@
                     <span class="text-gray-500 dark:text-gray-400">Comprobante</span>
                     <span class="font-semibold text-gray-700 dark:text-gray-200 capitalize" x-text="orden.tipoComprobante"></span>
                 </div>
-                <div class="flex justify-between text-sm">
+                <div x-show="orden.tipoComprobante !== 'cotizacion'" class="flex justify-between text-sm">
                     <span class="text-gray-500 dark:text-gray-400">Formato</span>
                     <span class="font-semibold text-gray-700 dark:text-gray-200" x-text="formatoImpresion === 'ticket' ? 'Ticket 80mm' : 'A4'"></span>
                 </div>
-                <div class="flex justify-between text-sm">
+                <div x-show="orden.tipoComprobante !== 'cotizacion'" class="flex justify-between text-sm">
                     <span class="text-gray-500 dark:text-gray-400">Método</span>
                     <span class="font-semibold text-gray-700 dark:text-gray-200 capitalize"
                           x-text="orden.pagos.length > 1 ? 'Mixto (' + orden.pagos.length + ' métodos)' : orden.pagos[0]?.metodo"></span>
                 </div>
                 <div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
                     <span class="text-base font-bold text-gray-800 dark:text-gray-100">Total</span>
-                    <span class="text-2xl font-bold text-blue-600 dark:text-blue-400" x-text="'S/ ' + total.toFixed(2)"></span>
+                    <span class="text-2xl font-bold"
+                          :class="orden.tipoComprobante === 'cotizacion' ? 'text-amber-500' : 'text-blue-600 dark:text-blue-400'"
+                          x-text="'S/ ' + total.toFixed(2)"></span>
                 </div>
-                <div x-show="vuelto > 0" x-cloak class="flex justify-between text-sm">
+                <div x-show="vuelto > 0 && orden.tipoComprobante !== 'cotizacion'" x-cloak class="flex justify-between text-sm">
                     <span class="text-green-600 font-semibold">Vuelto a entregar</span>
                     <span class="font-bold text-green-600" x-text="'S/ ' + vuelto.toFixed(2)"></span>
                 </div>
+            </div>
+            <div x-show="orden.tipoComprobante === 'cotizacion'" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
+                <span>Esta cotización quedará guardada. Podrás convertirla a boleta o factura cuando el cliente confirme.</span>
             </div>
         </div>
 

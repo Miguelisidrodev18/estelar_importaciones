@@ -188,39 +188,90 @@ class VentaController extends Controller
         $metodoPago      = $validated['metodo_pago'] ?? null;
         $pago            = $metodoPago ? ['metodo_pago' => $metodoPago] : null;
 
+        $datosVenta = [
+            'user_id'          => auth()->id(),
+            'cliente_id'       => $validated['cliente_id'] ?? null,
+            'almacen_id'       => $validated['almacen_id'],
+            'fecha'            => now()->toDateString(),
+            'subtotal'         => $subtotal,
+            'igv'              => 0,
+            'total'            => $subtotal,
+            'observaciones'    => $validated['observaciones'] ?? null,
+            'tipo_comprobante' => $tipoComprobante,
+            'guia_remision'    => $validated['guia_remision'] ?? null,
+            'transportista'    => $validated['transportista'] ?? null,
+            'placa_vehiculo'   => $validated['placa_vehiculo'] ?? null,
+            'pagos_detalle'    => $validated['pagos_detalle'] ?? null,
+        ];
+
         try {
-            $venta = app(VentaService::class)->crearVenta(
-                [
-                    'user_id'          => auth()->id(),
-                    'cliente_id'       => $validated['cliente_id'] ?? null,
-                    'almacen_id'       => $validated['almacen_id'],
-                    'fecha'            => now()->toDateString(),
-                    'subtotal'         => $subtotal,
-                    'igv'              => 0,
-                    'total'            => $subtotal,
-                    'observaciones'    => $validated['observaciones'] ?? null,
-                    'tipo_comprobante' => $tipoComprobante,
-                    'guia_remision'    => $validated['guia_remision'] ?? null,
-                    'transportista'    => $validated['transportista'] ?? null,
-                    'placa_vehiculo'   => $validated['placa_vehiculo'] ?? null,
-                    'pagos_detalle'    => $validated['pagos_detalle'] ?? null,
-                ],
-                $validated['detalles'],
-                $pago
-            );
+            $service = app(VentaService::class);
+
+            if ($tipoComprobante === 'cotizacion') {
+                $venta = $service->crearCotizacion($datosVenta, $validated['detalles']);
+                $msg   = 'Cotización guardada exitosamente.';
+            } else {
+                $venta = $service->crearVenta($datosVenta, $validated['detalles'], $pago);
+                $msg   = 'Venta registrada exitosamente.';
+            }
 
             if ($request->wantsJson()) {
                 return response()->json(['venta_id' => $venta->id]);
             }
 
-            return redirect()
-                ->route('ventas.show', $venta)
-                ->with('success', 'Venta registrada exitosamente.');
+            return redirect()->route('ventas.show', $venta)->with('success', $msg);
         } catch (\Exception $e) {
             if ($request->wantsJson()) {
                 return response()->json(['error' => $e->getMessage()], 422);
             }
             return back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function cotizaciones()
+    {
+        $user = auth()->user();
+
+        $cotizaciones = Venta::with('vendedor', 'cliente', 'almacen')
+            ->where('tipo_comprobante', 'cotizacion')
+            ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        $stats = [
+            'total'   => Venta::where('tipo_comprobante', 'cotizacion')
+                ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+                ->count(),
+            'hoy'     => Venta::where('tipo_comprobante', 'cotizacion')
+                ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+                ->whereDate('fecha', today())->count(),
+            'monto'   => Venta::where('tipo_comprobante', 'cotizacion')
+                ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+                ->sum('total'),
+        ];
+
+        return view('ventas.cotizaciones', compact('cotizaciones', 'stats'));
+    }
+
+    public function convertir(Request $request, Venta $venta)
+    {
+        $validated = $request->validate([
+            'tipo_comprobante' => 'required|in:boleta,factura',
+            'metodo_pago'      => 'required|in:efectivo,transferencia,yape,plin,mixto',
+        ]);
+
+        try {
+            app(VentaService::class)->convertirAVenta(
+                $venta,
+                $validated['tipo_comprobante'],
+                $validated['metodo_pago']
+            );
+
+            return redirect()
+                ->route('ventas.show', $venta)
+                ->with('success', 'Cotización convertida a ' . $validated['tipo_comprobante'] . ' exitosamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
     }
 

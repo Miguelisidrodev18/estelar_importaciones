@@ -45,6 +45,7 @@
             </div>
 
             <div class="flex items-center gap-2 flex-wrap">
+                @if($venta->tipo_comprobante !== 'cotizacion')
                 <a href="{{ route('ventas.pdf', [$venta, 'formato' => 'a4']) }}" target="_blank"
                    class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
                     <i class="fas fa-file-pdf"></i> PDF A4
@@ -57,10 +58,71 @@
                         class="inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
                     <i class="fas fa-print"></i> Imprimir
                 </button>
-                <a href="{{ route('ventas.index') }}"
+                @endif
+                <a href="{{ $venta->tipo_comprobante === 'cotizacion' ? route('ventas.cotizaciones') : route('ventas.index') }}"
                    class="inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
                     <i class="fas fa-arrow-left"></i> Volver
                 </a>
+
+                @if($venta->tipo_comprobante === 'cotizacion' && in_array(auth()->user()->role->nombre, ['Administrador', 'Tienda']))
+                <div x-data="{ showConvertir: false }">
+                    <button @click="showConvertir = true"
+                            class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                        <i class="fas fa-file-invoice"></i> Convertir a Venta
+                    </button>
+                    <div x-show="showConvertir" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+                        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showConvertir = false"></div>
+                        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+                            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5">
+                                <h3 class="text-lg font-bold text-white">Convertir Cotización</h3>
+                                <p class="text-purple-200 text-sm mt-0.5">{{ $venta->codigo }}</p>
+                            </div>
+                            <form action="{{ route('ventas.convertir', $venta) }}" method="POST" class="p-6">
+                                @csrf
+                                <div class="mb-4">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Comprobante *</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="flex items-center gap-2 border border-gray-200 rounded-xl p-3 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50">
+                                            <input type="radio" name="tipo_comprobante" value="boleta" class="text-purple-600" required checked>
+                                            <span class="text-sm font-medium">Boleta</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 border border-gray-200 rounded-xl p-3 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50">
+                                            <input type="radio" name="tipo_comprobante" value="factura" class="text-purple-600">
+                                            <span class="text-sm font-medium">Factura</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="mb-5">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Método de Pago *</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        @foreach(['efectivo' => 'fa-money-bill-wave', 'transferencia' => 'fa-university', 'yape' => 'fa-mobile-alt', 'plin' => 'fa-mobile-alt'] as $metodo => $icono)
+                                        <label class="flex items-center gap-2 border border-gray-200 rounded-xl p-3 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50">
+                                            <input type="radio" name="metodo_pago" value="{{ $metodo }}" class="text-purple-600" required>
+                                            <i class="fas {{ $icono }} text-gray-500 text-sm"></i>
+                                            <span class="text-sm font-medium capitalize">{{ $metodo }}</span>
+                                        </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 rounded-xl px-4 py-3 mb-5 flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Total a cobrar</span>
+                                    <span class="text-xl font-bold text-gray-900">S/ {{ number_format($venta->total, 2) }}</span>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button type="button" @click="showConvertir = false"
+                                            class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                                        Cancelar
+                                    </button>
+                                    <button type="submit"
+                                            class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl font-bold text-sm transition-colors">
+                                        <i class="fas fa-check mr-1"></i> Convertir
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                @endif
 
                 @if($venta->estado_pago === 'pendiente' && in_array(auth()->user()->role->nombre, ['Administrador', 'Tienda']))
                 <div x-data="{ showModal: false }">
@@ -117,9 +179,10 @@
         {{-- Estado badge --}}
         @php
             $estadoConfig = [
-                'pendiente' => ['bg-amber-50 text-amber-700 border-amber-200', 'fa-clock', 'Pago Pendiente'],
-                'pagado'    => ['bg-green-50 text-green-700 border-green-200', 'fa-check-circle', 'Pagado'],
-                'cancelado' => ['bg-red-50 text-red-700 border-red-200', 'fa-times-circle', 'Cancelado'],
+                'pendiente'   => ['bg-amber-50 text-amber-700 border-amber-200', 'fa-clock', 'Pago Pendiente'],
+                'pagado'      => ['bg-green-50 text-green-700 border-green-200', 'fa-check-circle', 'Pagado'],
+                'cancelado'   => ['bg-red-50 text-red-700 border-red-200', 'fa-times-circle', 'Cancelado'],
+                'cotizacion'  => ['bg-purple-50 text-purple-700 border-purple-200', 'fa-file-contract', 'Cotización'],
             ];
             [$badgeClass, $badgeIcon, $badgeLabel] = $estadoConfig[$venta->estado_pago] ?? ['bg-gray-50 text-gray-700 border-gray-200', 'fa-circle', ucfirst($venta->estado_pago)];
         @endphp
@@ -256,7 +319,7 @@
                     <i class="fas fa-box text-purple-600"></i>
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold text-gray-900">Productos vendidos</h3>
+                    <h3 class="text-lg font-bold text-gray-900">{{ $venta->tipo_comprobante === 'cotizacion' ? 'Productos cotizados' : 'Productos vendidos' }}</h3>
                     <p class="text-sm text-gray-400">{{ $venta->detalles->count() }} ítem(s)</p>
                 </div>
             </div>

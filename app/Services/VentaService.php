@@ -269,6 +269,97 @@ class VentaService
     }
 
     /**
+     * Crear una cotización (no descuenta stock, no registra pago)
+     */
+    public function crearCotizacion(array $datosVenta, array $detalles)
+    {
+        return DB::transaction(function () use ($datosVenta, $detalles) {
+            $datosVenta['tipo_comprobante'] = 'cotizacion';
+            $datosVenta['estado_pago']      = 'cotizacion';
+
+            $venta    = Venta::create($datosVenta);
+            $subtotal = 0;
+
+            foreach ($detalles as $detalle) {
+                $precioUnitario  = (float) $detalle['precio_unitario'];
+                $subtotalDetalle = $detalle['cantidad'] * $precioUnitario;
+                $subtotal       += $subtotalDetalle;
+
+                DetalleVenta::create([
+                    'venta_id'        => $venta->id,
+                    'producto_id'     => $detalle['producto_id'],
+                    'variante_id'     => $detalle['variante_id'] ?? null,
+                    'cantidad'        => $detalle['cantidad'],
+                    'precio_unitario' => $precioUnitario,
+                    'subtotal'        => $subtotalDetalle,
+                ]);
+            }
+
+            $igv   = $subtotal * 0.18;
+            $total = $subtotal + $igv;
+
+            $venta->update(['subtotal' => $subtotal, 'igv' => $igv, 'total' => $total]);
+
+            Log::info('Cotización creada', ['venta_id' => $venta->id, 'user_id' => $venta->user_id]);
+
+            return $venta->fresh(['detalles.producto', 'cliente']);
+        });
+    }
+
+    /**
+     * Convertir una cotización a boleta o factura (descuenta stock y registra pago)
+     */
+    public function convertirAVenta(Venta $venta, string $tipoComprobante, string $metodoPago)
+    {
+        if ($venta->tipo_comprobante !== 'cotizacion') {
+            throw new \Exception('Solo se pueden convertir cotizaciones');
+        }
+
+        return DB::transaction(function () use ($venta, $tipoComprobante, $metodoPago) {
+            $venta->load('detalles');
+
+            $detalles = $venta->detalles->map(fn($d) => [
+                'producto_id'  => $d->producto_id,
+                'variante_id'  => $d->variante_id,
+                'cantidad'     => $d->cantidad,
+                'precio_unitario' => (float) $d->precio_unitario,
+                'imeis'        => [],
+            ])->toArray();
+
+            // Validate stock
+            $this->validarStockDisponible($detalles, $venta->almacen_id);
+
+            // Deduct stock for each detail
+            foreach ($detalles as $detalle) {
+                $this->descontarStock(
+                    $detalle['producto_id'],
+                    $venta->almacen_id,
+                    $detalle['cantidad'],
+                    [],
+                    $detalle['variante_id'] ?? null
+                );
+            }
+
+            $venta->update([
+                'tipo_comprobante'    => $tipoComprobante,
+                'estado_pago'         => 'pagado',
+                'metodo_pago'         => $metodoPago,
+                'fecha_confirmacion'  => now(),
+                'usuario_confirma_id' => auth()->id(),
+            ]);
+
+            $this->registrarEnCaja($venta, $metodoPago);
+
+            Log::info('Cotización convertida a venta', [
+                'venta_id'         => $venta->id,
+                'tipo_comprobante' => $tipoComprobante,
+            ]);
+
+            return $venta->fresh();
+        });
+    }
+
+    /**
      * Confirmar pago de una venta pendiente
      */
     public function confirmarPago(int $ventaId, string $metodoPago, int $usuarioId)
