@@ -214,6 +214,15 @@ class PrecioController extends Controller
                 $sobreprecio = max(0, $validated['precio_venta'] - $producto->precio_venta);
                 \App\Models\ProductoVariante::where('id', $validated['variante_id'])
                     ->update(['sobreprecio' => $sobreprecio]);
+
+                // Propagar incluye_igv al precio base del producto (variante_id=null)
+                // para que el módulo de ventas lo detecte correctamente
+                ProductoPrecio::where('producto_id', $producto->id)
+                    ->whereNull('variante_id')
+                    ->whereNull('almacen_id')
+                    ->where('tipo_precio', 'venta_regular')
+                    ->where('activo', true)
+                    ->update(['incluye_igv' => !empty($validated['incluye_igv'])]);
             }
 
             // Replicar a todas las tiendas activas

@@ -99,8 +99,21 @@ class VentaController extends Controller
             ->groupBy('variante_id')
             ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
 
-        $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen, $imeisPorVariante) {
+        // IMEIs sin variante asignada (ingresados antes de que existieran variantes)
+        $imeisNoAsignadosPorProducto = Imei::whereIn('producto_id', $productos->pluck('id'))
+            ->where('estado_imei', 'en_stock')
+            ->whereNull('variante_id')
+            ->selectRaw('producto_id, almacen_id, COUNT(*) as total')
+            ->groupBy('producto_id', 'almacen_id')
+            ->get()
+            ->groupBy('producto_id')
+            ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
+
+        $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen, $imeisPorVariante, $imeisNoAsignadosPorProducto) {
+            // Precio más reciente (cualquier variante) → para incluye_igv
             $precioActivo = $p->precios->first();
+            // Precio a nivel de producto (variante_id=null) → para precio_venta base
+            $precioBase   = $p->precios->first(fn($pr) => is_null($pr->variante_id));
             $esSerie      = $p->tipo_inventario === 'serie';
 
             $variantes = $p->variantesActivas->map(fn($v) => [
@@ -111,9 +124,15 @@ class VentaController extends Controller
                 'color_hex'         => $v->color?->codigo_hex,
                 'capacidad'         => $v->capacidad,
                 'sobreprecio'       => (float)$v->sobreprecio,
-                'stock_actual'      => (int)$v->stock_actual,
+                'stock_actual'      => $esSerie
+                    ? (int)($imeisPorVariante[$v->id] ?? collect())->sum()
+                      + (int)($imeisNoAsignadosPorProducto[$p->id] ?? collect())->sum()
+                    : (int)$v->stock_actual,
                 'stock_por_almacen' => $esSerie
-                    ? ($imeisPorVariante[$v->id] ?? collect())->toArray()
+                    ? collect(($imeisPorVariante[$v->id] ?? collect())->toArray())
+                        ->mergeRecursive(($imeisNoAsignadosPorProducto[$p->id] ?? collect())->toArray())
+                        ->map(fn($val) => is_array($val) ? array_sum($val) : (int)$val)
+                        ->toArray()
                     : [],   // para no-serie no hay desglose por almacén
                 'nombre_completo'   => $v->nombre_completo,
                 'tiene_stock'       => $v->tieneStock(),
@@ -132,7 +151,7 @@ class VentaController extends Controller
                 'tipo_inventario'  => $p->tipo_inventario,
                 'stock_actual'     => (int) $p->stock_actual,
                 'stock_por_almacen'=> $stockMap,  // {almacen_id: qty}
-                'precio_venta'     => (float) ($precioActivo?->precio ?? $p->precio_venta),
+                'precio_venta'     => (float) ($precioBase?->precio ?? $p->precio_venta),
                 'incluye_igv'      => (bool) ($precioActivo?->incluye_igv ?? false),
                 'imagen'           => $p->imagen_url ?? null,
                 'tiene_variantes'  => $variantes->isNotEmpty(),

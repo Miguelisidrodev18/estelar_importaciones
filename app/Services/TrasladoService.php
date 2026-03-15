@@ -73,9 +73,9 @@ class TrasladoService
      * @param int   $usuarioConfirmaId
      * @param int[] $imeiIds  IMEIs seleccionados (requerido para productos serie)
      */
-    public function confirmarRecepcion(int $movimientoId, int $usuarioConfirmaId, array $imeiIds = []): MovimientoInventario
+    public function confirmarRecepcion(int $movimientoId, int $usuarioConfirmaId, array $imeiIds = [], ?string $numeroGuia = null): MovimientoInventario
     {
-        return DB::transaction(function () use ($movimientoId, $usuarioConfirmaId, $imeiIds) {
+        return DB::transaction(function () use ($movimientoId, $usuarioConfirmaId, $imeiIds, $numeroGuia) {
 
             $movimiento = MovimientoInventario::with('producto')->findOrFail($movimientoId);
 
@@ -152,12 +152,19 @@ class TrasladoService
                     ->update(['almacen_id' => $movimiento->almacen_destino_id]);
             }
 
-            $movimiento->update([
+            $updateData = [
                 'estado'             => 'confirmado',
                 'usuario_confirma_id'=> $usuarioConfirmaId,
                 'fecha_confirmacion' => now(),
                 'fecha_recepcion'    => now()->toDateString(),
-            ]);
+            ];
+
+            // Si se ingresó un número de guía en la confirmación y el traslado no tenía uno, asignarlo
+            if ($numeroGuia && !$movimiento->numero_guia) {
+                $updateData['numero_guia'] = $numeroGuia;
+            }
+
+            $movimiento->update($updateData);
 
             return $movimiento->fresh();
         });

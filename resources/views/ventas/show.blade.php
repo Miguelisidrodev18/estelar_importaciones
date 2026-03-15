@@ -21,6 +21,59 @@
 
     <div class="md:ml-64 p-4 md:p-10">
 
+        {{-- Modal de confirmación de venta nueva --}}
+        @if(request()->has('nuevo'))
+        <div x-data="{ show: true }" x-show="show" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="show = false"></div>
+            <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100">
+                <div class="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-6 text-center">
+                    <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-check text-white text-3xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">
+                        @if($venta->tipo_comprobante === 'cotizacion')
+                            ¡Cotización Guardada!
+                        @else
+                            ¡Venta Registrada!
+                        @endif
+                    </h3>
+                    <p class="text-green-100 text-sm mt-1">{{ $venta->codigo }}</p>
+                </div>
+                <div class="p-6 text-center">
+                    <div class="text-gray-600 dark:text-gray-300 text-sm mb-1">Total cobrado</div>
+                    <div class="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                        S/ {{ number_format($venta->total, 2) }}
+                    </div>
+                    @if($venta->tipo_comprobante !== 'cotizacion' && $venta->metodo_pago)
+                    <div class="inline-flex items-center gap-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-full px-3 py-1 text-xs font-medium mb-4">
+                        <i class="fas fa-credit-card"></i>
+                        {{ ucfirst($venta->metodo_pago) }}
+                    </div>
+                    @endif
+                    <div class="flex gap-3">
+                        @if($venta->tipo_comprobante !== 'cotizacion')
+                        <a href="{{ route('ventas.pdf', [$venta, 'formato' => 'ticket']) }}" target="_blank"
+                           class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2">
+                            <i class="fas fa-receipt"></i> Ticket
+                        </a>
+                        @endif
+                        <button @click="show = false"
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl py-2.5 text-sm font-semibold transition">
+                            Aceptar
+                        </button>
+                    </div>
+                    <a href="{{ route('ventas.create') }}"
+                       class="block mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium transition">
+                        <i class="fas fa-plus-circle mr-1"></i> Nueva Venta
+                    </a>
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- Flash --}}
         @if(session('success'))
             <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl mb-6 flex items-center gap-2 shadow-sm">

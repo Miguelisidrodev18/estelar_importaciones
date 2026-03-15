@@ -160,13 +160,15 @@ class TrasladoController extends Controller
 
     public function confirmar(Request $request, MovimientoInventario $traslado)
     {
-        $imeiIds = array_filter(array_map('intval', $request->input('imei_ids', [])));
+        $imeiIds    = array_filter(array_map('intval', $request->input('imei_ids', [])));
+        $numeroGuia = $request->input('numero_guia');
 
         try {
             app(TrasladoService::class)->confirmarRecepcion(
                 $traslado->id,
                 auth()->id(),
-                array_values($imeiIds)
+                array_values($imeiIds),
+                $numeroGuia ?: null
             );
 
             return redirect()

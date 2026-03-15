@@ -1294,7 +1294,7 @@ function posApp() {
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    window.location.href = '/ventas/' + data.venta_id;
+                    window.location.href = '/ventas/' + data.venta_id + '?nuevo=1';
                 } else {
                     this.toast('error', data.error || data.message || 'Error al procesar la venta');
                     this.guardando = false;

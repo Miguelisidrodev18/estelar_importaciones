@@ -304,8 +304,10 @@
                     </div>
 
                     {{-- IGV --}}
+                    <input type="hidden" name="incluye_igv" value="0">
                     <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-                        <input type="checkbox" x-model="incluyeIgv"
+                        <input type="checkbox" name="incluye_igv" value="1"
+                               x-model="incluyeIgv"
                                @change="calcular()"
                                class="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500">
                         <div>
@@ -344,7 +346,6 @@
 
                     {{-- Campo oculto precio_venta --}}
                     <input type="hidden" name="precio_venta" :value="precioVenta || ''">
-                    <input type="hidden" name="incluye_igv" :value="incluyeIgv ? 1 : 0">
 
                     {{-- Precio mayorista --}}
                     <div>
