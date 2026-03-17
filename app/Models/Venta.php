@@ -85,6 +85,11 @@ class Venta extends Model
         return null;
     }
 
+    public function tiendaDestino()
+    {
+        return $this->belongsTo(User::class, 'tienda_destino_id');
+    }
+
     public function detalles()
     {
         return $this->hasMany(DetalleVenta::class);
