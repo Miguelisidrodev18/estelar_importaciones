@@ -37,6 +37,20 @@
             flex: 1;
             min-height: 0;
         }
+        .quick-actions-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        .quick-actions-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+        .quick-actions-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .quick-actions-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -65,6 +79,59 @@
         </div>
 
         <div class="p-6">
+            {{-- Barra de Acciones Rápidas --}}
+            <div class="mb-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                    <div class="quick-actions-scroll overflow-x-auto pb-1">
+                        <div class="flex items-center gap-2 min-w-max">
+                            <a href="{{ route('ventas.create') }}"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition whitespace-nowrap text-sm font-medium">
+                                <i class="fas fa-plus-circle text-xs"></i>
+                                <span>Venta</span>
+                            </a>
+
+                            <a href="{{ route('caja.index') }}"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition whitespace-nowrap text-sm font-medium">
+                                <i class="fas fa-cash-register text-xs"></i>
+                                <span>Caja</span>
+                            </a>
+
+                            @if($caja)
+                                <a href="{{ route('caja.actual') }}"
+                                   class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition whitespace-nowrap text-sm font-medium">
+                                    <i class="fas fa-lock text-xs"></i>
+                                    <span>Cerrar Caja</span>
+                                </a>
+                            @else
+                                <a href="{{ route('caja.abrir') }}"
+                                   class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition whitespace-nowrap text-sm font-medium">
+                                    <i class="fas fa-lock-open text-xs"></i>
+                                    <span>Abrir Caja</span>
+                                </a>
+                            @endif
+
+                            <a href="{{ route('tienda.inventario.ver') }}"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition whitespace-nowrap text-sm font-medium">
+                                <i class="fas fa-boxes text-xs"></i>
+                                <span>Stock</span>
+                            </a>
+
+                            <a href="{{ route('traslados.pendientes') }}"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition whitespace-nowrap text-sm font-medium">
+                                <i class="fas fa-truck-loading text-xs"></i>
+                                <span>Traslados</span>
+                            </a>
+
+                            <a href="{{ route('clientes.create') }}"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition whitespace-nowrap text-sm font-medium">
+                                <i class="fas fa-user-plus text-xs"></i>
+                                <span>Cliente</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {{-- Estado de Caja --}}
             <div class="mb-6">
                 @if($caja)
@@ -139,8 +206,8 @@
                         </div>
                     </div>
                     @if($caja)
-                    <a href="{{ route('caja.cerrar') }}" class="mt-3 inline-block text-xs text-red-600 hover:text-red-800">
-                        <i class="fas fa-times-circle mr-1"></i>Cerrar Caja
+                    <a href="{{ route('caja.actual') }}" class="mt-3 inline-block text-xs text-red-600 hover:text-red-800">
+                        <i class="fas fa-times-circle mr-1"></i>Ir al cierre
                     </a>
                     @endif
                 </div>
