@@ -12,73 +12,56 @@
     <x-sidebar :role="auth()->user()->role->nombre" />
 
     <div class="md:ml-64 p-4 md:p-8">
-        <x-header
-            title="Detalle del Traslado"
-            subtitle="Información completa sobre el traslado seleccionado"
-        />
+        <x-header title="Detalle del Traslado" subtitle="Trazabilidad completa del traslado" />
 
-        <div class="flex items-center mb-6">
-            <a href="{{ route('traslados.index') }}" class="text-blue-600 hover:text-blue-800 mr-4">
+        @php
+            $colores   = ['pendiente' => 'bg-yellow-100 text-yellow-800', 'confirmado' => 'bg-green-100 text-green-800'];
+            $esGuia    = !str_starts_with($traslado->numero_guia ?? 'id:', 'id:');
+            $titulo    = $esGuia ? $traslado->numero_guia : '# ' . $traslado->id;
+        @endphp
+
+        <div class="flex items-center mb-6 gap-3">
+            <a href="{{ route('traslados.index') }}" class="text-blue-600 hover:text-blue-800">
                 <i class="fas fa-arrow-left"></i>
             </a>
-            <h2 class="text-2xl font-bold text-gray-800">
-                Traslado {{ $traslado->numero_guia ?? '#' . $traslado->id }}
-            </h2>
-            @php
-                $colores = ['pendiente' => 'bg-yellow-100 text-yellow-800', 'confirmado' => 'bg-green-100 text-green-800'];
-                $esSerie = $traslado->producto->tipo_inventario === 'serie';
-            @endphp
-            <span class="ml-3 px-2.5 py-1 text-xs font-semibold rounded-full {{ $colores[$traslado->estado] ?? 'bg-gray-100 text-gray-700' }}">
+            <h2 class="text-2xl font-bold text-gray-800">Traslado {{ $titulo }}</h2>
+            <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $colores[$traslado->estado] ?? 'bg-gray-100 text-gray-700' }}">
                 {{ ucfirst($traslado->estado) }}
             </span>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 
-            {{-- Información del Traslado --}}
+            {{-- Datos del traslado --}}
             <div class="bg-white rounded-xl shadow-md p-6">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-4 flex items-center gap-2">
-                    <i class="fas fa-exchange-alt text-blue-400"></i>Información del Traslado
+                    <i class="fas fa-exchange-alt text-blue-400"></i> Datos del Traslado
                 </h3>
                 <dl class="space-y-3">
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between">
                         <dt class="text-gray-500 text-sm">N° Guía</dt>
                         <dd class="font-mono font-semibold text-blue-700">{{ $traslado->numero_guia ?? '—' }}</dd>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <dt class="text-gray-500 text-sm">Producto</dt>
-                        <dd class="font-medium text-gray-800 text-right max-w-[60%]">
-                            {{ $traslado->producto->nombre }}
-                            @if($esSerie)
-                                <span class="inline-flex items-center ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-purple-100 text-purple-700 rounded">
-                                    <i class="fas fa-barcode mr-0.5"></i>IMEI
-                                </span>
-                            @endif
-                        </dd>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <dt class="text-gray-500 text-sm">Cantidad</dt>
-                        <dd class="font-semibold text-gray-800">
-                            {{ $traslado->cantidad }}
-                            <span class="text-xs text-gray-400 font-normal">{{ $esSerie ? 'IMEI(s)' : 'unidades' }}</span>
-                        </dd>
-                    </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between">
                         <dt class="text-gray-500 text-sm">Origen</dt>
                         <dd class="text-gray-800 flex items-center gap-1">
                             <i class="fas fa-warehouse text-orange-400 text-xs"></i>
                             {{ $traslado->almacen->nombre }}
                         </dd>
                     </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between">
                         <dt class="text-gray-500 text-sm">Destino</dt>
                         <dd class="text-gray-800 flex items-center gap-1">
                             <i class="fas fa-store text-green-400 text-xs"></i>
                             {{ $traslado->almacenDestino->nombre ?? '—' }}
                         </dd>
                     </div>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 text-sm">Total productos</dt>
+                        <dd class="font-semibold text-gray-800">{{ $todosProductos->count() }}</dd>
+                    </div>
                     @if($traslado->transportista)
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between">
                         <dt class="text-gray-500 text-sm">Transportista</dt>
                         <dd class="text-gray-700">{{ $traslado->transportista }}</dd>
                     </div>
@@ -94,13 +77,13 @@
                 </dl>
             </div>
 
-            {{-- Estado y Seguimiento --}}
+            {{-- Estado y seguimiento --}}
             <div class="bg-white rounded-xl shadow-md p-6">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-4 flex items-center gap-2">
-                    <i class="fas fa-route text-green-400"></i>Estado y Seguimiento
+                    <i class="fas fa-route text-green-400"></i> Estado y Seguimiento
                 </h3>
                 <dl class="space-y-3">
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between">
                         <dt class="text-gray-500 text-sm">Estado</dt>
                         <dd>
                             <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $colores[$traslado->estado] ?? 'bg-gray-100 text-gray-700' }}">
@@ -108,92 +91,135 @@
                             </span>
                         </dd>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <dt class="text-gray-500 text-sm">Enviado por</dt>
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500 text-sm">Creado por</dt>
                         <dd class="text-gray-700">{{ $traslado->usuario->name }}</dd>
                     </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between">
                         <dt class="text-gray-500 text-sm">Fecha envío</dt>
-                        <dd class="text-gray-700">{{ $traslado->fecha_traslado ? \Carbon\Carbon::parse($traslado->fecha_traslado)->format('d/m/Y') : $traslado->created_at->format('d/m/Y H:i') }}</dd>
+                        <dd class="text-gray-700">
+                            {{ $traslado->fecha_traslado
+                                ? \Carbon\Carbon::parse($traslado->fecha_traslado)->format('d/m/Y')
+                                : $traslado->created_at->format('d/m/Y H:i') }}
+                        </dd>
                     </div>
                     @if($traslado->usuarioConfirma)
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between">
                         <dt class="text-gray-500 text-sm">Confirmado por</dt>
                         <dd class="text-gray-700">{{ $traslado->usuarioConfirma->name }}</dd>
                     </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between">
                         <dt class="text-gray-500 text-sm">Fecha recepción</dt>
                         <dd class="text-gray-700">{{ $traslado->fecha_recepcion }}</dd>
-                    </div>
-                    @endif
-                    @if(!$esSerie && $traslado->stock_anterior !== null)
-                    <div class="flex justify-between items-center">
-                        <dt class="text-gray-500 text-sm">Stock origen</dt>
-                        <dd class="text-xs">
-                            <span class="line-through text-gray-400 mr-1">{{ $traslado->stock_anterior }}</span>
-                            → <strong class="text-orange-600">{{ $traslado->stock_nuevo }}</strong>
-                        </dd>
                     </div>
                     @endif
                 </dl>
             </div>
         </div>
 
-        {{-- IMEIs Trasladados --}}
-        @if($esSerie)
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-4 flex items-center gap-2">
-                <i class="fas fa-barcode text-purple-400"></i>
-                IMEIs Trasladados
-                <span class="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                    {{ $traslado->imeisTrasladados->count() }}
-                </span>
-                @if($traslado->estado === 'confirmado')
-                    <span class="text-xs text-green-600 font-normal flex items-center gap-1 ml-1">
-                        <i class="fas fa-check-circle"></i>
-                        Movidos a {{ $traslado->almacenDestino->nombre ?? 'destino' }}
-                    </span>
-                @else
-                    <span class="text-xs text-yellow-600 font-normal flex items-center gap-1 ml-1">
-                        <i class="fas fa-clock"></i>
-                        Pendientes de confirmación
-                    </span>
-                @endif
-            </h3>
+        {{-- ══ Detalle por producto ══ --}}
+        <div class="space-y-4">
 
-            @if($traslado->imeisTrasladados->isEmpty())
-                <div class="py-6 text-center text-gray-400 text-sm">
-                    <i class="fas fa-box-open text-2xl text-gray-300 block mb-2"></i>
-                    No hay IMEIs registrados para este traslado.
-                </div>
-            @else
-                <div class="flex flex-wrap gap-2">
-                    @foreach($traslado->imeisTrasladados as $ti)
-                        <div class="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                            <i class="fas fa-barcode text-purple-400 text-xs"></i>
-                            <div>
-                                <span class="font-mono text-sm font-semibold text-purple-800">
-                                    {{ $ti->imei->codigo_imei ?? '—' }}
-                                </span>
-                                @if($ti->imei && $ti->imei->serie)
-                                    <span class="block text-[11px] text-gray-400 font-mono">S/N: {{ $ti->imei->serie }}</span>
-                                @endif
-                            </div>
-                            @if($traslado->estado === 'confirmado')
-                                <span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-semibold shrink-0">
-                                    <i class="fas fa-check mr-0.5"></i>Recibido
-                                </span>
+            @foreach($todosProductos as $i => $mov)
+            @php
+                $esS = $mov->producto->tipo_inventario === 'serie';
+            @endphp
+
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+
+                {{-- Header producto --}}
+                <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100
+                    {{ $esS ? 'bg-purple-50' : 'bg-blue-50' }}">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded
+                            {{ $esS ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
+                            @if($esS)
+                                <i class="fas fa-barcode mr-1"></i>IMEI
                             @else
-                                <span class="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-semibold shrink-0">
-                                    En tránsito
-                                </span>
+                                <i class="fas fa-box mr-1"></i>Accesorio
+                            @endif
+                        </span>
+                        <span class="font-semibold text-gray-800">{{ $mov->producto->nombre }}</span>
+                        <span class="font-mono text-xs text-gray-400">{{ $mov->producto->codigo }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-bold text-gray-700">
+                            {{ $mov->cantidad }} {{ $esS ? 'IMEI(s)' : 'unid.' }}
+                        </span>
+                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full {{ $colores[$mov->estado] ?? 'bg-gray-100 text-gray-600' }}">
+                            {{ ucfirst($mov->estado) }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="p-5">
+                    @if($esS)
+                        {{-- IMEIs de esta línea --}}
+                        @if($mov->imeisTrasladados->isEmpty())
+                            <p class="text-sm text-gray-400 italic">Sin IMEIs registrados.</p>
+                        @else
+                            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                                <i class="fas fa-barcode text-purple-400"></i>
+                                IMEIs trasladados
+                                @if($mov->estado === 'confirmado')
+                                    <span class="text-green-600 normal-case font-normal">
+                                        — recibidos en {{ $mov->almacenDestino->nombre ?? 'destino' }}
+                                    </span>
+                                @else
+                                    <span class="text-indigo-600 normal-case font-normal">
+                                        — en tránsito hacia {{ $mov->almacenDestino->nombre ?? 'destino' }}
+                                    </span>
+                                @endif
+                            </p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($mov->imeisTrasladados as $ti)
+                                    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono
+                                        {{ $mov->estado === 'confirmado'
+                                            ? 'bg-green-50 border-green-200 text-green-800'
+                                            : 'bg-indigo-50 border-indigo-200 text-indigo-800' }}">
+                                        <i class="fas fa-barcode text-[10px] opacity-60"></i>
+                                        {{ $ti->imei->codigo_imei ?? '—' }}
+                                        @if($ti->imei?->serie)
+                                            <span class="opacity-60">· {{ $ti->imei->serie }}</span>
+                                        @endif
+                                        @if($mov->estado === 'confirmado')
+                                            <i class="fas fa-check text-[10px] text-green-600 ml-1"></i>
+                                        @else
+                                            <i class="fas fa-truck text-[10px] text-indigo-400 ml-1"></i>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    @else
+                        {{-- Accesorio --}}
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                            <div>
+                                <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Cantidad</p>
+                                <p class="font-bold text-gray-800">{{ $mov->cantidad }} unidades</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Stock origen</p>
+                                <p class="text-gray-700">
+                                    <span class="line-through text-gray-400">{{ $mov->stock_anterior }}</span>
+                                    → <strong class="text-orange-600">{{ $mov->stock_nuevo }}</strong>
+                                </p>
+                            </div>
+                            @if($mov->estado === 'confirmado')
+                            <div>
+                                <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Destino</p>
+                                <p class="text-green-700 font-medium flex items-center gap-1">
+                                    <i class="fas fa-check-circle text-green-500 text-xs"></i>
+                                    Acreditado en {{ $mov->almacenDestino->nombre ?? '—' }}
+                                </p>
+                            </div>
                             @endif
                         </div>
-                    @endforeach
+                    @endif
                 </div>
-            @endif
+            </div>
+            @endforeach
         </div>
-        @endif
 
     </div>
 </body>

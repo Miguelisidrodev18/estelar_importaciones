@@ -230,21 +230,21 @@ class MovimientoInventarioController extends Controller
                 case 'salida':
                 case 'transferencia':
                 case 'merma':
-                    $query->where('estado', 'disponible');
+                    $query->where('estado_imei', \App\Models\Imei::ESTADO_EN_STOCK);
                     break;
                 case 'devolucion':
-                    $query->where('estado', 'vendido');
+                    $query->where('estado_imei', \App\Models\Imei::ESTADO_VENDIDO);
                     break;
                 case 'ingreso':
                     return response()->json(['error' => 'Los ingresos de celulares se registran en Compras'], 400);
                 case 'ajuste':
                     break;
                 default:
-                    $query->where('estado', 'disponible');
+                    $query->where('estado_imei', \App\Models\Imei::ESTADO_EN_STOCK);
                     break;
             }
-            
-            $imeis = $query->select('id', 'codigo_imei', 'serie', 'color', 'estado')
+
+            $imeis = $query->select('id', 'codigo_imei', 'serie', 'color', 'estado_imei')
                             ->orderBy('codigo_imei')
                             ->limit(200)
                             ->get();

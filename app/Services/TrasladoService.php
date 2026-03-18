@@ -11,210 +11,251 @@ use Illuminate\Support\Facades\DB;
 
 class TrasladoService
 {
-    public function crearTraslado(array $datos): MovimientoInventario
+    /**
+     * Crear un traslado con múltiples productos.
+     *
+     * Para productos serie (IMEI): marca IMEIs como en_transito al crear.
+     * Para accesorios: registra la intención; el stock se mueve al confirmar.
+     *
+     * @param array $datos  Incluye: almacen_id, almacen_destino_id, productos[],
+     *                      numero_guia?, transportista?, observaciones?, user_id
+     * @return string  El numero_guia generado o provisto
+     */
+    public function crearTraslado(array $datos): string
     {
         return DB::transaction(function () use ($datos) {
 
-            $productoId       = $datos['producto_id'];
             $almacenOrigenId  = $datos['almacen_id'];
             $almacenDestinoId = $datos['almacen_destino_id'];
             $userId           = $datos['user_id'];
+            $productos        = $datos['productos'] ?? [];
 
             if ($almacenOrigenId == $almacenDestinoId) {
-                throw new \Exception('Almacén origen y destino no pueden ser iguales');
+                throw new \Exception('Almacén origen y destino no pueden ser iguales.');
             }
 
-            $producto = Producto::findOrFail($productoId);
-            $esSerie  = $producto->tipo_inventario === 'serie';
+            if (empty($productos)) {
+                throw new \Exception('Debe incluir al menos un producto en el traslado.');
+            }
 
+            // Un único numero_guia para todo el traslado (grupo)
             $numeroGuia = !empty($datos['numero_guia'])
                 ? strtoupper(trim($datos['numero_guia']))
                 : $this->generarNumeroGuia();
 
-            // ── Producto con IMEI ──────────────────────────────────────────
-            if ($esSerie) {
-                $imeiIds  = array_values(array_unique((array) $datos['imei_ids']));
-                $cantidad = count($imeiIds);
-
-                if ($cantidad === 0) {
-                    throw new \Exception('Debe seleccionar al menos un IMEI para trasladar.');
-                }
-
-                // Duplicados
-                if (count($imeiIds) !== count(array_unique($imeiIds))) {
-                    throw new \Exception('Hay IMEIs duplicados en la selección.');
-                }
-
-                // Validar que todos pertenezcan al producto + almacén origen + estado en_stock
-                $imeisValidos = Imei::whereIn('id', $imeiIds)
-                    ->where('producto_id', $productoId)
-                    ->where('almacen_id', $almacenOrigenId)
-                    ->where('estado_imei', 'en_stock')
-                    ->count();
-
-                if ($imeisValidos !== $cantidad) {
-                    throw new \Exception(
-                        'Algunos IMEIs seleccionados no están disponibles en el almacén origen o no pertenecen al producto.'
-                    );
-                }
-
-                $stockAnterior = Imei::where('producto_id', $productoId)
-                    ->where('almacen_id', $almacenOrigenId)
-                    ->where('estado_imei', 'en_stock')
-                    ->count();
-
-                $movimiento = MovimientoInventario::create([
-                    'producto_id'        => $productoId,
-                    'almacen_id'         => $almacenOrigenId,
-                    'almacen_destino_id' => $almacenDestinoId,
-                    'user_id'            => $userId,
-                    'tipo_movimiento'    => 'transferencia',
-                    'cantidad'           => $cantidad,
-                    'stock_anterior'     => $stockAnterior,
-                    'stock_nuevo'        => $stockAnterior - $cantidad,
-                    'numero_guia'        => $numeroGuia,
-                    'fecha_traslado'     => now()->toDateString(),
-                    'transportista'      => $datos['transportista'] ?? null,
-                    'observaciones'      => $datos['observaciones'] ?? null,
-                    'estado'             => 'pendiente',
-                ]);
-
-                // Guardar IMEIs seleccionados en traslado_imeis desde la creación
-                foreach ($imeiIds as $imeiId) {
-                    TrasladoImei::create([
-                        'movimiento_id' => $movimiento->id,
-                        'imei_id'       => $imeiId,
-                    ]);
-                }
-
-            // ── Producto sin IMEI ──────────────────────────────────────────
-            } else {
-                $cantidad = $datos['cantidad'];
-
-                $stockOrigen = StockAlmacen::where('producto_id', $productoId)
-                    ->where('almacen_id', $almacenOrigenId)
-                    ->first();
-
-                if (!$stockOrigen || $stockOrigen->cantidad < $cantidad) {
-                    throw new \Exception('Stock insuficiente en almacén origen');
-                }
-
-                $stockAnterior = $stockOrigen->cantidad;
-                $stockOrigen->decrement('cantidad', $cantidad);
-
-                $movimiento = MovimientoInventario::create([
-                    'producto_id'        => $productoId,
-                    'almacen_id'         => $almacenOrigenId,
-                    'almacen_destino_id' => $almacenDestinoId,
-                    'user_id'            => $userId,
-                    'tipo_movimiento'    => 'transferencia',
-                    'cantidad'           => $cantidad,
-                    'stock_anterior'     => $stockAnterior,
-                    'stock_nuevo'        => $stockOrigen->cantidad,
-                    'numero_guia'        => $numeroGuia,
-                    'fecha_traslado'     => now()->toDateString(),
-                    'transportista'      => $datos['transportista'] ?? null,
-                    'observaciones'      => $datos['observaciones'] ?? null,
-                    'estado'             => 'pendiente',
-                ]);
+            // Verificar que el numero_guia no esté ya en uso
+            if (MovimientoInventario::where('numero_guia', $numeroGuia)->exists()) {
+                throw new \Exception("La guía '{$numeroGuia}' ya existe. Deja el campo vacío para auto-generar.");
             }
 
-            return $movimiento->fresh('producto', 'almacen', 'almacenDestino');
+            // Validar productos duplicados
+            $productosIds = array_column($productos, 'producto_id');
+            if (count($productosIds) !== count(array_unique($productosIds))) {
+                throw new \Exception('Hay productos duplicados en el traslado.');
+            }
+
+            foreach ($productos as $linea) {
+                $productoId = $linea['producto_id'];
+                $producto   = Producto::findOrFail($productoId);
+                $esSerie    = $producto->tipo_inventario === 'serie';
+
+                if ($esSerie) {
+                    $this->crearLineaImei($linea, $producto, $almacenOrigenId, $almacenDestinoId, $userId, $numeroGuia, $datos);
+                } else {
+                    $this->crearLineaAccesorio($linea, $producto, $almacenOrigenId, $almacenDestinoId, $userId, $numeroGuia, $datos);
+                }
+            }
+
+            return $numeroGuia;
         });
     }
+
+    // ── Línea serie (IMEI) ──────────────────────────────────────────────────
+
+    private function crearLineaImei(array $linea, Producto $producto, int $origenId, int $destinoId, int $userId, string $guia, array $cabecera): void
+    {
+        $imeiIds = array_values(array_unique((array) ($linea['imei_ids'] ?? [])));
+        $cantidad = count($imeiIds);
+
+        if ($cantidad === 0) {
+            throw new \Exception("Producto «{$producto->nombre}»: debe seleccionar al menos un IMEI.");
+        }
+
+        // Validar que todos los IMEIs pertenecen al producto + almacén + en_stock
+        $validos = Imei::whereIn('id', $imeiIds)
+            ->where('producto_id', $producto->id)
+            ->where('almacen_id', $origenId)
+            ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+            ->count();
+
+        if ($validos !== $cantidad) {
+            throw new \Exception(
+                "Producto «{$producto->nombre}»: uno o más IMEIs no están disponibles en el almacén origen o ya están en tránsito."
+            );
+        }
+
+        // Verificar que ningún IMEI esté en otro traslado pendiente (doble seguridad)
+        $enOtroTraslado = TrasladoImei::whereIn('imei_id', $imeiIds)
+            ->whereHas('movimiento', fn($q) => $q->where('estado', 'pendiente'))
+            ->exists();
+
+        if ($enOtroTraslado) {
+            throw new \Exception("Producto «{$producto->nombre}»: uno o más IMEIs ya están asignados a otro traslado pendiente.");
+        }
+
+        $stockAnterior = Imei::where('producto_id', $producto->id)
+            ->where('almacen_id', $origenId)
+            ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+            ->count();
+
+        $movimiento = MovimientoInventario::create([
+            'producto_id'        => $producto->id,
+            'almacen_id'         => $origenId,
+            'almacen_destino_id' => $destinoId,
+            'user_id'            => $userId,
+            'tipo_movimiento'    => 'transferencia',
+            'cantidad'           => $cantidad,
+            'stock_anterior'     => $stockAnterior,
+            'stock_nuevo'        => $stockAnterior - $cantidad,
+            'numero_guia'        => $guia,
+            'fecha_traslado'     => now()->toDateString(),
+            'transportista'      => $cabecera['transportista'] ?? null,
+            'observaciones'      => $cabecera['observaciones'] ?? null,
+            'estado'             => 'pendiente',
+        ]);
+
+        // Registrar IMEIs del traslado y marcarlos en_transito
+        foreach ($imeiIds as $imeiId) {
+            TrasladoImei::create([
+                'movimiento_id' => $movimiento->id,
+                'imei_id'       => $imeiId,
+            ]);
+        }
+
+        Imei::whereIn('id', $imeiIds)
+            ->update(['estado_imei' => Imei::ESTADO_EN_TRANSITO]);
+    }
+
+    // ── Línea accesorio (cantidad) ──────────────────────────────────────────
+
+    private function crearLineaAccesorio(array $linea, Producto $producto, int $origenId, int $destinoId, int $userId, string $guia, array $cabecera): void
+    {
+        $cantidad = (int) ($linea['cantidad'] ?? 0);
+
+        if ($cantidad < 1) {
+            throw new \Exception("Producto «{$producto->nombre}»: la cantidad debe ser al menos 1.");
+        }
+
+        $stockOrigen = StockAlmacen::where('producto_id', $producto->id)
+            ->where('almacen_id', $origenId)
+            ->first();
+
+        if (!$stockOrigen || $stockOrigen->cantidad < $cantidad) {
+            throw new \Exception(
+                "Producto «{$producto->nombre}»: stock insuficiente en almacén origen (disponible: " . ($stockOrigen->cantidad ?? 0) . ")."
+            );
+        }
+
+        MovimientoInventario::create([
+            'producto_id'        => $producto->id,
+            'almacen_id'         => $origenId,
+            'almacen_destino_id' => $destinoId,
+            'user_id'            => $userId,
+            'tipo_movimiento'    => 'transferencia',
+            'cantidad'           => $cantidad,
+            'stock_anterior'     => $stockOrigen->cantidad,
+            'stock_nuevo'        => $stockOrigen->cantidad - $cantidad,  // proyectado
+            'numero_guia'        => $guia,
+            'fecha_traslado'     => now()->toDateString(),
+            'transportista'      => $cabecera['transportista'] ?? null,
+            'observaciones'      => $cabecera['observaciones'] ?? null,
+            'estado'             => 'pendiente',
+        ]);
+
+        // Descontar stock en origen inmediatamente (reserva)
+        $stockOrigen->decrement('cantidad', $cantidad);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
 
     /**
-     * Confirmar recepción de un traslado.
-     * Para productos serie: usa los IMEIs pre-asignados en traslado_imeis.
-     * Para accesorios: actualiza StockAlmacen normalmente.
+     * Confirmar recepción de un traslado (confirma TODOS los productos del mismo numero_guia).
      */
-    public function confirmarRecepcion(int $movimientoId, int $usuarioConfirmaId): MovimientoInventario
+    public function confirmarRecepcion(int $movimientoId, int $usuarioConfirmaId): void
     {
-        return DB::transaction(function () use ($movimientoId, $usuarioConfirmaId) {
+        DB::transaction(function () use ($movimientoId, $usuarioConfirmaId) {
 
-            $movimiento = MovimientoInventario::with('producto')->findOrFail($movimientoId);
+            $representante = MovimientoInventario::with('producto')->findOrFail($movimientoId);
 
-            if ($movimiento->estado !== 'pendiente') {
-                throw new \Exception('Este traslado ya fue procesado');
+            if ($representante->estado !== 'pendiente') {
+                throw new \Exception('Este traslado ya fue procesado.');
             }
 
-            if ($movimiento->tipo_movimiento !== 'transferencia') {
-                throw new \Exception('Este movimiento no es una transferencia');
+            // Obtener todos los movimientos del mismo grupo (mismo numero_guia)
+            $grupo = $representante->numero_guia
+                ? MovimientoInventario::with(['producto', 'imeisTrasladados'])
+                    ->where('numero_guia', $representante->numero_guia)
+                    ->where('tipo_movimiento', 'transferencia')
+                    ->where('estado', 'pendiente')
+                    ->get()
+                : collect([$representante->load('imeisTrasladados')]);
+
+            if ($grupo->isEmpty()) {
+                throw new \Exception('No se encontraron movimientos pendientes para este traslado.');
             }
 
-            $esSerie = $movimiento->producto->tipo_inventario === 'serie';
+            $confirmadoEn = now();
 
-            if ($esSerie) {
-                // Usar IMEIs pre-asignados al crear el traslado
-                $imeiIds = TrasladoImei::where('movimiento_id', $movimientoId)
-                    ->pluck('imei_id')
-                    ->toArray();
+            foreach ($grupo as $movimiento) {
+                $esSerie = $movimiento->producto->tipo_inventario === 'serie';
 
-                if (count($imeiIds) === 0) {
-                    throw new \Exception('Este traslado no tiene IMEIs asignados. Contacte al administrador.');
-                }
+                if ($esSerie) {
+                    // Mover IMEIs al almacén destino y devolverles en_stock
+                    $imeiIds = $movimiento->imeisTrasladados->pluck('imei_id')->toArray();
 
-                if (count($imeiIds) !== (int) $movimiento->cantidad) {
-                    throw new \Exception(
-                        "Inconsistencia: el traslado indica {$movimiento->cantidad} unidad(es) pero tiene " . count($imeiIds) . " IMEI(s) asignado(s)."
-                    );
-                }
-
-                // Mover IMEIs al almacén destino
-                Imei::whereIn('id', $imeiIds)
-                    ->update(['almacen_id' => $movimiento->almacen_destino_id]);
-
-            } else {
-                // Producto accesorio: manejo de StockAlmacen
-
-                // Si es solicitud de tienda el stock origen aún no fue descontado
-                $esSolicitudTienda = (int) $movimiento->stock_nuevo === (int) $movimiento->stock_anterior;
-
-                if ($esSolicitudTienda) {
-                    $stockOrigen = StockAlmacen::where([
-                        'producto_id' => $movimiento->producto_id,
-                        'almacen_id'  => $movimiento->almacen_id,
-                    ])->first();
-
-                    if (!$stockOrigen || $stockOrigen->cantidad < $movimiento->cantidad) {
-                        throw new \Exception('Stock insuficiente en el almacén origen para confirmar el traslado');
+                    if (empty($imeiIds)) {
+                        throw new \Exception(
+                            "Producto «{$movimiento->producto->nombre}»: no tiene IMEIs asignados. Contacte al administrador."
+                        );
                     }
 
-                    $stockOrigen->decrement('cantidad', $movimiento->cantidad);
+                    Imei::whereIn('id', $imeiIds)->update([
+                        'almacen_id'  => $movimiento->almacen_destino_id,
+                        'estado_imei' => Imei::ESTADO_EN_STOCK,
+                    ]);
+
+                } else {
+                    // Acreditar stock en destino (ya fue descontado en origen al crear)
+                    $stockDestino = StockAlmacen::firstOrCreate(
+                        [
+                            'producto_id' => $movimiento->producto_id,
+                            'almacen_id'  => $movimiento->almacen_destino_id,
+                        ],
+                        ['cantidad' => 0]
+                    );
+                    $stockDestino->increment('cantidad', $movimiento->cantidad);
                 }
 
-                // Acreditar stock en destino
-                $stockDestino = StockAlmacen::firstOrCreate(
-                    [
-                        'producto_id' => $movimiento->producto_id,
-                        'almacen_id'  => $movimiento->almacen_destino_id,
-                    ],
-                    ['cantidad' => 0]
-                );
-                $stockDestino->increment('cantidad', $movimiento->cantidad);
+                $movimiento->update([
+                    'estado'              => 'confirmado',
+                    'usuario_confirma_id' => $usuarioConfirmaId,
+                    'fecha_confirmacion'  => $confirmadoEn,
+                    'fecha_recepcion'     => $confirmadoEn->toDateString(),
+                ]);
             }
-
-            $movimiento->update([
-                'estado'              => 'confirmado',
-                'usuario_confirma_id' => $usuarioConfirmaId,
-                'fecha_confirmacion'  => now(),
-                'fecha_recepcion'     => now()->toDateString(),
-            ]);
-
-            return $movimiento->fresh();
         });
     }
+
+    // ───────────────────────────────────────────────────────────────────────
 
     private function generarNumeroGuia(): string
     {
         $ultimo = MovimientoInventario::where('tipo_movimiento', 'transferencia')
             ->whereNotNull('numero_guia')
             ->latest('id')
-            ->first();
+            ->value('numero_guia');
 
-        $numero = $ultimo && $ultimo->numero_guia
-            ? (int) substr($ultimo->numero_guia, 3) + 1
-            : 1;
+        $numero = $ultimo ? ((int) substr($ultimo, 3) + 1) : 1;
 
         return 'GR-' . str_pad($numero, 5, '0', STR_PAD_LEFT);
     }

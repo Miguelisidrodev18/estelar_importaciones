@@ -43,7 +43,6 @@ $catalogoJson = $productos->map(fn($p) => [
 
          /* ── Almacenes ────────────────────────────── */
          almacenId: '{{ old('almacen_id', '') }}',
-         almacenDestinoId: '{{ old('almacen_destino_id', '') }}',
 
          /* ── IMEIs ────────────────────────────────── */
          imeis: [],
@@ -62,7 +61,6 @@ $catalogoJson = $productos->map(fn($p) => [
 
          /* ── Getters ──────────────────────────────── */
          get esCelular()      { return this.productoTipo === 'serie'; },
-         get esTransferencia(){ return this.tipoMovimiento === 'transferencia'; },
          get esIngresoCelular(){ return this.tipoMovimiento === 'ingreso' && this.esCelular; },
          get formularioValido() {
              if (!this.tipoMovimiento) return false;
@@ -311,8 +309,42 @@ $catalogoJson = $productos->map(fn($p) => [
 
             {{-- ====== Columna derecha: formulario ====== --}}
             <div class="xl:col-span-2">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="bg-linear-to-r from-gray-700 to-gray-600 px-5 py-3">
+
+                {{-- Panel de redirección para Transferencia --}}
+                <div x-show="tipoMovimiento === 'transferencia'" x-cloak
+                     class="bg-white rounded-xl shadow-sm border border-purple-200 overflow-hidden">
+                    <div class="bg-linear-to-r from-purple-700 to-purple-500 px-5 py-3">
+                        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-exchange-alt"></i> Transferencia entre Almacenes
+                        </h2>
+                    </div>
+                    <div class="p-10 flex flex-col items-center text-center gap-5">
+                        <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-exchange-alt text-3xl text-purple-500"></i>
+                        </div>
+                        <div>
+                            <p class="text-base font-semibold text-gray-800 mb-1">
+                                Las transferencias se gestionan en el módulo de Traslados
+                            </p>
+                            <p class="text-sm text-gray-500 max-w-sm">
+                                Desde ahí puedes trasladar múltiples productos a la vez, asignar IMEIs específicos y hacer seguimiento hasta la confirmación de recepción.
+                            </p>
+                        </div>
+                        <a href="{{ route('traslados.create') }}"
+                           class="inline-flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+                            <i class="fas fa-arrow-right"></i> Ir a Nuevo Traslado
+                        </a>
+                        <a href="{{ route('traslados.index') }}"
+                           class="text-xs text-gray-400 hover:text-purple-600 transition-colors">
+                            Ver historial de traslados →
+                        </a>
+                    </div>
+                </div>
+
+                <div x-show="tipoMovimiento !== 'transferencia'" x-cloak
+                     class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+                     style="display: block">
+                <div class="bg-linear-to-r from-gray-700 to-gray-600 px-5 py-3">
                         <h2 class="text-sm font-semibold text-white flex items-center gap-2">
                             <i class="fas fa-edit"></i> Datos del Movimiento
                         </h2>
@@ -413,7 +445,7 @@ $catalogoJson = $productos->map(fn($p) => [
                                         <option value="">— Selecciona un IMEI —</option>
                                         <template x-for="imei in imeis" :key="imei.id">
                                             <option :value="imei.id"
-                                                    x-text="imei.codigo_imei + (imei.serie ? ' · ' + imei.serie : '') + (imei.color ? ' · ' + imei.color : '') + ' [' + imei.estado + ']'">
+                                                    x-text="imei.codigo_imei + (imei.serie ? ' · ' + imei.serie : '') + (imei.color ? ' · ' + imei.color : '') + ' [' + imei.estado_imei + ']'">
                                             </option>
                                         </template>
                                     </select>
@@ -439,41 +471,6 @@ $catalogoJson = $productos->map(fn($p) => [
                                 <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                             @enderror
                         </div>
-
-                        {{-- Campos de transferencia --}}
-                        <template x-if="esTransferencia">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-purple-50 border border-purple-200 rounded-xl">
-                                <div>
-                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                                        Almacén Destino <span class="text-red-500">*</span>
-                                    </label>
-                                    <select name="almacen_destino_id" x-model="almacenDestinoId"
-                                            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 bg-white">
-                                        <option value="">— Selecciona destino —</option>
-                                        @foreach($almacenes as $alm)
-                                            <option value="{{ $alm->id }}" {{ old('almacen_destino_id') == $alm->id ? 'selected' : '' }}>
-                                                {{ $alm->nombre }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('almacen_destino_id')
-                                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                                        Nº Guía de Remisión <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="text" name="numero_guia"
-                                           value="{{ old('numero_guia') }}"
-                                           placeholder="Ej: GR001-2024"
-                                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 bg-white">
-                                    @error('numero_guia')
-                                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                            </div>
-                        </template>
 
                         {{-- Motivo --}}
                         <div>
@@ -521,6 +518,7 @@ $catalogoJson = $productos->map(fn($p) => [
 
                     </div>
                 </div>
+                </div>{{-- /x-show transferencia !== --}}
             </div>
 
         </div>

@@ -42,6 +42,7 @@ class Imei extends Model
 
     // ─── Constantes para estados ──────────────────────────────────────────
     const ESTADO_EN_STOCK    = 'en_stock';
+    const ESTADO_EN_TRANSITO = 'en_transito';
     const ESTADO_RESERVADO   = 'reservado';
     const ESTADO_VENDIDO     = 'vendido';
     const ESTADO_GARANTIA    = 'garantia';
@@ -50,6 +51,7 @@ class Imei extends Model
 
     const ESTADOS = [
         self::ESTADO_EN_STOCK    => 'En Stock',
+        self::ESTADO_EN_TRANSITO => 'En Tránsito',
         self::ESTADO_RESERVADO   => 'Reservado',
         self::ESTADO_VENDIDO     => 'Vendido',
         self::ESTADO_GARANTIA    => 'En Garantía',
@@ -129,6 +131,7 @@ class Imei extends Model
     {
         return match($this->estado_imei) {
             self::ESTADO_EN_STOCK    => 'green',
+            self::ESTADO_EN_TRANSITO => 'indigo',
             self::ESTADO_RESERVADO   => 'yellow',
             self::ESTADO_VENDIDO     => 'red',
             self::ESTADO_GARANTIA    => 'blue',

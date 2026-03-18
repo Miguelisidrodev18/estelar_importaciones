@@ -34,8 +34,15 @@ class MovimientoInventario extends Model
         'observaciones',
         'documento_referencia',
         'numero_factura',
+        'numero_guia',
         'estado',
         'almacen_destino_id',
+        'transportista',
+        'fecha_traslado',
+        'fecha_recepcion',
+        'usuario_confirma_id',
+        'fecha_confirmacion',
+        'variante_id',
     ];
 
     /**
