@@ -14,6 +14,7 @@ use App\Models\StockAlmacen;
 use App\Models\Sucursal;
 use App\Services\VentaService;
 use App\Services\VarianteService;
+use App\Http\Requests\StoreVentaRequest;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -177,30 +178,9 @@ class VentaController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(StoreVentaRequest $request)
     {
-        $validated = $request->validate([
-            'cliente_id'               => 'nullable|exists:clientes,id',
-            'almacen_id'               => 'required|exists:almacenes,id',
-            'observaciones'            => 'nullable|string',
-            'tipo_comprobante'         => 'nullable|in:boleta,factura,cotizacion',
-            'guia_remision'            => 'nullable|string|max:100',
-            'transportista'            => 'nullable|string|max:150',
-            'placa_vehiculo'           => 'nullable|string|max:20',
-            'metodo_pago'              => 'nullable|in:efectivo,transferencia,yape,plin,mixto',
-            'pagos_detalle'            => 'nullable|array',
-            'pagos_detalle.*.metodo'   => 'required_with:pagos_detalle|in:efectivo,transferencia,yape,plin',
-            'pagos_detalle.*.monto'    => 'required_with:pagos_detalle|numeric|min:0.01',
-            'detalles'                       => 'required|array|min:1',
-            'detalles.*.producto_id'         => 'required|exists:productos,id',
-            'detalles.*.variante_id'         => 'nullable|exists:producto_variantes,id',
-            'detalles.*.cantidad'            => 'required|integer|min:1',
-            'detalles.*.precio_unitario'     => 'required|numeric|min:0.01',
-            'detalles.*.imeis'               => 'nullable|array',
-            'detalles.*.imeis.*.codigo_imei' => 'nullable|string',
-        ], [
-            'detalles.required' => 'Debe agregar al menos un producto',
-        ]);
+        $validated = $request->validated();
 
         $subtotal        = collect($validated['detalles'])->sum(fn($d) => $d['cantidad'] * $d['precio_unitario']);
         $tipoComprobante = $validated['tipo_comprobante'] ?? 'boleta';
@@ -278,6 +258,20 @@ class VentaController extends Controller
             'tipo_comprobante' => 'required|in:boleta,factura',
             'metodo_pago'      => 'required|in:efectivo,transferencia,yape,plin,mixto',
         ]);
+
+        // Validar RUC si se emite factura
+        if ($validated['tipo_comprobante'] === 'factura') {
+            $cliente = $venta->cliente;
+            if (!$cliente) {
+                return back()->withErrors(['tipo_comprobante' => 'Para emitir factura, la cotización debe tener un cliente con RUC.']);
+            }
+            if ($cliente->tipo_documento !== 'RUC') {
+                return back()->withErrors(['tipo_comprobante' => 'Para emitir factura, el cliente debe tener RUC (actualmente tiene ' . $cliente->tipo_documento . ').']);
+            }
+            if (strlen($cliente->numero_documento) !== 11) {
+                return back()->withErrors(['tipo_comprobante' => 'Para emitir factura, el RUC debe tener exactamente 11 dígitos.']);
+            }
+        }
 
         try {
             app(VentaService::class)->convertirAVenta(

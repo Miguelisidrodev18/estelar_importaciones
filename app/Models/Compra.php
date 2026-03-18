@@ -39,9 +39,15 @@ class Compra extends Model
         'tipo_compra',
         'numero_dua',
         'numero_manifiesto',
-        'flete',
-        'seguro',
-        'otros_gastos',
+        'agente_aduanas',
+        // Campos USD de importación (renombrados desde flete/seguro/otros_gastos)
+        'flete_usd',
+        'seguro_usd',
+        'otros_usd',
+        'transporte_local_pen',
+        'impuestos_usd',
+        'impuestos_pen',
+        'percepcion_pen',
         'estado',
         'fecha_anulacion',
         'motivo_anulacion',
@@ -60,9 +66,13 @@ class Compra extends Model
         'tipo_cambio' => 'decimal:4',
         'descuento_global' => 'decimal:2',
         'monto_adicional' => 'decimal:2',
-        'flete' => 'decimal:2',
-        'seguro' => 'decimal:2',
-        'otros_gastos' => 'decimal:2',
+        'flete_usd' => 'decimal:2',
+        'seguro_usd' => 'decimal:2',
+        'otros_usd' => 'decimal:2',
+        'transporte_local_pen' => 'decimal:2',
+        'impuestos_usd' => 'decimal:2',
+        'impuestos_pen' => 'decimal:2',
+        'percepcion_pen' => 'decimal:2',
     ];
 
     // Constantes para valores fijos
@@ -82,6 +92,11 @@ class Compra extends Model
     const ESTADOS = [
         'registrado' => 'Registrado',
         'anulado' => 'Anulado'
+    ];
+
+    const TIPOS_COMPRA = [
+        'local'       => 'Compra Local',
+        'importacion' => 'Importación',
     ];
     const TIPOS_OPERACION_SUNAT = [
     '01' => 'Gravado - Operación gravada (IGV 18%)',

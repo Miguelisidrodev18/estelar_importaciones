@@ -118,8 +118,7 @@
                                 <td class="px-6 py-4">
                                     @php
                                         $tc = match($compra->tipo_compra ?? 'local') {
-                                            'local'       => ['label' => 'Local',       'class' => 'bg-blue-100 text-blue-800',   'icon' => 'fa-store'],
-                                            'nacional'    => ['label' => 'Nacional',    'class' => 'bg-indigo-100 text-indigo-800', 'icon' => 'fa-flag'],
+                                            'local'       => ['label' => 'Local',       'class' => 'bg-green-100 text-green-800',  'icon' => 'fa-store'],
                                             'importacion' => ['label' => 'Importación', 'class' => 'bg-orange-100 text-orange-800', 'icon' => 'fa-ship'],
                                             default       => ['label' => ucfirst($compra->tipo_compra ?? 'local'), 'class' => 'bg-gray-100 text-gray-800', 'icon' => 'fa-tag'],
                                         };

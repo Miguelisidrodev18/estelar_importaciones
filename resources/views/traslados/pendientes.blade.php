@@ -58,6 +58,7 @@
         @forelse($traslados as $traslado)
         @php
             $esSerie        = $traslado->producto->tipo_inventario === 'serie';
+            $imeisTrasladados = $traslado->imeisTrasladados ?? collect();
             $diasEnTransito = $traslado->created_at->diffInDays(now());
             $urgente        = $diasEnTransito >= 3;
         @endphp
@@ -77,7 +78,7 @@
                             </span>
                             @if($esSerie)
                                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">
-                                    <i class="fas fa-barcode mr-1"></i>IMEI
+                                    <i class="fas fa-barcode mr-1"></i>IMEI ({{ $imeisTrasladados->count() }})
                                 </span>
                             @endif
                             @if($urgente)
@@ -110,10 +111,9 @@
                             <span class="text-gray-300">·</span>
                             <span>
                                 <i class="fas fa-cubes text-xs mr-1"></i>
-                                <strong class="text-gray-700">{{ $traslado->cantidad }}</strong> unid.
-                                @if($esSerie)
-                                    <span class="text-purple-600 text-xs">({{ $traslado->imeis_disponibles->count() }} IMEIs disp.)</span>
-                                @endif
+                                <strong class="text-gray-700">{{ $traslado->cantidad }}</strong>
+                                @if($esSerie) <span class="text-purple-600 text-xs">IMEIs</span>
+                                @else unid. @endif
                             </span>
                             <span class="text-gray-300">·</span>
                             <span class="text-xs text-gray-400">
@@ -132,23 +132,24 @@
                             <i class="fas fa-chevron-down text-xs transition-transform duration-200" :class="{ 'rotate-180': detalleAbierto }"></i>
                         </button>
 
-                        @if($esSerie)
-                            <button type="button"
-                                    onclick="abrirModalImei({{ $traslado->id }}, {{ $traslado->cantidad }})"
-                                    @if($traslado->imeis_disponibles->isEmpty()) disabled title="Sin IMEIs disponibles en origen" @endif
-                                    class="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg text-sm transition-colors">
-                                <i class="fas fa-check-double"></i>Confirmar y asignar IMEIs
-                            </button>
-                        @else
-                            <form action="{{ route('traslados.confirmar', $traslado) }}" method="POST"
-                                  onsubmit="return confirm('¿Confirmar la recepción?\n\nGuía: {{ $traslado->numero_guia ?? "Sin guía" }}\nProducto: {{ addslashes($traslado->producto->nombre) }}\nCantidad: {{ $traslado->cantidad }} unid.')">
-                                @csrf
+                        {{-- Botón confirmar (funciona para ambos tipos) --}}
+                        <form action="{{ route('traslados.confirmar', $traslado) }}" method="POST"
+                              onsubmit="return confirm('¿Confirmar la recepción?\n\nGuía: {{ $traslado->numero_guia ?? "Sin guía" }}\nProducto: {{ addslashes($traslado->producto->nombre) }}\nCantidad: {{ $traslado->cantidad }} {{ $esSerie ? "IMEI(s)" : "unid." }}')">
+                            @csrf
+                            @if($esSerie && $imeisTrasladados->isEmpty())
+                                <button type="button"
+                                        disabled
+                                        title="Sin IMEIs asignados a este traslado"
+                                        class="flex items-center gap-1.5 bg-gray-300 text-white font-semibold px-5 py-2 rounded-lg text-sm cursor-not-allowed">
+                                    <i class="fas fa-exclamation-triangle"></i>Sin IMEIs
+                                </button>
+                            @else
                                 <button type="submit"
                                         class="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-colors">
                                     <i class="fas fa-check-double"></i>Confirmar Recepción
                                 </button>
-                            </form>
-                        @endif
+                            @endif
+                        </form>
                     </div>
                 </div>
             </div>
@@ -192,7 +193,7 @@
                                 <dt class="text-gray-500 flex items-center gap-1.5">
                                     <i class="fas fa-cubes text-gray-400 w-4 text-center"></i>Cantidad
                                 </dt>
-                                <dd class="font-bold text-gray-800">{{ $traslado->cantidad }} unid.</dd>
+                                <dd class="font-bold text-gray-800">{{ $traslado->cantidad }} {{ $esSerie ? 'IMEI(s)' : 'unid.' }}</dd>
                             </div>
                             <div class="flex justify-between items-center text-sm">
                                 <dt class="text-gray-500 flex items-center gap-1.5">
@@ -208,7 +209,7 @@
                                 <dd class="text-gray-700">{{ $traslado->transportista }}</dd>
                             </div>
                             @endif
-                            @if($traslado->stock_anterior !== null)
+                            @if($traslado->stock_anterior !== null && !$esSerie)
                             <div class="flex justify-between items-center text-sm">
                                 <dt class="text-gray-500 flex items-center gap-1.5">
                                     <i class="fas fa-chart-bar text-gray-400 w-4 text-center"></i>Stock origen
@@ -256,21 +257,29 @@
                                 </div>
                             </li>
 
-                            {{-- 2. Stock descontado --}}
+                            {{-- 2. Stock / IMEIs descontados --}}
                             <li class="mb-5 ml-5">
                                 <span class="absolute -left-3.25 flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 ring-4 ring-white shadow">
                                     <i class="fas fa-minus text-white" style="font-size:9px"></i>
                                 </span>
                                 <div class="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
-                                    <p class="text-xs font-bold text-orange-600">Stock descontado del origen</p>
-                                    <p class="text-xs text-gray-500 mt-0.5">
-                                        <strong>{{ $traslado->cantidad }}</strong> unid. salidas de
-                                        <strong>{{ $traslado->almacen->nombre }}</strong>
-                                    </p>
+                                    @if($esSerie)
+                                        <p class="text-xs font-bold text-orange-600">IMEIs asignados al traslado</p>
+                                        <p class="text-xs text-gray-500 mt-0.5">
+                                            <strong>{{ $imeisTrasladados->count() }}</strong> IMEI(s) de
+                                            <strong>{{ $traslado->almacen->nombre }}</strong>
+                                        </p>
+                                    @else
+                                        <p class="text-xs font-bold text-orange-600">Stock descontado del origen</p>
+                                        <p class="text-xs text-gray-500 mt-0.5">
+                                            <strong>{{ $traslado->cantidad }}</strong> unid. de
+                                            <strong>{{ $traslado->almacen->nombre }}</strong>
+                                        </p>
+                                    @endif
                                 </div>
                             </li>
 
-                            {{-- 3. En tránsito (estado actual) --}}
+                            {{-- 3. En tránsito --}}
                             <li class="mb-5 ml-5">
                                 <span class="absolute -left-3.25 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-white shadow
                                     {{ $urgente ? 'bg-red-400' : 'bg-yellow-400' }}">
@@ -300,7 +309,10 @@
                                 </span>
                                 <div class="bg-white border border-dashed border-gray-300 rounded-xl px-4 py-3">
                                     <p class="text-xs font-medium text-gray-400">Recepción confirmada en destino</p>
-                                    <p class="text-[11px] text-gray-400 mt-0.5">Pendiente — el stock se acreditará en {{ $traslado->almacenDestino->nombre ?? 'destino' }}</p>
+                                    <p class="text-[11px] text-gray-400 mt-0.5">
+                                        Pendiente — {{ $esSerie ? 'los IMEIs se moverán a' : 'el stock se acreditará en' }}
+                                        {{ $traslado->almacenDestino->nombre ?? 'destino' }}
+                                    </p>
                                 </div>
                             </li>
 
@@ -308,21 +320,26 @@
                     </div>
                 </div>
 
-                {{-- IMEIs disponibles --}}
-                @if($esSerie && $traslado->imeis_disponibles->isNotEmpty())
+                {{-- IMEIs asignados al traslado --}}
+                @if($esSerie && $imeisTrasladados->isNotEmpty())
                     <div class="px-6 pb-5">
                         <div class="bg-white border border-purple-200 rounded-xl p-4">
-                            <p class="text-xs font-bold text-purple-700 mb-2 flex items-center gap-1.5">
+                            <p class="text-xs font-bold text-purple-700 mb-3 flex items-center gap-1.5">
                                 <i class="fas fa-barcode text-purple-500"></i>
-                                IMEIs disponibles en {{ $traslado->almacen->nombre }}
+                                IMEIs asignados a este traslado
                                 <span class="bg-purple-100 text-purple-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                    {{ $traslado->imeis_disponibles->count() }}
+                                    {{ $imeisTrasladados->count() }}
                                 </span>
+                                <span class="text-gray-400 font-normal ml-1">→ se moverán a {{ $traslado->almacenDestino->nombre ?? 'destino' }} al confirmar</span>
                             </p>
                             <div class="flex flex-wrap gap-1.5">
-                                @foreach($traslado->imeis_disponibles as $imei)
-                                    <span class="font-mono text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2 py-1 rounded-lg">
-                                        {{ $imei->codigo_imei }}
+                                @foreach($imeisTrasladados as $ti)
+                                    <span class="inline-flex items-center gap-1.5 font-mono text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-1.5 rounded-lg">
+                                        <i class="fas fa-barcode text-purple-400 text-[10px]"></i>
+                                        {{ $ti->imei->codigo_imei ?? '—' }}
+                                        @if($ti->imei && $ti->imei->serie)
+                                            <span class="text-purple-400">· {{ $ti->imei->serie }}</span>
+                                        @endif
                                     </span>
                                 @endforeach
                             </div>
@@ -330,104 +347,17 @@
                     </div>
                 @endif
 
-                @if($esSerie && $traslado->imeis_disponibles->isEmpty())
+                @if($esSerie && $imeisTrasladados->isEmpty())
                     <div class="px-6 pb-5">
-                        <div class="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl">
+                        <div class="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 px-4 py-3 rounded-xl">
                             <i class="fas fa-exclamation-triangle shrink-0"></i>
-                            No hay IMEIs disponibles en el almacén origen. No es posible confirmar este traslado.
+                            Este traslado no tiene IMEIs asignados. No es posible confirmarlo. Contacte al administrador.
                         </div>
                     </div>
                 @endif
 
             </div>{{-- /panel detalle --}}
         </div>{{-- /card --}}
-
-        {{-- Modal IMEIs --}}
-        @if($esSerie)
-        <div id="modal-imei-{{ $traslado->id }}"
-             class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
-
-                <div class="bg-linear-to-r from-blue-900 to-blue-700 px-6 py-4 rounded-t-2xl flex items-center justify-between">
-                    <div>
-                        <h3 class="text-base font-bold text-white flex items-center gap-2">
-                            <i class="fas fa-barcode"></i>Seleccionar IMEIs a enviar
-                        </h3>
-                        <p class="text-blue-200 text-xs mt-0.5">
-                            {{ $traslado->producto->nombre }} —
-                            {{ $traslado->almacen->nombre }} → {{ $traslado->almacenDestino->nombre ?? '—' }}
-                        </p>
-                    </div>
-                    <button onclick="cerrarModalImei({{ $traslado->id }})" class="text-white/80 hover:text-white text-xl leading-none">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-
-                <form action="{{ route('traslados.confirmar', $traslado) }}" method="POST"
-                      class="flex flex-col flex-1 overflow-hidden"
-                      id="form-imei-{{ $traslado->id }}">
-                    @csrf
-
-                    <div class="px-6 py-3 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 flex flex-wrap gap-3 items-center">
-                        <span class="font-mono font-semibold text-blue-700">
-                            <i class="fas fa-file-alt mr-1 text-blue-400 text-xs"></i>{{ $traslado->numero_guia ?? 'Sin guía' }}
-                        </span>
-                        <span class="text-gray-300">·</span>
-                        <span>
-                            Selecciona exactamente
-                            <strong id="contador-necesario-{{ $traslado->id }}">{{ $traslado->cantidad }}</strong> IMEI(s).
-                        </span>
-                        <span>
-                            Seleccionados: <strong class="text-green-700" id="contador-{{ $traslado->id }}">0</strong>
-                        </span>
-                    </div>
-
-                    <div class="overflow-y-auto flex-1 px-6 py-4">
-                        @if($traslado->imeis_disponibles->isEmpty())
-                            <p class="text-center text-gray-500 py-8">
-                                <i class="fas fa-box-open text-3xl text-gray-300 block mb-2"></i>
-                                No hay IMEIs disponibles en el almacén origen.
-                            </p>
-                        @else
-                            <div class="space-y-2">
-                                @foreach($traslado->imeis_disponibles as $imei)
-                                    <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-colors group">
-                                        <input type="checkbox"
-                                               name="imei_ids[]"
-                                               value="{{ $imei->id }}"
-                                               class="imei-check-{{ $traslado->id }} w-4 h-4 accent-blue-600 cursor-pointer"
-                                               onchange="actualizarContador({{ $traslado->id }}, {{ $traslado->cantidad }})">
-                                        <div class="flex-1 min-w-0">
-                                            <span class="font-mono text-sm font-semibold text-gray-800 group-hover:text-blue-700">
-                                                {{ $imei->codigo_imei }}
-                                            </span>
-                                            @if($imei->serie)
-                                                <span class="text-xs text-gray-400 ml-2">S/N: {{ $imei->serie }}</span>
-                                            @endif
-                                        </div>
-                                        <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium shrink-0">En stock</span>
-                                    </label>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-
-                    <div class="px-6 py-4 border-t border-gray-100 flex justify-between items-center gap-3">
-                        <button type="button" onclick="cerrarModalImei({{ $traslado->id }})"
-                                class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm hover:bg-gray-50">
-                            Cancelar
-                        </button>
-                        <button type="submit"
-                                id="btn-confirmar-{{ $traslado->id }}"
-                                class="px-6 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                                disabled>
-                            <i class="fas fa-check-double"></i>Confirmar traslado
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        @endif
 
         @empty
         <div class="bg-white rounded-2xl shadow-sm p-14 text-center border border-gray-100">
@@ -443,43 +373,5 @@
         </div>
         @endforelse
     </div>
-
-<script>
-function abrirModalImei(trasladoId, cantidad) {
-    const modal = document.getElementById('modal-imei-' + trasladoId);
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        actualizarContador(trasladoId, cantidad);
-    }
-}
-
-function cerrarModalImei(trasladoId) {
-    const modal = document.getElementById('modal-imei-' + trasladoId);
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.querySelectorAll('.imei-check-' + trasladoId).forEach(cb => cb.checked = false);
-        const necesario = parseInt(document.getElementById('contador-necesario-' + trasladoId)?.textContent || 0);
-        actualizarContador(trasladoId, necesario);
-    }
-}
-
-function actualizarContador(trasladoId, necesario) {
-    const checked = document.querySelectorAll('.imei-check-' + trasladoId + ':checked').length;
-    const contadorEl = document.getElementById('contador-' + trasladoId);
-    const btnEl     = document.getElementById('btn-confirmar-' + trasladoId);
-    if (contadorEl) contadorEl.textContent = checked;
-    if (btnEl) btnEl.disabled = checked !== necesario;
-}
-
-document.querySelectorAll('[id^="modal-imei-"]').forEach(modal => {
-    modal.addEventListener('click', function (e) {
-        if (e.target === this) {
-            cerrarModalImei(this.id.replace('modal-imei-', ''));
-        }
-    });
-});
-</script>
 </body>
 </html>

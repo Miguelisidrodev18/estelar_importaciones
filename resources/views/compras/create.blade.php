@@ -79,7 +79,7 @@
                         </span>
                         Tipo de Compra
                     </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
                         <!-- Local -->
                         <label class="cursor-pointer">
                             <input type="radio" name="tipo_compra" value="local"
@@ -93,22 +93,6 @@
                                 <div>
                                     <p class="font-semibold text-gray-900 text-sm">Compra Local</p>
                                     <p class="text-xs text-gray-500 mt-0.5">Proveedor local, sin documentos aduaneros</p>
-                                </div>
-                            </div>
-                        </label>
-                        <!-- Nacional -->
-                        <label class="cursor-pointer">
-                            <input type="radio" name="tipo_compra" value="nacional"
-                                   class="sr-only peer"
-                                   onchange="cambiarTipoCompra('nacional')"
-                                   {{ old('tipo_compra') === 'nacional' ? 'checked' : '' }}>
-                            <div class="peer-checked:border-blue-500 peer-checked:bg-blue-50 border-2 border-gray-200 rounded-xl p-4 flex items-center gap-3 transition hover:border-blue-300">
-                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                                    <i class="fas fa-file-invoice text-blue-700"></i>
-                                </div>
-                                <div>
-                                    <p class="font-semibold text-gray-900 text-sm">Compra Nacional</p>
-                                    <p class="text-xs text-gray-500 mt-0.5">Con factura electrónica SUNAT</p>
                                 </div>
                             </div>
                         </label>
@@ -163,45 +147,115 @@
                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                        placeholder="Ej: MAN-2026-001">
                             </div>
-                            <!-- Flete -->
+                            <!-- Agente de Aduanas -->
                             <div>
-                                <label for="flete" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                    Flete (S/)
-                                    <span class="text-xs text-gray-400 font-normal">Costo de transporte</span>
+                                <label for="agente_aduanas" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Agente de Aduanas
+                                </label>
+                                <input type="text" name="agente_aduanas" id="agente_aduanas"
+                                       value="{{ old('agente_aduanas') }}"
+                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                       placeholder="Nombre del agente o empresa">
+                            </div>
+                            <!-- Flete USD -->
+                            <div>
+                                <label for="flete_usd" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Flete (USD)
+                                    <span class="text-xs text-gray-400 font-normal">Costo de transporte internacional</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">S/</span>
-                                    <input type="number" name="flete" id="flete"
-                                           value="{{ old('flete', 0) }}" min="0" step="0.01"
+                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">$</span>
+                                    <input type="number" name="flete_usd" id="flete_usd"
+                                           value="{{ old('flete_usd', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
                                            class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
-                            <!-- Seguro -->
+                            <!-- Seguro USD -->
                             <div>
-                                <label for="seguro" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                    Seguro (S/)
+                                <label for="seguro_usd" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Seguro (USD)
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">S/</span>
-                                    <input type="number" name="seguro" id="seguro"
-                                           value="{{ old('seguro', 0) }}" min="0" step="0.01"
+                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">$</span>
+                                    <input type="number" name="seguro_usd" id="seguro_usd"
+                                           value="{{ old('seguro_usd', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
                                            class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
-                            <!-- Otros Gastos -->
+                            <!-- Otros Gastos USD -->
                             <div>
-                                <label for="otros_gastos" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                    Otros Gastos (S/)
-                                    <span class="text-xs text-gray-400 font-normal">Agente, almacenaje, etc.</span>
+                                <label for="otros_usd" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Otros Gastos (USD)
+                                    <span class="text-xs text-gray-400 font-normal">Almacenaje, etc.</span>
+                                </label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">$</span>
+                                    <input type="number" name="otros_usd" id="otros_usd"
+                                           value="{{ old('otros_usd', 0) }}" min="0" step="0.01"
+                                           oninput="calcularTotales()"
+                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           placeholder="0.00">
+                                </div>
+                            </div>
+                            <!-- Impuestos USD (Ad Valorem, etc.) -->
+                            <div>
+                                <label for="impuestos_usd" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Impuestos (USD)
+                                    <span class="text-xs text-gray-400 font-normal">Ad Valorem, etc.</span>
+                                </label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">$</span>
+                                    <input type="number" name="impuestos_usd" id="impuestos_usd"
+                                           value="{{ old('impuestos_usd', 0) }}" min="0" step="0.01"
+                                           oninput="calcularTotales()"
+                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           placeholder="0.00">
+                                </div>
+                            </div>
+                            <!-- Impuestos PEN (IGV importación, etc.) -->
+                            <div>
+                                <label for="impuestos_pen" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Impuestos (S/)
+                                    <span class="text-xs text-gray-400 font-normal">IGV importación, ISC</span>
                                 </label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">S/</span>
-                                    <input type="number" name="otros_gastos" id="otros_gastos"
-                                           value="{{ old('otros_gastos', 0) }}" min="0" step="0.01"
+                                    <input type="number" name="impuestos_pen" id="impuestos_pen"
+                                           value="{{ old('impuestos_pen', 0) }}" min="0" step="0.01"
+                                           oninput="calcularTotales()"
+                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           placeholder="0.00">
+                                </div>
+                            </div>
+                            <!-- Transporte Local PEN -->
+                            <div>
+                                <label for="transporte_local_pen" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Transporte Local (S/)
+                                    <span class="text-xs text-gray-400 font-normal">Puerto → almacén</span>
+                                </label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">S/</span>
+                                    <input type="number" name="transporte_local_pen" id="transporte_local_pen"
+                                           value="{{ old('transporte_local_pen', 0) }}" min="0" step="0.01"
+                                           oninput="calcularTotales()"
+                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           placeholder="0.00">
+                                </div>
+                            </div>
+                            <!-- Percepción PEN -->
+                            <div>
+                                <label for="percepcion_pen" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Percepción (S/)
+                                    <span class="text-xs text-gray-400 font-normal">Percepción SUNAT</span>
+                                </label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">S/</span>
+                                    <input type="number" name="percepcion_pen" id="percepcion_pen"
+                                           value="{{ old('percepcion_pen', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
                                            class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
@@ -211,12 +265,15 @@
                             <div class="flex items-center">
                                 <div class="w-full bg-white border border-orange-200 rounded-xl p-4 text-sm">
                                     <p class="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2">
-                                        <i class="fas fa-calculator mr-1"></i>Costos CIF
+                                        <i class="fas fa-calculator mr-1"></i>Costos CIF / Totales
                                     </p>
                                     <div class="space-y-1 text-xs text-gray-600">
-                                        <div class="flex justify-between"><span>Flete:</span><span id="cif_flete" class="font-medium">S/ 0.00</span></div>
-                                        <div class="flex justify-between"><span>Seguro:</span><span id="cif_seguro" class="font-medium">S/ 0.00</span></div>
-                                        <div class="flex justify-between"><span>Otros:</span><span id="cif_otros" class="font-medium">S/ 0.00</span></div>
+                                        <div class="flex justify-between"><span>Flete (USD):</span><span id="cif_flete" class="font-medium">$ 0.00</span></div>
+                                        <div class="flex justify-between"><span>Seguro (USD):</span><span id="cif_seguro" class="font-medium">$ 0.00</span></div>
+                                        <div class="flex justify-between"><span>Otros (USD):</span><span id="cif_otros" class="font-medium">$ 0.00</span></div>
+                                        <div class="flex justify-between"><span>Imp. (S/):</span><span id="cif_impuestos_pen" class="font-medium">S/ 0.00</span></div>
+                                        <div class="flex justify-between"><span>Transp. (S/):</span><span id="cif_transporte" class="font-medium">S/ 0.00</span></div>
+                                        <div class="flex justify-between"><span>Percepción (S/):</span><span id="cif_percepcion" class="font-medium">S/ 0.00</span></div>
                                         <div class="flex justify-between pt-1 border-t border-orange-200 font-semibold text-orange-800">
                                             <span>Total CIF:</span><span id="cif_total">S/ 0.00</span>
                                         </div>
@@ -566,19 +623,31 @@
                                     <!-- Costos de importación (visibles solo en tipo importacion) -->
                                     <div id="totales_importacion" class="hidden space-y-2 pt-2 border-t border-dashed border-orange-200">
                                         <p class="text-xs font-semibold text-orange-700 uppercase tracking-wide">
-                                            <i class="fas fa-ship mr-1"></i>Costos Adicionales
+                                            <i class="fas fa-ship mr-1"></i>Costos Importación
                                         </p>
                                         <div class="flex justify-between text-sm">
-                                            <span class="text-gray-600">Flete:</span>
-                                            <span id="total_flete" class="text-gray-700">S/ 0.00</span>
+                                            <span class="text-gray-600">Flete (USD):</span>
+                                            <span id="total_flete" class="text-gray-700">$ 0.00</span>
                                         </div>
                                         <div class="flex justify-between text-sm">
-                                            <span class="text-gray-600">Seguro:</span>
-                                            <span id="total_seguro" class="text-gray-700">S/ 0.00</span>
+                                            <span class="text-gray-600">Seguro (USD):</span>
+                                            <span id="total_seguro" class="text-gray-700">$ 0.00</span>
                                         </div>
                                         <div class="flex justify-between text-sm">
-                                            <span class="text-gray-600">Otros gastos:</span>
-                                            <span id="total_otros" class="text-gray-700">S/ 0.00</span>
+                                            <span class="text-gray-600">Otros (USD):</span>
+                                            <span id="total_otros" class="text-gray-700">$ 0.00</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-gray-600">Imp. (S/):</span>
+                                            <span id="total_impuestos_pen" class="text-gray-700">S/ 0.00</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-gray-600">Transp. (S/):</span>
+                                            <span id="total_transporte_pen" class="text-gray-700">S/ 0.00</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-gray-600">Percepción (S/):</span>
+                                            <span id="total_percepcion_pen" class="text-gray-700">S/ 0.00</span>
                                         </div>
                                     </div>
 
@@ -1455,32 +1524,51 @@
         });
 
         // Costos de importación
-        const tipoCompra = document.querySelector('input[name="tipo_compra"]:checked')?.value || 'local';
-        const flete      = tipoCompra === 'importacion' ? (parseFloat(document.getElementById('flete')?.value) || 0) : 0;
-        const seguro     = tipoCompra === 'importacion' ? (parseFloat(document.getElementById('seguro')?.value) || 0) : 0;
-        const otrosGastos = tipoCompra === 'importacion' ? (parseFloat(document.getElementById('otros_gastos')?.value) || 0) : 0;
-        const totalCIF   = flete + seguro + otrosGastos;
+        const tipoCompra       = document.querySelector('input[name="tipo_compra"]:checked')?.value || 'local';
+        const esImportacion    = tipoCompra === 'importacion';
+        const fleteUsd         = esImportacion ? (parseFloat(document.getElementById('flete_usd')?.value) || 0) : 0;
+        const seguroUsd        = esImportacion ? (parseFloat(document.getElementById('seguro_usd')?.value) || 0) : 0;
+        const otrosUsd         = esImportacion ? (parseFloat(document.getElementById('otros_usd')?.value) || 0) : 0;
+        const impuestosUsd     = esImportacion ? (parseFloat(document.getElementById('impuestos_usd')?.value) || 0) : 0;
+        const impuestosPen     = esImportacion ? (parseFloat(document.getElementById('impuestos_pen')?.value) || 0) : 0;
+        const transportePen    = esImportacion ? (parseFloat(document.getElementById('transporte_local_pen')?.value) || 0) : 0;
+        const percepcionPen    = esImportacion ? (parseFloat(document.getElementById('percepcion_pen')?.value) || 0) : 0;
+        // CIF en USD y en PEN (separados)
+        const cifUsdTotal   = fleteUsd + seguroUsd + otrosUsd + impuestosUsd;
+        const cifPenTotal   = impuestosPen + transportePen + percepcionPen;
+        const totalCIF      = cifUsdTotal + cifPenTotal; // solo para mostrar en caja CIF (mixto)
+
+        // CIF convertido a la moneda de la compra (para sumarlo correctamente al total)
+        const cifEnMonedaCompra = esImportacion ? (
+            moneda === 'USD'
+                ? (cifUsdTotal + (tc > 0 ? cifPenTotal / tc : 0))
+                : (cifUsdTotal * tc + cifPenTotal)
+        ) : 0;
 
         // Opciones de IGV
         const tipoOperacion  = document.getElementById('tipo_operacion').value;
         const incluyeIGV     = document.getElementById('incluir_igv').checked;
         const precioConIGV   = document.getElementById('precio_incluye_igv').checked;
 
-        let subtotalNeto = sumaBruta + totalCIF;
+        // IGV aplica SOLO sobre los productos (subtotalNeto), no sobre los costos CIF
+        let subtotalNeto = sumaBruta;
         let igv          = 0;
-        let total        = sumaBruta + totalCIF;
+        let total        = sumaBruta;
 
         if (tipoOperacion === '01' && incluyeIGV) {
             if (precioConIGV) {
-                subtotalNeto = sumaBruta / 1.18 + totalCIF;
-                igv          = (sumaBruta - sumaBruta / 1.18);
-                total        = sumaBruta + totalCIF;
+                subtotalNeto = sumaBruta / 1.18;
+                igv          = sumaBruta - sumaBruta / 1.18;
+                total        = sumaBruta; // = subtotalNeto + igv
             } else {
-                subtotalNeto = sumaBruta + totalCIF;
-                igv          = (sumaBruta + totalCIF) * 0.18;
-                total        = sumaBruta + totalCIF + igv;
+                subtotalNeto = sumaBruta;
+                igv          = sumaBruta * 0.18;
+                total        = sumaBruta + igv;
             }
         }
+
+        // Agregar costos CIF al total final (ya convertidos a moneda de la compra)
+        total += cifEnMonedaCompra;
 
         // Mostrar etiqueta de subtotal
         const lblSinIgv = document.getElementById('lblSinIgv');
@@ -1497,21 +1585,28 @@
 
         // Costos importacion en totales
         const totalesImportacion = document.getElementById('totales_importacion');
-        if (tipoCompra === 'importacion') {
+        if (esImportacion) {
             totalesImportacion.classList.remove('hidden');
-            document.getElementById('total_flete').textContent  = `${simbolo} ${flete.toFixed(2)}`;
-            document.getElementById('total_seguro').textContent = `${simbolo} ${seguro.toFixed(2)}`;
-            document.getElementById('total_otros').textContent  = `${simbolo} ${otrosGastos.toFixed(2)}`;
+            document.getElementById('total_flete').textContent          = `$ ${fleteUsd.toFixed(2)}`;
+            document.getElementById('total_seguro').textContent         = `$ ${seguroUsd.toFixed(2)}`;
+            document.getElementById('total_otros').textContent          = `$ ${otrosUsd.toFixed(2)}`;
+            document.getElementById('total_impuestos_pen').textContent  = `S/ ${impuestosPen.toFixed(2)}`;
+            document.getElementById('total_transporte_pen').textContent = `S/ ${transportePen.toFixed(2)}`;
+            document.getElementById('total_percepcion_pen').textContent = `S/ ${percepcionPen.toFixed(2)}`;
         } else {
             totalesImportacion.classList.add('hidden');
         }
 
         // Actualizar resumen CIF
         if (document.getElementById('cif_flete')) {
-            document.getElementById('cif_flete').textContent  = `S/ ${flete.toFixed(2)}`;
-            document.getElementById('cif_seguro').textContent = `S/ ${seguro.toFixed(2)}`;
-            document.getElementById('cif_otros').textContent  = `S/ ${otrosGastos.toFixed(2)}`;
-            document.getElementById('cif_total').textContent  = `S/ ${totalCIF.toFixed(2)}`;
+            document.getElementById('cif_flete').textContent         = `$ ${fleteUsd.toFixed(2)}`;
+            document.getElementById('cif_seguro').textContent        = `$ ${seguroUsd.toFixed(2)}`;
+            document.getElementById('cif_otros').textContent         = `$ ${otrosUsd.toFixed(2)}`;
+            document.getElementById('cif_impuestos_pen').textContent = `S/ ${impuestosPen.toFixed(2)}`;
+            document.getElementById('cif_transporte').textContent    = `S/ ${transportePen.toFixed(2)}`;
+            document.getElementById('cif_percepcion').textContent    = `S/ ${percepcionPen.toFixed(2)}`;
+            // Total CIF en moneda de la compra (con conversión real)
+            document.getElementById('cif_total').textContent         = `${simbolo} ${cifEnMonedaCompra.toFixed(2)}`;
         }
 
         // Prorrateo por producto

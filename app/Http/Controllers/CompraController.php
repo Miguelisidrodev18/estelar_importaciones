@@ -117,12 +117,17 @@ class CompraController extends Controller
             'placa_vehiculo' => 'nullable|string|max:10',
 
             // Tipo de compra e importación
-            'tipo_compra' => 'required|in:local,nacional,importacion',
+            'tipo_compra' => 'required|in:local,importacion',
             'numero_dua' => 'nullable|string|max:50',
             'numero_manifiesto' => 'nullable|string|max:50',
-            'flete' => 'nullable|numeric|min:0',
-            'seguro' => 'nullable|numeric|min:0',
-            'otros_gastos' => 'nullable|numeric|min:0',
+            'agente_aduanas' => 'nullable|string|max:255',
+            'flete_usd' => 'nullable|numeric|min:0',
+            'seguro_usd' => 'nullable|numeric|min:0',
+            'otros_usd' => 'nullable|numeric|min:0',
+            'transporte_local_pen' => 'nullable|numeric|min:0',
+            'impuestos_usd' => 'nullable|numeric|min:0',
+            'impuestos_pen' => 'nullable|numeric|min:0',
+            'percepcion_pen' => 'nullable|numeric|min:0',
             
             // Detalles de productos
             'detalles' => 'required|array|min:1',
@@ -169,13 +174,18 @@ class CompraController extends Controller
                 $subtotal += $validated['monto_adicional'];
             }
 
-            // Agregar costos de importación si aplica
-            $flete       = (float)($validated['flete'] ?? 0);
-            $seguro      = (float)($validated['seguro'] ?? 0);
-            $otrosGastos = (float)($validated['otros_gastos'] ?? 0);
-            $subtotal   += $flete + $seguro + $otrosGastos;
+            // Agregar costos de importación si aplica (solo en tipo importacion)
+            $esImportacion = ($validated['tipo_compra'] ?? 'local') === 'importacion';
+            $fleteUsd          = $esImportacion ? (float)($validated['flete_usd'] ?? 0) : 0;
+            $seguroUsd         = $esImportacion ? (float)($validated['seguro_usd'] ?? 0) : 0;
+            $otrosUsd          = $esImportacion ? (float)($validated['otros_usd'] ?? 0) : 0;
+            $transporteLocalPen = $esImportacion ? (float)($validated['transporte_local_pen'] ?? 0) : 0;
+            $impuestosUsd      = $esImportacion ? (float)($validated['impuestos_usd'] ?? 0) : 0;
+            $impuestosPen      = $esImportacion ? (float)($validated['impuestos_pen'] ?? 0) : 0;
+            $percepcionPen     = $esImportacion ? (float)($validated['percepcion_pen'] ?? 0) : 0;
 
-            // Calcular IGV según tipo de operación SUNAT y estado del checkbox
+            // Calcular IGV SOLO sobre los productos (sin incluir CIF)
+            $tipoCambio    = (float)($validated['tipo_cambio'] ?? 1);
             $incluyeIgv    = filter_var($validated['incluye_igv'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $precioConIgv  = filter_var($request->input('precio_incluye_igv', false), FILTER_VALIDATE_BOOLEAN);
             $tipoOperacion = $validated['tipo_operacion'] ?? '01';
@@ -188,16 +198,31 @@ class CompraController extends Controller
                     $subtotalBase = round($subtotal / 1.18, 2);
                     $igv          = round($subtotal - $subtotalBase, 2);
                     $subtotal     = $subtotalBase;
-                    $total        = $subtotalBase + $igv; // = precio original
+                    $total        = $subtotalBase + $igv;
                 } else {
                     $igv   = round($subtotal * 0.18, 2);
                     $total = $subtotal + $igv;
                 }
             }
 
-            // Aplicar tipo de cambio si es USD
-            if ($validated['tipo_moneda'] === 'USD' && !empty($validated['tipo_cambio'])) {
-                $totalPEN = $total * $validated['tipo_cambio'];
+            // Convertir costos CIF a la moneda de la compra y sumar al total
+            // (IGV ya fue calculado sobre productos; CIF se agrega por separado)
+            $cifUsdTotal = $fleteUsd + $seguroUsd + $otrosUsd + $impuestosUsd;
+            $cifPenTotal = $transporteLocalPen + $impuestosPen + $percepcionPen;
+
+            if ($validated['tipo_moneda'] === 'USD' && $tipoCambio > 0) {
+                // Compra en USD: CIF_USD va directo, CIF_PEN se divide por TC
+                $cifEnMonedaCompra = $cifUsdTotal + $cifPenTotal / $tipoCambio;
+            } else {
+                // Compra en PEN: CIF_USD se multiplica por TC, CIF_PEN va directo
+                $cifEnMonedaCompra = $cifUsdTotal * $tipoCambio + $cifPenTotal;
+            }
+
+            $total = round($total + $cifEnMonedaCompra, 2);
+
+            // Total en PEN para referencia (si la compra es en USD)
+            if ($validated['tipo_moneda'] === 'USD' && $tipoCambio > 0) {
+                $totalPEN = $total * $tipoCambio;
             } else {
                 $totalPEN = $total;
             }
@@ -232,9 +257,14 @@ class CompraController extends Controller
                 'tipo_compra' => $validated['tipo_compra'],
                 'numero_dua' => $validated['numero_dua'] ?? null,
                 'numero_manifiesto' => $validated['numero_manifiesto'] ?? null,
-                'flete' => $flete,
-                'seguro' => $seguro,
-                'otros_gastos' => $otrosGastos,
+                'agente_aduanas' => $validated['agente_aduanas'] ?? null,
+                'flete_usd' => $fleteUsd,
+                'seguro_usd' => $seguroUsd,
+                'otros_usd' => $otrosUsd,
+                'transporte_local_pen' => $transporteLocalPen,
+                'impuestos_usd' => $impuestosUsd,
+                'impuestos_pen' => $impuestosPen,
+                'percepcion_pen' => $percepcionPen,
             ];
 
             // Registrar la compra usando el servicio

@@ -53,17 +53,30 @@ class TrasladoController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'producto_id'       => 'required|exists:productos,id',
-            'almacen_id'        => 'required|exists:almacenes,id',
-            'almacen_destino_id'=> 'required|exists:almacenes,id|different:almacen_id',
-            'cantidad'          => 'required|integer|min:1',
-            'numero_guia'       => 'nullable|string|max:50|unique:movimientos_inventario,numero_guia',
-            'imei_id'           => 'nullable|exists:imeis,id',
-            'transportista'     => 'nullable|string|max:255',
-            'observaciones'     => 'nullable|string',
-        ], [
+        $productoId = $request->input('producto_id');
+        $producto   = Producto::find($productoId);
+        $esSerie    = $producto && $producto->tipo_inventario === 'serie';
+
+        $rules = [
+            'producto_id'        => 'required|exists:productos,id',
+            'almacen_id'         => 'required|exists:almacenes,id',
+            'almacen_destino_id' => 'required|exists:almacenes,id|different:almacen_id',
+            'numero_guia'        => 'nullable|string|max:50|unique:movimientos_inventario,numero_guia',
+            'transportista'      => 'nullable|string|max:255',
+            'observaciones'      => 'nullable|string',
+        ];
+
+        if ($esSerie) {
+            $rules['imei_ids']   = 'required|array|min:1';
+            $rules['imei_ids.*'] = 'required|exists:imeis,id';
+        } else {
+            $rules['cantidad'] = 'required|integer|min:1';
+        }
+
+        $validated = $request->validate($rules, [
             'almacen_destino_id.different' => 'El almacén destino debe ser diferente al origen',
+            'imei_ids.required'            => 'Debe seleccionar al menos un IMEI para trasladar.',
+            'imei_ids.min'                 => 'Debe seleccionar al menos un IMEI para trasladar.',
         ]);
 
         try {
@@ -88,21 +101,17 @@ class TrasladoController extends Controller
 
     public function pendientes()
     {
-        $traslados = MovimientoInventario::with('producto', 'almacen', 'almacenDestino', 'usuario')
+        $traslados = MovimientoInventario::with([
+                'producto',
+                'almacen',
+                'almacenDestino',
+                'usuario',
+                'imeisTrasladados.imei',
+            ])
             ->where('tipo_movimiento', 'transferencia')
             ->where('estado', 'pendiente')
             ->orderBy('created_at', 'desc')
             ->get();
-
-        // Para cada traslado de producto serie, cargar los IMEIs disponibles en el almacén origen
-        foreach ($traslados as $traslado) {
-            if ($traslado->producto->tipo_inventario === 'serie') {
-                $traslado->imeis_disponibles = Imei::where('producto_id', $traslado->producto_id)
-                    ->where('almacen_id', $traslado->almacen_id)
-                    ->where('estado_imei', 'en_stock')
-                    ->get(['id', 'codigo_imei', 'serie']);
-            }
-        }
 
         return view('traslados.pendientes', compact('traslados'));
     }
@@ -160,15 +169,10 @@ class TrasladoController extends Controller
 
     public function confirmar(Request $request, MovimientoInventario $traslado)
     {
-        $imeiIds    = array_filter(array_map('intval', $request->input('imei_ids', [])));
-        $numeroGuia = $request->input('numero_guia');
-
         try {
             app(TrasladoService::class)->confirmarRecepcion(
                 $traslado->id,
-                auth()->id(),
-                array_values($imeiIds),
-                $numeroGuia ?: null
+                auth()->id()
             );
 
             return redirect()
@@ -177,5 +181,24 @@ class TrasladoController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    /**
+     * AJAX: devuelve IMEIs en_stock para un producto y almacén.
+     */
+    public function imeisDisponibles(Request $request)
+    {
+        $request->validate([
+            'producto_id' => 'required|exists:productos,id',
+            'almacen_id'  => 'required|exists:almacenes,id',
+        ]);
+
+        $imeis = Imei::where('producto_id', $request->producto_id)
+            ->where('almacen_id', $request->almacen_id)
+            ->where('estado_imei', 'en_stock')
+            ->orderBy('codigo_imei')
+            ->get(['id', 'codigo_imei', 'serie']);
+
+        return response()->json($imeis);
     }
 }

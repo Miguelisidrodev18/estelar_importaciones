@@ -30,15 +30,14 @@
                         Detalle de Compra
                     </h1>
                     @php
-                        $tipoLabel = ['local' => 'Local', 'nacional' => 'Nacional', 'importacion' => 'Importación'];
-                        $tipoColor = ['local' => 'green', 'nacional' => 'blue', 'importacion' => 'orange'];
+                        $tipoLabel = ['local' => 'Local', 'importacion' => 'Importación'];
+                        $tipoColor = ['local' => 'green', 'importacion' => 'orange'];
                         $tc = $compra->tipo_compra ?? 'local';
                         $color = $tipoColor[$tc] ?? 'gray';
                     @endphp
                     <span class="px-3 py-1 rounded-full text-xs font-semibold
-                        {{ $color === 'green' ? 'bg-green-100 text-green-800' : ($color === 'blue' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800') }}">
+                        {{ $color === 'green' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800' }}">
                         @if($tc === 'importacion') <i class="fas fa-ship mr-1"></i>
-                        @elseif($tc === 'nacional') <i class="fas fa-file-invoice mr-1"></i>
                         @else <i class="fas fa-store mr-1"></i>
                         @endif
                         {{ $tipoLabel[$tc] ?? 'Local' }}
@@ -245,22 +244,64 @@
                             <span class="font-mono font-semibold text-gray-900">{{ $compra->numero_manifiesto }}</span>
                         </div>
                         @endif
+                        @if($compra->agente_aduanas)
+                        <div class="flex justify-between gap-2">
+                            <span class="text-gray-500 shrink-0">Agente Aduanas:</span>
+                            <span class="font-medium text-gray-900 text-right">{{ $compra->agente_aduanas }}</span>
+                        </div>
+                        @endif
                         <div class="pt-2 border-t border-orange-100 space-y-1.5">
+                            @if(($compra->flete_usd ?? 0) > 0)
                             <div class="flex justify-between">
-                                <span class="text-gray-500">Flete:</span>
-                                <span class="font-medium">S/ {{ number_format($compra->flete ?? 0, 2) }}</span>
+                                <span class="text-gray-500">Flete (USD):</span>
+                                <span class="font-medium">$ {{ number_format($compra->flete_usd ?? 0, 2) }}</span>
                             </div>
+                            @endif
+                            @if(($compra->seguro_usd ?? 0) > 0)
                             <div class="flex justify-between">
-                                <span class="text-gray-500">Seguro:</span>
-                                <span class="font-medium">S/ {{ number_format($compra->seguro ?? 0, 2) }}</span>
+                                <span class="text-gray-500">Seguro (USD):</span>
+                                <span class="font-medium">$ {{ number_format($compra->seguro_usd ?? 0, 2) }}</span>
                             </div>
+                            @endif
+                            @if(($compra->otros_usd ?? 0) > 0)
                             <div class="flex justify-between">
-                                <span class="text-gray-500">Otros gastos:</span>
-                                <span class="font-medium">S/ {{ number_format($compra->otros_gastos ?? 0, 2) }}</span>
+                                <span class="text-gray-500">Otros (USD):</span>
+                                <span class="font-medium">$ {{ number_format($compra->otros_usd ?? 0, 2) }}</span>
                             </div>
+                            @endif
+                            @if(($compra->impuestos_usd ?? 0) > 0)
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Impuestos (USD):</span>
+                                <span class="font-medium">$ {{ number_format($compra->impuestos_usd ?? 0, 2) }}</span>
+                            </div>
+                            @endif
+                            @if(($compra->impuestos_pen ?? 0) > 0)
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Impuestos (S/):</span>
+                                <span class="font-medium">S/ {{ number_format($compra->impuestos_pen ?? 0, 2) }}</span>
+                            </div>
+                            @endif
+                            @if(($compra->transporte_local_pen ?? 0) > 0)
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Transporte local (S/):</span>
+                                <span class="font-medium">S/ {{ number_format($compra->transporte_local_pen ?? 0, 2) }}</span>
+                            </div>
+                            @endif
+                            @if(($compra->percepcion_pen ?? 0) > 0)
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Percepción (S/):</span>
+                                <span class="font-medium">S/ {{ number_format($compra->percepcion_pen ?? 0, 2) }}</span>
+                            </div>
+                            @endif
+                            @php
+                                $cifTotal = ($compra->flete_usd ?? 0) + ($compra->seguro_usd ?? 0)
+                                          + ($compra->otros_usd ?? 0) + ($compra->impuestos_usd ?? 0)
+                                          + ($compra->impuestos_pen ?? 0) + ($compra->transporte_local_pen ?? 0)
+                                          + ($compra->percepcion_pen ?? 0);
+                            @endphp
                             <div class="flex justify-between pt-1 border-t border-orange-200 font-bold text-orange-800">
-                                <span>Total CIF:</span>
-                                <span>S/ {{ number_format(($compra->flete ?? 0) + ($compra->seguro ?? 0) + ($compra->otros_gastos ?? 0), 2) }}</span>
+                                <span>Total Costos Imp.:</span>
+                                <span>{{ number_format($cifTotal, 2) }}</span>
                             </div>
                         </div>
                     </div>
@@ -382,7 +423,10 @@
                             <div class="w-72 space-y-2 text-sm">
                                 @php
                                     $sumaProductos = $compra->detalles->sum(fn($d) => $d->cantidad * $d->precio_unitario);
-                                    $cifTotal = ($compra->flete ?? 0) + ($compra->seguro ?? 0) + ($compra->otros_gastos ?? 0);
+                                    $cifTotal = ($compra->flete_usd ?? 0) + ($compra->seguro_usd ?? 0)
+                                              + ($compra->otros_usd ?? 0) + ($compra->impuestos_usd ?? 0)
+                                              + ($compra->impuestos_pen ?? 0) + ($compra->transporte_local_pen ?? 0)
+                                              + ($compra->percepcion_pen ?? 0);
                                 @endphp
 
                                 <div class="flex justify-between text-gray-600">
@@ -392,8 +436,8 @@
 
                                 @if($tc === 'importacion' && $cifTotal > 0)
                                 <div class="flex justify-between text-orange-700">
-                                    <span>Costos CIF (flete + seguro + otros):</span>
-                                    <span>{{ $compra->moneda_simbolo }} {{ number_format($cifTotal, 2) }}</span>
+                                    <span>Costos de Importación:</span>
+                                    <span>{{ number_format($cifTotal, 2) }}</span>
                                 </div>
                                 @endif
 

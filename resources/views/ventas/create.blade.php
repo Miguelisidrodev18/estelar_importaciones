@@ -341,6 +341,9 @@
                                  class="w-full border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-lg py-2 pl-3 pr-8 text-sm text-blue-700 dark:text-blue-300 flex items-center gap-2 relative">
                                 <i class="fas fa-user-check text-xs text-blue-500 shrink-0"></i>
                                 <span class="truncate flex-1 font-medium" x-text="orden.clienteNombre"></span>
+                                <span x-show="orden.clienteTipoDoc" x-text="orden.clienteTipoDoc"
+                                      :class="orden.clienteTipoDoc === 'RUC' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+                                      class="text-xs font-bold px-1.5 py-0.5 rounded shrink-0"></span>
                                 <button @click="limpiarCliente()" class="absolute right-2 top-2 text-blue-400 hover:text-red-400 transition">
                                     <i class="fas fa-times text-xs"></i>
                                 </button>
@@ -368,7 +371,12 @@
                                         <button @click="seleccionarCliente(c)"
                                                 class="w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-600 transition border-b border-gray-100/50 dark:border-gray-600/50">
                                             <p class="text-sm text-gray-800 dark:text-gray-100 font-medium truncate" x-text="c.nombre"></p>
-                                            <p class="text-xs text-gray-400 font-mono mt-0.5" x-text="c.tipo_documento + ' · ' + c.numero_documento"></p>
+                                            <p class="text-xs text-gray-400 font-mono mt-0.5 flex items-center gap-1.5">
+                                                <span x-text="c.tipo_documento"
+                                                      :class="c.tipo_documento === 'RUC' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+                                                      class="font-bold px-1.5 py-0.5 rounded"></span>
+                                                <span x-text="c.numero_documento"></span>
+                                            </p>
                                         </button>
                                     </template>
                                     <div x-show="clienteResultados.length === 0 && clienteQuery.length >= 2" x-cloak
@@ -390,17 +398,17 @@
                 <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Comprobante</p>
                     <div class="grid grid-cols-3 gap-1.5">
-                        <button @click="orden.tipoComprobante = 'boleta'"
+                        <button @click="seleccionarTipoComprobante('boleta')"
                                 :class="orden.tipoComprobante === 'boleta' ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
                                 class="border rounded-xl py-2 text-xs font-semibold transition flex flex-col items-center gap-1">
                             <i class="fas fa-receipt"></i> Boleta
                         </button>
-                        <button @click="orden.tipoComprobante = 'factura'"
+                        <button @click="seleccionarTipoComprobante('factura')"
                                 :class="orden.tipoComprobante === 'factura' ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
                                 class="border rounded-xl py-2 text-xs font-semibold transition flex flex-col items-center gap-1">
                             <i class="fas fa-file-invoice"></i> Factura
                         </button>
-                        <button @click="orden.tipoComprobante = 'cotizacion'"
+                        <button @click="seleccionarTipoComprobante('cotizacion')"
                                 :class="orden.tipoComprobante === 'cotizacion' ? 'bg-amber-500 border-amber-500 text-white' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
                                 class="border rounded-xl py-2 text-xs font-semibold transition flex flex-col items-center gap-1">
                             <i class="fas fa-file-alt"></i> Cotización
@@ -409,8 +417,14 @@
                     <p x-show="orden.tipoComprobante === 'cotizacion'" x-cloak class="text-xs text-amber-500 mt-1.5 flex items-center gap-1">
                         <i class="fas fa-info-circle"></i> No descuenta stock
                     </p>
-                    <p x-show="orden.tipoComprobante === 'factura' && !orden.clienteId" x-cloak class="text-xs text-orange-400 mt-1.5 flex items-center gap-1">
-                        <i class="fas fa-exclamation-triangle"></i> Requiere cliente con RUC
+                    <p x-show="orden.tipoComprobante === 'factura' && (!orden.clienteId || orden.clienteTipoDoc !== 'RUC')" x-cloak
+                       class="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span x-text="!orden.clienteId ? 'Requiere cliente con RUC' : 'El cliente seleccionado no tiene RUC'"></span>
+                    </p>
+                    <p x-show="orden.clienteId && orden.clienteTipoDoc === 'DNI' && orden.tipoComprobante === 'boleta'" x-cloak
+                       class="text-xs text-blue-400 mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-info-circle"></i> Cliente con DNI
                     </p>
                 </div>
 
@@ -702,77 +716,91 @@
 {{-- ============================
      MODAL: CLIENTE RÁPIDO
 ============================== --}}
-<div x-show="showModalCliente" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+<div x-show="showModalCliente" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showModalCliente = false"></div>
-    <div class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-md shadow-2xl animate-fade-up">
-        <div class="p-5 border-b border-gray-100 dark:border-gray-700">
-            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+    <div class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-md shadow-2xl animate-fade-up max-h-[90vh] overflow-y-auto">
+        <div class="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+            <h3 class="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 <i class="fas fa-user-plus text-blue-500"></i> Nuevo Cliente
             </h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Consulta DNI/RUC o ingresa manualmente</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Consulta DNI/RUC o ingresa manualmente</p>
         </div>
-        <div class="p-5 space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Tipo documento</label>
+        
+        <div class="p-4 sm:p-5 space-y-4">
+            <!-- Tipo documento y N° Documento -->
+            <div class="grid grid-cols-5 gap-2">
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Tipo</label>
                     <select x-model="nuevoCliente.tipo_documento"
-                            class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                            class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 truncate">
                         <option value="DNI">DNI</option>
                         <option value="RUC">RUC</option>
                         <option value="CE">Carnet Ext.</option>
                         <option value="PASAPORTE">Pasaporte</option>
                     </select>
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">N° Documento</label>
-                    <div class="flex gap-1.5 items-stretch">
+                <div class="col-span-3">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">N° Documento</label>
+                    <div class="flex gap-1.5">
                         <input type="text" x-model="nuevoCliente.numero_documento"
                                :maxlength="nuevoCliente.tipo_documento === 'RUC' ? 11 : 8"
-                               class="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 font-mono">
+                               class="flex-1 min-w-0 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 font-mono"
+                               placeholder="Ingrese número">
                         <button @click="consultarDocumento()" :disabled="buscandoCliente"
-                                class="px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition disabled:opacity-50 shrink-0 flex items-center justify-center">
+                                class="px-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs transition disabled:opacity-50 shrink-0 flex items-center justify-center min-w-[34px]">
                             <i class="fas" :class="buscandoCliente ? 'fa-spinner fa-spin' : 'fa-search'"></i>
                         </button>
                     </div>
                 </div>
             </div>
+
+            <!-- Nombre / Razón social -->
             <div>
-                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Nombre / Razón social</label>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Nombre / Razón social</label>
                 <input type="text" x-model="nuevoCliente.nombre"
-                       class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                       class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
+                       placeholder="Ingrese nombre o razón social">
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Teléfono</label>
+
+            <!-- Teléfono y Dirección -->
+            <div class="grid grid-cols-2 gap-2">
+                <div class="min-w-0">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
                     <input type="text" x-model="nuevoCliente.telefono"
-                           class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                           class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
+                           placeholder="Ej: 999999999">
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Dirección</label>
+                <div class="min-w-0">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Dirección</label>
                     <input type="text" x-model="nuevoCliente.direccion"
-                           class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                           class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
+                           placeholder="Ingrese dirección">
                 </div>
             </div>
-            <div x-show="errorCliente" x-cloak class="px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+
+            <!-- Mensaje de error -->
+            <div x-show="errorCliente" x-cloak 
+                 class="px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
                 <i class="fas fa-exclamation-circle shrink-0"></i>
-                <span x-text="errorCliente"></span>
+                <span x-text="errorCliente" class="break-words"></span>
             </div>
         </div>
-        <div class="flex gap-3 p-5 border-t border-gray-100 dark:border-gray-700">
+
+        <!-- Botones -->
+        <div class="flex gap-2 p-4 sm:p-5 border-t border-gray-100 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-gray-800">
             <button @click="showModalCliente = false"
-                    class="flex-1 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl py-3 font-semibold text-sm transition">
+                    class="flex-1 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl py-2.5 font-semibold text-xs transition">
                 Cancelar
             </button>
             <button @click="guardarCliente()"
                     :disabled="!nuevoCliente.nombre || !nuevoCliente.numero_documento || guardandoCliente"
-                    class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl py-3 font-bold text-sm transition">
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl py-2.5 font-bold text-xs transition flex items-center justify-center gap-1">
                 <i class="fas" :class="guardandoCliente ? 'fa-spinner fa-spin' : 'fa-save'"></i>
-                <span class="ml-1">Guardar</span>
+                <span>Guardar</span>
             </button>
         </div>
     </div>
 </div>
-
 {{-- ============================
      MODAL: VARIANTE
 ============================== --}}
@@ -925,18 +953,20 @@ $clientesJson = $clientes->map(fn($c) => [
 function crearOrden(id) {
     return {
         id,
-        almacenId:       '{{ $almacenPredeterminado ?? "" }}',
-        clienteId:       '',
-        clienteNombre:   '',
-        observaciones:   '',
-        showNota:        false,
-        tipoComprobante: 'boleta',
-        envioProvincia:  false,
-        guiaRemision:    '',
-        transportista:   '',
-        placaVehiculo:   '',
-        carrito:         [],
-        pagos:           [{ metodo: 'efectivo', monto: 0 }],
+        almacenId:        '{{ $almacenPredeterminado ?? "" }}',
+        clienteId:        '',
+        clienteNombre:    '',
+        clienteTipoDoc:   '', // 'DNI' | 'RUC' | 'CE' | ''
+        clienteNumDoc:    '', // número de documento del cliente seleccionado
+        observaciones:    '',
+        showNota:         false,
+        tipoComprobante:  'boleta',
+        envioProvincia:   false,
+        guiaRemision:     '',
+        transportista:    '',
+        placaVehiculo:    '',
+        carrito:          [],
+        pagos:            [{ metodo: 'efectivo', monto: 0 }],
     };
 }
 
@@ -1244,6 +1274,25 @@ function posApp() {
         procesarPago() {
             if (this.orden.carrito.length === 0) { this.toast('warning', 'Agrega productos al carrito'); return; }
             if (!this.orden.almacenId) { this.toast('warning', 'Selecciona un almacén'); return; }
+
+            // ── Validación de cliente obligatorio (boleta y factura) ──
+            if (this.orden.tipoComprobante !== 'cotizacion' && !this.orden.clienteId) {
+                this.toast('error', 'Debe seleccionar un cliente para registrar la venta');
+                return;
+            }
+
+            // ── Validación factura → debe ser RUC de 11 dígitos ──
+            if (this.orden.tipoComprobante === 'factura') {
+                if (this.orden.clienteTipoDoc !== 'RUC') {
+                    this.toast('error', 'Para emitir factura, el cliente debe tener RUC válido');
+                    return;
+                }
+                if (this.orden.clienteNumDoc.length !== 11) {
+                    this.toast('error', 'Para emitir factura, el RUC debe tener exactamente 11 dígitos');
+                    return;
+                }
+            }
+
             if (!this.puedePagar && this.orden.tipoComprobante !== 'cotizacion') {
                 this.toast('warning', 'El monto ingresado es insuficiente'); return;
             }
@@ -1407,22 +1456,36 @@ function posApp() {
         // CLIENT SEARCH
         // ══════════════════════════════════════
         buscarCliente() {
-            const q = this.clienteQuery.toLowerCase().trim();
-            if (!q) {
-                this.clienteResultados = this.clientes.slice(0, 10);
-            } else {
-                this.clienteResultados = this.clientes.filter(c =>
+            const q        = this.clienteQuery.toLowerCase().trim();
+            const soloRUC  = this.orden.tipoComprobante === 'factura';
+            let lista      = soloRUC
+                ? this.clientes.filter(c => c.tipo_documento === 'RUC')
+                : this.clientes;
+            if (q) {
+                lista = lista.filter(c =>
                     c.nombre.toLowerCase().includes(q) || c.numero_documento.includes(q)
-                ).slice(0, 10);
+                );
             }
+            this.clienteResultados = lista.slice(0, 10);
         },
         seleccionarCliente(c) {
             if (!c) {
-                this.orden.clienteId     = '';
-                this.orden.clienteNombre = '';
+                this.orden.clienteId      = '';
+                this.orden.clienteNombre  = '';
+                this.orden.clienteTipoDoc = '';
+                this.orden.clienteNumDoc  = '';
             } else {
-                this.orden.clienteId     = String(c.id);
-                this.orden.clienteNombre = c.nombre;
+                // Si es factura y el cliente no tiene RUC, advertir y no seleccionar
+                if (this.orden.tipoComprobante === 'factura' && c.tipo_documento !== 'RUC') {
+                    this.toast('error', 'Para factura solo se permiten clientes con RUC. Este cliente tiene ' + c.tipo_documento + '.');
+                    this.mostrarDropdownCliente = false;
+                    this.clienteQuery = '';
+                    return;
+                }
+                this.orden.clienteId      = String(c.id);
+                this.orden.clienteNombre  = c.nombre;
+                this.orden.clienteTipoDoc = c.tipo_documento  || '';
+                this.orden.clienteNumDoc  = c.numero_documento || '';
             }
             this.clienteQuery           = '';
             this.mostrarDropdownCliente = false;
@@ -1430,8 +1493,20 @@ function posApp() {
         limpiarCliente() {
             this.orden.clienteId        = '';
             this.orden.clienteNombre    = '';
+            this.orden.clienteTipoDoc   = '';
+            this.orden.clienteNumDoc    = '';
             this.clienteQuery           = '';
             this.mostrarDropdownCliente = false;
+        },
+
+        // Cambia el tipo de comprobante y aplica reglas de cliente
+        seleccionarTipoComprobante(tipo) {
+            this.orden.tipoComprobante = tipo;
+            // Al cambiar a factura: si el cliente actual no es RUC, limpiar automáticamente
+            if (tipo === 'factura' && this.orden.clienteId && this.orden.clienteTipoDoc !== 'RUC') {
+                this.toast('warning', 'Se limpió el cliente: para factura solo se permite RUC');
+                this.limpiarCliente();
+            }
         },
 
         // ══════════════════════════════════════
