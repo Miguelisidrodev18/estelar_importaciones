@@ -149,17 +149,16 @@
                                 <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Utilidad</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @foreach($productos as $p)
-                                @if($p['tiene_variantes'] && $p['variantes']->isNotEmpty())
-                                    {{-- Producto con variantes: fila expandible --}}
-                                    <tr x-data="{ open: false }"
-                                        class="hover:bg-gray-50 transition cursor-pointer"
-                                        @click="open = !open">
+                        @foreach($productos as $p)
+                            @if($p['tiene_variantes'] && $p['variantes']->isNotEmpty())
+                                {{-- tbody propio por producto con variantes: x-data vive aquí --}}
+                                <tbody x-data="{ open: false }" class="divide-y divide-gray-100">
 
-                                        {{-- Toggle icon --}}
+                                    {{-- Fila cabecera expandible --}}
+                                    <tr class="hover:bg-gray-50 transition cursor-pointer border-b border-gray-200"
+                                        @click="open = !open">
                                         <td class="px-3 py-3 text-center">
-                                            <div class="w-5 h-5 flex items-center justify-center rounded bg-blue-100 text-blue-600 transition-transform"
+                                            <div class="w-5 h-5 flex items-center justify-center rounded bg-blue-100 text-blue-600 transition-transform duration-200"
                                                  :class="open ? 'rotate-90' : ''">
                                                 <i class="fas fa-chevron-right text-xs"></i>
                                             </div>
@@ -202,10 +201,14 @@
                                         </td>
                                     </tr>
 
-                                    {{-- Sub-filas por variante --}}
+                                    {{-- Sub-filas de variantes: ahora son hijos del mismo tbody --}}
                                     @foreach($p['variantes'] as $v)
-                                        <tr x-show="open" x-cloak
-                                            class="bg-indigo-50/50 border-l-4 border-indigo-300 hover:bg-indigo-50 transition">
+                                        <tr x-show="open"
+                                            x-transition:enter="transition ease-out duration-150"
+                                            x-transition:enter-start="opacity-0 -translate-y-1"
+                                            x-transition:enter-end="opacity-100 translate-y-0"
+                                            style="display:none"
+                                            class="bg-indigo-50/40 hover:bg-indigo-50 transition border-l-4 border-indigo-300">
                                             <td class="px-3 py-2.5"></td>
                                             <td class="px-4 py-2.5">
                                                 <div class="flex items-center gap-2 pl-4">
@@ -225,20 +228,14 @@
                                             <td class="px-4 py-2.5 text-center"></td>
                                             <td class="px-4 py-2.5 text-right font-bold text-indigo-700">{{ number_format($v['stock']) }}</td>
                                             <td class="px-4 py-2.5 text-right">
-                                                <span class="font-mono font-semibold text-indigo-700 text-xs">
-                                                    S/ {{ number_format($v['costo_cpp'], 2) }}
-                                                </span>
+                                                <span class="font-mono font-semibold text-indigo-700 text-xs">S/ {{ number_format($v['costo_cpp'], 2) }}</span>
                                                 <span class="block text-[10px] text-gray-400">CPP real</span>
                                             </td>
                                             <td class="px-4 py-2.5 text-right text-gray-600 font-mono text-xs">
                                                 {{ $v['precio_venta'] > 0 ? 'S/ '.number_format($v['precio_venta'], 2) : '—' }}
                                             </td>
-                                            <td class="px-4 py-2.5 text-right font-semibold text-orange-600 text-xs">
-                                                S/ {{ number_format($v['valor_compra'], 2) }}
-                                            </td>
-                                            <td class="px-4 py-2.5 text-right font-semibold text-green-600 text-xs">
-                                                S/ {{ number_format($v['valor_venta'], 2) }}
-                                            </td>
+                                            <td class="px-4 py-2.5 text-right font-semibold text-orange-600 text-xs">S/ {{ number_format($v['valor_compra'], 2) }}</td>
+                                            <td class="px-4 py-2.5 text-right font-semibold text-green-600 text-xs">S/ {{ number_format($v['valor_venta'], 2) }}</td>
                                             <td class="px-4 py-2.5 text-right">
                                                 <span class="text-xs font-semibold {{ $v['margen_pct'] >= 20 ? 'text-green-600' : ($v['margen_pct'] >= 10 ? 'text-amber-600' : 'text-red-600') }}">
                                                     {{ $v['margen_pct'] }}%
@@ -250,9 +247,11 @@
                                         </tr>
                                     @endforeach
 
-                                @else
-                                    {{-- Producto sin variantes: fila simple --}}
-                                    <tr class="hover:bg-gray-50 transition">
+                                </tbody>
+                            @else
+                                {{-- Producto sin variantes: tbody simple --}}
+                                <tbody class="divide-y divide-gray-100">
+                                    <tr class="hover:bg-gray-50 transition border-b border-gray-200">
                                         <td class="px-3 py-3 text-center text-gray-300">
                                             <i class="fas fa-minus text-xs"></i>
                                         </td>
@@ -282,9 +281,9 @@
                                             S/ {{ number_format($p['utilidad'], 2) }}
                                         </td>
                                     </tr>
-                                @endif
-                            @endforeach
-                        </tbody>
+                                </tbody>
+                            @endif
+                        @endforeach
                         <tfoot class="bg-gray-50 border-t-2 border-gray-300">
                             <tr>
                                 <td colspan="5" class="px-4 py-3 text-sm font-bold text-gray-700">
