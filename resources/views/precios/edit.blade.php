@@ -7,7 +7,6 @@
     <title>Editar Precio · {{ $producto->nombre }}</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-50 font-sans">
@@ -136,7 +135,8 @@
                      margen: {{ $precio->margen ?? 0 }},
                      precioVenta: {{ $precio->precio ?? 0 }},
                      modoCalculo: 'margen',
-                     incluyeIgv: false,
+                     incluyeIgv: {{ $precio->incluye_igv ? 'true' : 'false' }},
+                     varianteId: {{ $precio->variante_id ?? 'null' }},
 
                      proveedorId: null,
                      busquedaProv: '',
@@ -151,7 +151,7 @@
                          const pid = this.$el.dataset.provId;
                          this.proveedorId = pid ? parseInt(pid) : null;
                          this.busquedaProv = this.$el.dataset.provNombre || '';
-                         this.calcularPrecioVenta();
+                         // No recalculamos al cargar — usamos los valores guardados tal cual
                          if (this.proveedorId) {
                              this.fetchUltimaCompra();
                          }
@@ -208,7 +208,9 @@
                      async fetchUltimaCompra() {
                          if (!this.proveedorId) return;
                          this.cargandoCompra = true;
-                         const res = await fetch('{{ route('precios.ultimo-precio-compra', $producto) }}?proveedor_id=' + this.proveedorId);
+                         let url = '{{ route('precios.ultimo-precio-compra', $producto) }}?proveedor_id=' + this.proveedorId;
+                         if (this.varianteId) url += '&variante_id=' + this.varianteId;
+                         const res = await fetch(url);
                          const data = await res.json();
                          this.ultimaCompra = data.found ? data : null;
                          this.cargandoCompra = false;
@@ -393,7 +395,9 @@
                             {{-- IGV --}}
                             <div class="md:col-span-2">
                                 <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-                                    <input type="checkbox" x-model="incluyeIgv"
+                                    <input type="hidden" name="incluye_igv" value="0">
+                                    <input type="checkbox" name="incluye_igv" value="1"
+                                           x-model="incluyeIgv"
                                            @change="modoCalculo==='margen' ? calcularPrecioVenta() : calcularMargen()"
                                            class="w-4 h-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-400">
                                     <div>

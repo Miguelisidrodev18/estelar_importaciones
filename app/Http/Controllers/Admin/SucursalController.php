@@ -208,14 +208,54 @@ class SucursalController extends Controller
 
     // ── HU-05: Comprobantes emitidos ───────────────────────────────────────────
 
-    public function comprobantes(Sucursal $sucursal)
+    public function comprobantes(Request $request, Sucursal $sucursal)
     {
-        $ventas = \App\Models\Venta::with(['cliente', 'serieComprobante'])
-            ->where('sucursal_id', $sucursal->id)
-            ->whereNotNull('serie_comprobante_id')
-            ->orderByDesc('fecha')
-            ->paginate(30);
+        // Almacenes vinculados a esta sucursal (su propio almacén + almacenes sin sucursal asignada)
+        $almacenesConOtraSucursal = \App\Models\Sucursal::whereNotNull('almacen_id')
+            ->where('id', '!=', $sucursal->id)
+            ->pluck('almacen_id');
 
-        return view('admin.sucursales.comprobantes', compact('sucursal', 'ventas'));
+        $query = \App\Models\Venta::with(['cliente', 'serieComprobante'])
+            ->where(function ($q) use ($sucursal, $almacenesConOtraSucursal) {
+                $q->where('sucursal_id', $sucursal->id)
+                  ->orWhere(function ($q2) use ($sucursal, $almacenesConOtraSucursal) {
+                      $q2->whereNull('sucursal_id')
+                         ->whereNotIn('almacen_id', $almacenesConOtraSucursal);
+                  });
+            })
+            ->whereIn('tipo_comprobante', ['boleta', 'factura', 'nota_credito'])
+            ->orderByDesc('fecha')
+            ->orderByDesc('id');
+
+        // Filtros opcionales
+        if ($request->filled('tipo')) {
+            $query->where('tipo_comprobante', $request->tipo);
+        }
+        if ($request->filled('estado')) {
+            $query->where('estado_pago', $request->estado);
+        }
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $query->where(function ($sub) use ($q) {
+                $sub->where('codigo', 'like', "%{$q}%")
+                    ->orWhereHas('cliente', fn($c) => $c->where('nombre', 'like', "%{$q}%")
+                        ->orWhere('numero_documento', 'like', "%{$q}%"));
+            });
+        }
+
+        $ventas = $query->paginate(30)->withQueryString();
+
+        $baseQuery = fn() => \App\Models\Venta::where(function ($q) use ($sucursal, $almacenesConOtraSucursal) {
+            $q->where('sucursal_id', $sucursal->id)
+              ->orWhere(fn($q2) => $q2->whereNull('sucursal_id')->whereNotIn('almacen_id', $almacenesConOtraSucursal));
+        });
+
+        $totales = [
+            'total'   => $baseQuery()->whereIn('tipo_comprobante', ['boleta','factura','nota_credito'])->count(),
+            'boleta'  => $baseQuery()->where('tipo_comprobante','boleta')->count(),
+            'factura' => $baseQuery()->where('tipo_comprobante','factura')->count(),
+        ];
+
+        return view('admin.sucursales.comprobantes', compact('sucursal', 'ventas', 'totales'));
     }
 }

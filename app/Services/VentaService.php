@@ -5,6 +5,7 @@ namespace App\Services;
 
 use App\Models\Venta;
 use App\Models\DetalleVenta;
+use App\Models\GuiaRemision;
 use App\Models\Imei;
 use App\Models\StockAlmacen;
 use App\Models\MovimientoInventario;
@@ -26,7 +27,11 @@ class VentaService
     public function crearVenta(array $datosVenta, array $detalles, ?array $pago = null)
     {
         return DB::transaction(function () use ($datosVenta, $detalles, $pago) {
-            
+
+            // Extraer guia_data antes de crear la venta (no es columna de ventas)
+            $guiaData = $datosVenta['guia_data'] ?? null;
+            unset($datosVenta['guia_data']);
+
             // Validar stock antes de procesar
             $this->validarStockDisponible($detalles, $datosVenta['almacen_id']);
 
@@ -77,6 +82,11 @@ class VentaService
                 'igv' => $igv,
                 'total' => $total
             ]);
+
+            // Crear guía de remisión si se proporcionaron datos
+            if ($guiaData) {
+                GuiaRemision::create(array_merge(['venta_id' => $venta->id], $guiaData));
+            }
 
             // Si hay pago, procesarlo
             if ($pago) {

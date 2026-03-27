@@ -428,11 +428,13 @@
                     </p>
                 </div>
 
-                {{-- Envío a provincia (factura only) --}}
-                <div x-show="orden.tipoComprobante === 'factura'" x-cloak class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                {{-- Guía de Remisión --}}
+                <div x-show="orden.tipoComprobante !== 'cotizacion'" x-cloak class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                     <label class="flex items-center gap-3 cursor-pointer select-none">
                         <div class="relative shrink-0">
-                            <input type="checkbox" x-model="orden.envioProvincia" class="sr-only">
+                            <input type="checkbox" x-model="orden.envioProvincia"
+                                   @change="orden.envioProvincia ? abrirModalGuia() : (orden.guia.guardada = false)"
+                                   class="sr-only">
                             <div :class="orden.envioProvincia ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'"
                                  class="w-9 h-5 rounded-full transition-colors"></div>
                             <div :class="orden.envioProvincia ? 'translate-x-4' : 'translate-x-0.5'"
@@ -440,15 +442,35 @@
                         </div>
                         <span class="text-xs text-gray-600 dark:text-gray-300 font-medium">Incluir guía de remisión</span>
                     </label>
-                    <div x-show="orden.envioProvincia" x-cloak class="mt-3 space-y-2">
-                        <input type="text" x-model="orden.guiaRemision" placeholder="N° Guía de remisión"
-                               class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 placeholder-gray-400">
-                        <div class="grid grid-cols-2 gap-2">
-                            <input type="text" x-model="orden.transportista" placeholder="Transportista"
-                                   class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 placeholder-gray-400">
-                            <input type="text" x-model="orden.placaVehiculo" placeholder="Placa"
-                                   class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 placeholder-gray-400 uppercase">
+
+                    {{-- Resumen cuando la guía está guardada --}}
+                    <div x-show="orden.envioProvincia && orden.guia.guardada" x-cloak class="mt-3">
+                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-truck text-blue-500 text-xs"></i>
+                                    <span class="text-xs font-bold text-blue-700 dark:text-blue-300" x-text="orden.guia.motivo_traslado.replace('_',' ')"></span>
+                                    <span class="text-[10px] text-blue-400" x-text="orden.guia.modalidad === 'privado' ? '· Privado' : '· Público'"></span>
+                                </div>
+                                <button @click="abrirModalGuia()" type="button"
+                                        class="text-[10px] text-blue-600 hover:text-blue-700 dark:text-blue-400 font-semibold flex items-center gap-1 transition">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                            </div>
+                            <div class="space-y-0.5 text-[10px] text-blue-600 dark:text-blue-400">
+                                <div><span class="text-blue-400">Fecha:</span> <span x-text="orden.guia.fecha_traslado"></span></div>
+                                <div x-show="orden.guia.peso_total"><span class="text-blue-400">Peso:</span> <span x-text="orden.guia.peso_total + ' kg'"></span></div>
+                                <div x-show="orden.guia.direccion_llegada" class="truncate"><span class="text-blue-400">Destino:</span> <span x-text="orden.guia.direccion_llegada"></span></div>
+                            </div>
                         </div>
+                    </div>
+
+                    {{-- Botón cuando la guía no está completa aún --}}
+                    <div x-show="orden.envioProvincia && !orden.guia.guardada" x-cloak class="mt-2">
+                        <button @click="abrirModalGuia()" type="button"
+                                class="w-full bg-blue-50 dark:bg-blue-900/20 border border-dashed border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 rounded-xl py-2 text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30 transition flex items-center justify-center gap-2">
+                            <i class="fas fa-plus-circle"></i> Completar datos de guía
+                        </button>
                     </div>
                 </div>
 
@@ -940,12 +962,296 @@
     </div>
 </div>
 
+{{-- ══════════════════════════════════════════════════════════════ --}}
+{{-- MODAL GUÍA DE REMISIÓN                                        --}}
+{{-- ══════════════════════════════════════════════════════════════ --}}
+<div x-show="showModalGuia" x-cloak
+     class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto py-6 px-3"
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0">
+
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="cerrarModalGuia()"></div>
+
+    <div class="relative w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-4"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0">
+
+        {{-- Header --}}
+        <div class="bg-gradient-to-r from-blue-700 to-indigo-700 px-6 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-truck text-white text-lg"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-white">Guía de Remisión</h2>
+                    <p class="text-blue-200 text-xs mt-0.5">Ingrese los datos de traslado según SUNAT</p>
+                </div>
+            </div>
+            <button @click="cerrarModalGuia()" type="button"
+                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white transition">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+
+            {{-- 1. CLIENTE (auto desde venta) --}}
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-6 h-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center shrink-0">
+                        <span class="text-xs font-bold text-blue-700 dark:text-blue-300">1</span>
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Cliente / Destinatario</h3>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                    <div x-show="orden.clienteId" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="md:col-span-2">
+                            <p class="text-xs text-gray-400 mb-1 font-medium uppercase tracking-wide">Nombre / Razón Social</p>
+                            <p class="text-sm font-semibold text-gray-800 dark:text-gray-100" x-text="orden.clienteNombre || '—'"></p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400 mb-1 font-medium uppercase tracking-wide">Documento</p>
+                            <p class="text-sm font-mono text-gray-700 dark:text-gray-200">
+                                <span x-text="orden.clienteTipoDoc"></span>
+                                <span x-text="orden.clienteNumDoc ? ' · ' + orden.clienteNumDoc : ''"></span>
+                            </p>
+                        </div>
+                    </div>
+                    <div x-show="!orden.clienteId" class="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                        <i class="fas fa-exclamation-triangle text-sm"></i>
+                        <span class="text-xs font-medium">Sin cliente seleccionado en la venta</span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- 2. DATOS DE TRASLADO --}}
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-6 h-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center shrink-0">
+                        <span class="text-xs font-bold text-blue-700 dark:text-blue-300">2</span>
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Datos de Traslado</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Motivo del Traslado <span class="text-red-500">*</span>
+                        </label>
+                        <select x-model="orden.guia.motivo_traslado"
+                                class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <option value="VENTA">Venta</option>
+                            <option value="COMPRA">Compra</option>
+                            <option value="TRASLADO_ENTRE_ALMACENES">Traslado entre almacenes</option>
+                            <option value="IMPORTACION">Importación</option>
+                            <option value="EXPORTACION">Exportación</option>
+                            <option value="OTROS">Otros</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Modalidad <span class="text-red-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label :class="orden.guia.modalidad === 'privado'
+                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-300'"
+                                   class="flex items-center gap-2 border rounded-xl px-3 py-2.5 cursor-pointer transition">
+                                <input type="radio" x-model="orden.guia.modalidad" value="privado" class="hidden">
+                                <i class="fas fa-car text-sm"></i>
+                                <span class="text-xs font-semibold">Privado</span>
+                            </label>
+                            <label :class="orden.guia.modalidad === 'publico'
+                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-300'"
+                                   class="flex items-center gap-2 border rounded-xl px-3 py-2.5 cursor-pointer transition">
+                                <input type="radio" x-model="orden.guia.modalidad" value="publico" class="hidden">
+                                <i class="fas fa-truck text-sm"></i>
+                                <span class="text-xs font-semibold">Público</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Fecha de Traslado <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" x-model="orden.guia.fecha_traslado"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                                Peso Bruto (kg) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" x-model="orden.guia.peso_total" step="0.01" min="0.01" placeholder="0.00"
+                                   class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Nro. Bultos</label>
+                            <input type="number" x-model="orden.guia.bultos" min="1" placeholder="—"
+                                   class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- 3. DATOS DEL TRANSPORTISTA --}}
+            <div x-show="orden.guia.modalidad === 'publico'">
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-6 h-6 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex items-center justify-center shrink-0">
+                        <span class="text-xs font-bold text-orange-700 dark:text-orange-300">3</span>
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">
+                        Datos del Transportista
+                        <span class="text-orange-500 text-xs font-medium normal-case ml-1">(requerido para transporte público)</span>
+                    </h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo Documento</label>
+                        <select x-model="orden.guia.transportista_tipo_doc"
+                                class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <option value="RUC">RUC</option>
+                            <option value="DNI">DNI</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Nro. Documento</label>
+                        <input type="text" x-model="orden.guia.transportista_doc" placeholder="Nro. documento"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div class="md:col-span-1">
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Razón Social / Nombre <span class="text-red-500" x-show="orden.guia.modalidad === 'publico'">*</span>
+                        </label>
+                        <input type="text" x-model="orden.guia.transportista_nombre" placeholder="Nombre del transportista"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                </div>
+            </div>
+
+            {{-- 4. PUNTO DE PARTIDA --}}
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-6 h-6 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center shrink-0">
+                        <span class="text-xs font-bold text-green-700 dark:text-green-300" x-text="orden.guia.modalidad === 'publico' ? '4' : '3'"></span>
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">
+                        <i class="fas fa-map-marker-alt text-green-500 mr-1"></i> Punto de Partida
+                    </h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Dirección <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" x-model="orden.guia.direccion_partida" placeholder="Dirección completa de origen"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Ubigeo</label>
+                        <input type="text" x-model="orden.guia.ubigeo_partida" placeholder="Ej: 150101" maxlength="6"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition font-mono">
+                    </div>
+                </div>
+            </div>
+
+            {{-- 5. PUNTO DE LLEGADA --}}
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-6 h-6 bg-red-100 dark:bg-red-900/40 rounded-lg flex items-center justify-center shrink-0">
+                        <span class="text-xs font-bold text-red-700 dark:text-red-300" x-text="orden.guia.modalidad === 'publico' ? '5' : '4'"></span>
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">
+                        <i class="fas fa-flag-checkered text-red-500 mr-1"></i> Punto de Llegada
+                    </h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Dirección <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" x-model="orden.guia.direccion_llegada" placeholder="Dirección completa de destino"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Ubigeo</label>
+                        <input type="text" x-model="orden.guia.ubigeo_llegada" placeholder="Ej: 150101" maxlength="6"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition font-mono">
+                    </div>
+                </div>
+            </div>
+
+            {{-- 6. DETALLE DE TRASLADO (auto desde carrito) --}}
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-6 h-6 bg-purple-100 dark:bg-purple-900/40 rounded-lg flex items-center justify-center shrink-0">
+                        <span class="text-xs font-bold text-purple-700 dark:text-purple-300" x-text="orden.guia.modalidad === 'publico' ? '6' : '5'"></span>
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Detalle de Traslado</h3>
+                    <span class="text-xs text-gray-400 font-normal">(cargado automáticamente del carrito)</span>
+                </div>
+                <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-800">
+                            <tr>
+                                <th class="px-4 py-2.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Producto</th>
+                                <th class="px-4 py-2.5 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Cant.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(item, idx) in orden.carrito" :key="idx">
+                                <tr class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <td class="px-4 py-2.5 text-gray-700 dark:text-gray-200 text-xs" x-text="item.nombre"></td>
+                                    <td class="px-4 py-2.5 text-center text-gray-700 dark:text-gray-200 text-xs font-bold" x-text="item.cantidad"></td>
+                                </tr>
+                            </template>
+                            <template x-if="orden.carrito.length === 0">
+                                <tr>
+                                    <td colspan="2" class="px-4 py-4 text-center text-xs text-gray-400">
+                                        <i class="fas fa-shopping-cart mr-1"></i> No hay productos en el carrito
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot class="bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                            <tr>
+                                <td class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Total</td>
+                                <td class="px-4 py-2 text-center text-xs font-bold text-gray-700 dark:text-gray-200"
+                                    x-text="orden.carrito.reduce((s, i) => s + i.cantidad, 0)"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        {{-- Footer con botones --}}
+        <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+            <button @click="cerrarModalGuia()" type="button"
+                    class="flex-1 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl py-3 font-semibold text-sm transition">
+                <i class="fas fa-times mr-1.5"></i> Cancelar
+            </button>
+            <button @click="guardarGuia()" type="button"
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 font-bold text-sm transition flex items-center justify-center gap-2 shadow-sm">
+                <i class="fas fa-save"></i> Guardar guía
+            </button>
+        </div>
+    </div>
+</div>
+
 @php
 $clientesJson = $clientes->map(fn($c) => [
     'id'               => $c->id,
     'nombre'           => $c->nombre,
     'tipo_documento'   => $c->tipo_documento   ?? 'DNI',
     'numero_documento' => $c->numero_documento ?? '',
+    'direccion'        => $c->direccion        ?? '',
 ])->values();
 @endphp
 
@@ -962,9 +1268,21 @@ function crearOrden(id) {
         showNota:         false,
         tipoComprobante:  'boleta',
         envioProvincia:   false,
-        guiaRemision:     '',
-        transportista:    '',
-        placaVehiculo:    '',
+        guia: {
+            guardada:              false,
+            motivo_traslado:       'VENTA',
+            modalidad:             'privado',
+            fecha_traslado:        '',
+            peso_total:            '',
+            bultos:                '',
+            direccion_partida:     '',
+            ubigeo_partida:        '',
+            direccion_llegada:     '',
+            ubigeo_llegada:        '',
+            transportista_tipo_doc:'RUC',
+            transportista_doc:     '',
+            transportista_nombre:  '',
+        },
         carrito:          [],
         pagos:            [{ metodo: 'efectivo', monto: 0 }],
     };
@@ -987,6 +1305,9 @@ function posApp() {
         categoriaActiva: null,
         guardando:       false,
         showPago:        false,
+        showModalGuia:   false,
+        empresaDireccion: @json($empresa?->direccion ?? ''),
+        empresaUbigeo:    @json($empresa?->ubigeo ?? ''),
         pagosConfig:     @json($pagosConfig),
 
         // ── Orders (tabs) ──
@@ -1293,6 +1614,13 @@ function posApp() {
                 }
             }
 
+            // ── Validación guía de remisión ──
+            if (this.orden.envioProvincia && !this.orden.guia.guardada) {
+                this.toast('error', 'Complete los datos de la guía de remisión antes de cobrar');
+                this.abrirModalGuia();
+                return;
+            }
+
             if (!this.puedePagar && this.orden.tipoComprobante !== 'cotizacion') {
                 this.toast('warning', 'El monto ingresado es insuficiente'); return;
             }
@@ -1326,9 +1654,20 @@ function posApp() {
                         cliente_id:       this.orden.clienteId || null,
                         observaciones:    this.orden.observaciones || null,
                         tipo_comprobante: this.orden.tipoComprobante,
-                        guia_remision:    this.orden.envioProvincia ? this.orden.guiaRemision : null,
-                        transportista:    this.orden.envioProvincia ? this.orden.transportista : null,
-                        placa_vehiculo:   this.orden.envioProvincia ? this.orden.placaVehiculo : null,
+                        guia_data: (this.orden.envioProvincia && this.orden.guia.guardada) ? {
+                            motivo_traslado:        this.orden.guia.motivo_traslado,
+                            modalidad:              this.orden.guia.modalidad,
+                            fecha_traslado:         this.orden.guia.fecha_traslado,
+                            peso_total:             parseFloat(this.orden.guia.peso_total) || 0,
+                            bultos:                 parseInt(this.orden.guia.bultos) || null,
+                            direccion_partida:      this.orden.guia.direccion_partida,
+                            ubigeo_partida:         this.orden.guia.ubigeo_partida || null,
+                            direccion_llegada:      this.orden.guia.direccion_llegada,
+                            ubigeo_llegada:         this.orden.guia.ubigeo_llegada || null,
+                            transportista_tipo_doc: this.orden.guia.transportista_tipo_doc || null,
+                            transportista_doc:      this.orden.guia.transportista_doc || null,
+                            transportista_nombre:   this.orden.guia.transportista_nombre || null,
+                        } : null,
                         metodo_pago:      metodoPago,
                         pagos_detalle:    pagosDetalle,
                         formato_impresion: this.formatoImpresion,
@@ -1573,6 +1912,7 @@ function posApp() {
                         id: data.id, nombre: data.nombre,
                         tipo_documento: this.nuevoCliente.tipo_documento,
                         numero_documento: this.nuevoCliente.numero_documento,
+                        direccion: this.nuevoCliente.direccion || '',
                     });
                     this.orden.clienteId     = String(data.id);
                     this.orden.clienteNombre = data.nombre;
@@ -1586,6 +1926,50 @@ function posApp() {
             } finally {
                 this.guardandoCliente = false;
             }
+        },
+
+        // ══════════════════════════════════════
+        // GUÍA DE REMISIÓN MODAL
+        // ══════════════════════════════════════
+        abrirModalGuia() {
+            const g = this.orden.guia;
+            if (!g.fecha_traslado) {
+                g.fecha_traslado = new Date().toISOString().split('T')[0];
+            }
+            if (!g.direccion_partida && this.empresaDireccion) {
+                g.direccion_partida = this.empresaDireccion;
+            }
+            if (!g.ubigeo_partida && this.empresaUbigeo) {
+                g.ubigeo_partida = this.empresaUbigeo;
+            }
+            if (!g.direccion_llegada && this.orden.clienteId) {
+                const cliente = this.clientes.find(c => String(c.id) === String(this.orden.clienteId));
+                if (cliente?.direccion) g.direccion_llegada = cliente.direccion;
+            }
+            this.showModalGuia = true;
+        },
+
+        cerrarModalGuia() {
+            this.showModalGuia = false;
+            if (!this.orden.guia.guardada) {
+                this.orden.envioProvincia = false;
+            }
+        },
+
+        guardarGuia() {
+            const g = this.orden.guia;
+            if (!g.motivo_traslado)                           { this.toast('error', 'Seleccione el motivo de traslado'); return; }
+            if (!g.fecha_traslado)                            { this.toast('error', 'Ingrese la fecha de traslado'); return; }
+            if (!g.peso_total || parseFloat(g.peso_total) <= 0) { this.toast('error', 'Ingrese el peso bruto total (mayor a 0)'); return; }
+            if (!g.direccion_partida)                         { this.toast('error', 'Ingrese la dirección de partida'); return; }
+            if (!g.direccion_llegada)                         { this.toast('error', 'Ingrese la dirección de llegada'); return; }
+            if (g.modalidad === 'publico' && !g.transportista_nombre) {
+                this.toast('error', 'Para transporte público ingrese los datos del transportista');
+                return;
+            }
+            g.guardada = true;
+            this.showModalGuia = false;
+            this.toast('success', 'Guía de remisión guardada correctamente');
         }
     }
 }

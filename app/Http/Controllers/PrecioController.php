@@ -359,12 +359,14 @@ class PrecioController extends Controller
     public function ultimoPrecioCompra(Request $request, Producto $producto)
     {
         $proveedorId = $request->get('proveedor_id');
+        $varianteId  = $request->get('variante_id') ?: null;
 
         $detalle = DetalleCompra::with(['compra.proveedor'])
             ->where('detalle_compras.producto_id', $producto->id)
             ->join('compras', 'detalle_compras.compra_id', '=', 'compras.id')
             ->where('compras.estado', '!=', 'anulado')
             ->when($proveedorId, fn($q) => $q->where('compras.proveedor_id', $proveedorId))
+            ->when($varianteId, fn($q) => $q->where('detalle_compras.variante_id', $varianteId))
             ->orderByDesc('compras.fecha')
             ->orderByDesc('detalle_compras.id')
             ->select('detalle_compras.*')

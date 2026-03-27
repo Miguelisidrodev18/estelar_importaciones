@@ -87,8 +87,11 @@ class CompraService
                     $this->actualizarCodigoBarras($productoBase, $detalle['codigo_barras']);
                 }
 
-                // 3.5 Actualizar precio de compra del producto
+                // 3.5 Actualizar precio de compra del producto (y variante si aplica)
                 $this->actualizarPrecioProducto($productoBase, $detalle['precio_unitario']);
+                if ($variante) {
+                    $this->actualizarCostoVariante($variante, (float) $detalle['precio_unitario']);
+                }
             }
 
             // 🔴 CREAR CUENTA POR PAGAR
@@ -286,6 +289,22 @@ class CompraService
         ]);
     }
     
+    /**
+     * Actualizar Costo Promedio Ponderado de la variante
+     * CPP = SUM(qty * precio) / SUM(qty) sobre todo el historial de compras
+     */
+    private function actualizarCostoVariante(ProductoVariante $variante, float $ultimoPrecio): void
+    {
+        $cpp = DetalleCompra::where('variante_id', $variante->id)
+            ->selectRaw('SUM(cantidad * precio_unitario) / NULLIF(SUM(cantidad), 0) AS cpp')
+            ->value('cpp');
+
+        $variante->update([
+            'ultimo_costo_compra' => $ultimoPrecio,
+            'costo_promedio'      => $cpp ? round((float) $cpp, 2) : $ultimoPrecio,
+        ]);
+    }
+
     /**
      * Actualizar código de barras del producto
      */

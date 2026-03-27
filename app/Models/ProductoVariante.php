@@ -18,6 +18,8 @@ class ProductoVariante extends Model
         'capacidad',
         'sku',
         'sobreprecio',
+        'costo_promedio',
+        'ultimo_costo_compra',
         'stock_actual',
         'stock_minimo',
         'estado',
@@ -26,10 +28,12 @@ class ProductoVariante extends Model
     ];
 
     protected $casts = [
-        'stock_actual'  => 'integer',
-        'stock_minimo'  => 'integer',
-        'sobreprecio'   => 'decimal:2',
-        'estado'        => 'string',
+        'stock_actual'       => 'integer',
+        'stock_minimo'       => 'integer',
+        'sobreprecio'        => 'decimal:2',
+        'costo_promedio'     => 'decimal:2',
+        'ultimo_costo_compra'=> 'decimal:2',
+        'estado'             => 'string',
     ];
 
     // ─── Relaciones ───────────────────────────────────────────────────────────

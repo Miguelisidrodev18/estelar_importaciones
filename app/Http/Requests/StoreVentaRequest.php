@@ -28,7 +28,22 @@ class StoreVentaRequest extends FormRequest
             'observaciones'            => 'nullable|string',
             'tipo_comprobante'         => 'required|in:boleta,factura,cotizacion',
 
-            // Envío
+            // Guía de remisión (nueva estructura SUNAT)
+            'guia_data'                              => 'nullable|array',
+            'guia_data.motivo_traslado'              => 'required_with:guia_data|string|in:VENTA,COMPRA,TRASLADO_ENTRE_ALMACENES,IMPORTACION,EXPORTACION,OTROS',
+            'guia_data.modalidad'                    => 'required_with:guia_data|in:privado,publico',
+            'guia_data.fecha_traslado'               => 'required_with:guia_data|date',
+            'guia_data.peso_total'                   => 'required_with:guia_data|numeric|min:0.01',
+            'guia_data.bultos'                       => 'nullable|integer|min:1',
+            'guia_data.direccion_partida'            => 'required_with:guia_data|string|max:300',
+            'guia_data.ubigeo_partida'               => 'nullable|string|max:6',
+            'guia_data.direccion_llegada'            => 'required_with:guia_data|string|max:300',
+            'guia_data.ubigeo_llegada'               => 'nullable|string|max:6',
+            'guia_data.transportista_tipo_doc'       => 'nullable|string|in:RUC,DNI',
+            'guia_data.transportista_doc'            => 'nullable|string|max:15',
+            'guia_data.transportista_nombre'         => 'nullable|string|max:200',
+
+            // Campos legado (se mantienen nullable por compatibilidad)
             'guia_remision'            => 'nullable|string|max:100',
             'transportista'            => 'nullable|string|max:150',
             'placa_vehiculo'           => 'nullable|string|max:20',
@@ -100,6 +115,16 @@ class StoreVentaRequest extends FormRequest
                     'cliente_id',
                     'Para emitir factura, el RUC debe tener exactamente 11 dígitos.'
                 );
+            }
+        });
+
+        // Guía: transporte público requiere datos del transportista
+        $validator->after(function (Validator $v) {
+            $guia = $this->input('guia_data');
+            if (!$guia) return;
+
+            if (($guia['modalidad'] ?? '') === 'publico' && empty($guia['transportista_nombre'])) {
+                $v->errors()->add('guia_data.transportista_nombre', 'Para transporte público debe ingresar la razón social del transportista.');
             }
         });
     }

@@ -7,7 +7,6 @@
     <title>Precios · {{ $producto->nombre }}</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>[x-cloak] { display: none !important; }</style>
 </head>
@@ -95,13 +94,25 @@
                      this.abiertoDropdown = false;
                      this.resultadosProv = [];
                      this.resultado = null;
+                     await this.fetchUltimaCompra();
+                 },
+
+                 async fetchUltimaCompra() {
+                     if (!this.proveedorId) return;
                      this.cargandoCompra = true;
-                     const res = await fetch('{{ route('precios.ultimo-precio-compra', $producto) }}?proveedor_id=' + prov.id);
+                     let url = '{{ route('precios.ultimo-precio-compra', $producto) }}?proveedor_id=' + this.proveedorId;
+                     if (this.varianteId) url += '&variante_id=' + this.varianteId;
+                     const res = await fetch(url);
                      const data = await res.json();
                      this.ultimaCompra = data.found ? data : null;
                      if (data.found) this.precioCompra = data.precio_unitario;
                      else this.precioCompra = '';
                      this.cargandoCompra = false;
+                 },
+
+                 async cambiarVariante() {
+                     this.resultado = null;
+                     await this.fetchUltimaCompra();
                  },
 
                  limpiarProveedor() {
@@ -187,6 +198,7 @@
                             Variante <span class="text-gray-400 normal-case font-normal">(opcional — vacío = todas)</span>
                         </label>
                         <select name="variante_id" x-model="varianteId"
+                                @change="cambiarVariante()"
                                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
                             <option value="">— Precio base del producto —</option>
                             @foreach($producto->variantesActivas as $v)

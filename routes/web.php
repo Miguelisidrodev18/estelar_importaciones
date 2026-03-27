@@ -339,6 +339,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/cotizaciones', [VentaController::class, 'cotizaciones'])->name('cotizaciones');
         Route::get('/{venta}', [VentaController::class, 'show'])->name('show');
         Route::get('/{venta}/pdf', [VentaController::class, 'pdf'])->name('pdf');
+        Route::get('/{venta}/guia-pdf', [VentaController::class, 'guiaPdf'])->name('guia-pdf');
         Route::post('/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->middleware('role:Administrador,Tienda')->name('confirmar-pago');
         Route::post('/{venta}/convertir', [VentaController::class, 'convertir'])->middleware('role:Administrador,Tienda')->name('convertir');
         Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');

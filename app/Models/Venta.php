@@ -95,6 +95,11 @@ class Venta extends Model
         return $this->hasMany(DetalleVenta::class);
     }
 
+    public function guiaRemision()
+    {
+        return $this->hasOne(GuiaRemision::class);
+    }
+
     public function scopePendientes($query)
     {
         return $query->where('estado_pago', 'pendiente');

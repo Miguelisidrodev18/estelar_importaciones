@@ -7,6 +7,7 @@
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>[x-cloak]{display:none!important}</style>
 </head>
 <body class="bg-gray-100">
 <x-sidebar :role="auth()->user()->role->nombre" />
@@ -17,15 +18,18 @@
     <div class="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
         <div>
             <div class="flex items-center gap-2 text-sm text-gray-500 mb-0.5">
-                <span>Inventario</span>
-                <span>/</span>
+                <span>Inventario</span><span>/</span>
                 <span class="text-gray-700 font-medium">Stock Valorizado</span>
             </div>
             <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
                 <i class="fas fa-coins text-amber-500"></i>
-                Stock Valorizado por Sucursal
+                Stock Valorizado por Variante
             </h1>
-            <p class="text-sm text-gray-500">Capital invertido y utilidad potencial del inventario</p>
+            <p class="text-sm text-gray-500">
+                Capital invertido calculado con
+                <span class="font-semibold text-blue-600">Costo Promedio Ponderado (CPP)</span>
+                real por variante
+            </p>
         </div>
         @if($productos->count())
             <a href="{{ request()->fullUrlWithQuery(['export' => 'csv']) }}"
@@ -87,9 +91,9 @@
                 <p class="text-xs text-blue-500 mt-1">{{ number_format($totales['unidades']) }} unidades</p>
             </div>
             <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-orange-500">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Val. Compra</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Val. Compra (CPP)</p>
                 <p class="text-2xl font-bold text-gray-800 mt-1">S/ {{ number_format($totales['valor_compra'], 2) }}</p>
-                <p class="text-xs text-orange-500 mt-1">Capital invertido</p>
+                <p class="text-xs text-orange-500 mt-1">Capital invertido real</p>
             </div>
             <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-green-500">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Val. Venta</p>
@@ -104,25 +108,40 @@
             </div>
         </div>
 
+        {{-- Leyenda --}}
+        <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-start gap-3">
+            <i class="fas fa-info-circle text-blue-500 mt-0.5 shrink-0"></i>
+            <div class="text-xs text-blue-700">
+                <strong>CPP (Costo Promedio Ponderado):</strong>
+                Calculado directamente desde el historial real de compras por variante:
+                <code class="bg-blue-100 px-1 rounded">CPP = Σ(cantidad × precio_compra) / Σ(cantidad)</code>.
+                Las filas con <i class="fas fa-chevron-right text-blue-500"></i> se pueden expandir para ver el detalle por variante.
+            </div>
+        </div>
+
         {{-- Table --}}
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             @if($productos->isEmpty())
                 <div class="p-12 text-center">
                     <i class="fas fa-box-open text-4xl text-gray-300 mb-3 block"></i>
                     <p class="text-gray-500 font-medium">No hay productos con stock valorizado</p>
-                    <p class="text-sm text-gray-400 mt-1">Ajusta los filtros o verifica que los productos tengan costo configurado</p>
+                    <p class="text-sm text-gray-400 mt-1">Ajusta los filtros o verifica que los productos tengan compras registradas</p>
                 </div>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Producto</th>
+                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-8"></th>
+                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Producto / Variante</th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Categoría</th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Marca</th>
                                 <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo</th>
                                 <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
-                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">P. Compra</th>
+                                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    CPP
+                                    <span class="font-normal text-gray-400 normal-case">(costo)</span>
+                                </th>
                                 <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">P. Venta</th>
                                 <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Val. Compra</th>
                                 <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Val. Venta</th>
@@ -132,35 +151,143 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach($productos as $p)
-                                <tr class="hover:bg-gray-50 transition">
-                                    <td class="px-4 py-3 font-medium text-gray-800">{{ $p['nombre'] }}</td>
-                                    <td class="px-4 py-3 text-gray-500">{{ $p['categoria'] }}</td>
-                                    <td class="px-4 py-3 text-gray-500">{{ $p['marca'] }}</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold
-                                            {{ $p['tipo'] === 'serie' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
-                                            {{ ucfirst($p['tipo']) }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($p['stock']) }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 font-mono">{{ $p['precio_compra'] > 0 ? 'S/ '.number_format($p['precio_compra'], 2) : '—' }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 font-mono">{{ $p['precio_venta'] > 0 ? 'S/ '.number_format($p['precio_venta'], 2) : '—' }}</td>
-                                    <td class="px-4 py-3 text-right font-semibold text-orange-700">S/ {{ number_format($p['valor_compra'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right font-semibold text-green-700">S/ {{ number_format($p['valor_venta'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right">
-                                        <span class="font-semibold {{ $p['margen_pct'] >= 20 ? 'text-green-600' : ($p['margen_pct'] >= 10 ? 'text-amber-600' : 'text-red-600') }}">
-                                            {{ $p['margen_pct'] }}%
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-right font-semibold {{ $p['utilidad'] > 0 ? 'text-purple-700' : 'text-red-600' }}">
-                                        S/ {{ number_format($p['utilidad'], 2) }}
-                                    </td>
-                                </tr>
+                                @if($p['tiene_variantes'] && $p['variantes']->isNotEmpty())
+                                    {{-- Producto con variantes: fila expandible --}}
+                                    <tr x-data="{ open: false }"
+                                        class="hover:bg-gray-50 transition cursor-pointer"
+                                        @click="open = !open">
+
+                                        {{-- Toggle icon --}}
+                                        <td class="px-3 py-3 text-center">
+                                            <div class="w-5 h-5 flex items-center justify-center rounded bg-blue-100 text-blue-600 transition-transform"
+                                                 :class="open ? 'rotate-90' : ''">
+                                                <i class="fas fa-chevron-right text-xs"></i>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-semibold text-gray-900">{{ $p['nombre'] }}</span>
+                                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                                    <i class="fas fa-layer-group text-[8px]"></i>
+                                                    {{ $p['variantes']->count() }} variantes
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-gray-500">{{ $p['categoria'] }}</td>
+                                        <td class="px-4 py-3 text-gray-500">{{ $p['marca'] }}</td>
+                                        <td class="px-4 py-3 text-center">
+                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold {{ $p['tipo'] === 'serie' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
+                                                {{ ucfirst($p['tipo']) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($p['stock']) }}</td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="text-gray-400 text-xs italic">promedio</span>
+                                            <span class="font-mono text-gray-600 block text-xs">
+                                                {{ $p['precio_compra'] > 0 ? 'S/ '.number_format($p['precio_compra'], 2) : '—' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right text-gray-600 font-mono text-xs">
+                                            {{ $p['precio_venta'] > 0 ? 'S/ '.number_format($p['precio_venta'], 2) : '—' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-semibold text-orange-700">S/ {{ number_format($p['valor_compra'], 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-green-700">S/ {{ number_format($p['valor_venta'], 2) }}</td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="font-semibold {{ $p['margen_pct'] >= 20 ? 'text-green-600' : ($p['margen_pct'] >= 10 ? 'text-amber-600' : 'text-red-600') }}">
+                                                {{ $p['margen_pct'] }}%
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-semibold {{ $p['utilidad'] > 0 ? 'text-purple-700' : 'text-red-600' }}">
+                                            S/ {{ number_format($p['utilidad'], 2) }}
+                                        </td>
+                                    </tr>
+
+                                    {{-- Sub-filas por variante --}}
+                                    @foreach($p['variantes'] as $v)
+                                        <tr x-show="open" x-cloak
+                                            class="bg-indigo-50/50 border-l-4 border-indigo-300 hover:bg-indigo-50 transition">
+                                            <td class="px-3 py-2.5"></td>
+                                            <td class="px-4 py-2.5">
+                                                <div class="flex items-center gap-2 pl-4">
+                                                    @if($v['color_hex'])
+                                                        <span class="w-3 h-3 rounded-full border border-gray-300 shrink-0 shadow-sm"
+                                                              style="background-color: {{ $v['color_hex'] }}"></span>
+                                                    @else
+                                                        <i class="fas fa-grip-lines text-gray-300 text-xs"></i>
+                                                    @endif
+                                                    <span class="text-gray-700 font-medium text-xs">{{ $v['nombre'] }}</span>
+                                                    @if($v['sku'])
+                                                        <span class="text-gray-400 font-mono text-[10px]">{{ $v['sku'] }}</span>
+                                                    @endif
+                                                </div>
+                                            </td>
+                                            <td colspan="2" class="px-4 py-2.5"></td>
+                                            <td class="px-4 py-2.5 text-center"></td>
+                                            <td class="px-4 py-2.5 text-right font-bold text-indigo-700">{{ number_format($v['stock']) }}</td>
+                                            <td class="px-4 py-2.5 text-right">
+                                                <span class="font-mono font-semibold text-indigo-700 text-xs">
+                                                    S/ {{ number_format($v['costo_cpp'], 2) }}
+                                                </span>
+                                                <span class="block text-[10px] text-gray-400">CPP real</span>
+                                            </td>
+                                            <td class="px-4 py-2.5 text-right text-gray-600 font-mono text-xs">
+                                                {{ $v['precio_venta'] > 0 ? 'S/ '.number_format($v['precio_venta'], 2) : '—' }}
+                                            </td>
+                                            <td class="px-4 py-2.5 text-right font-semibold text-orange-600 text-xs">
+                                                S/ {{ number_format($v['valor_compra'], 2) }}
+                                            </td>
+                                            <td class="px-4 py-2.5 text-right font-semibold text-green-600 text-xs">
+                                                S/ {{ number_format($v['valor_venta'], 2) }}
+                                            </td>
+                                            <td class="px-4 py-2.5 text-right">
+                                                <span class="text-xs font-semibold {{ $v['margen_pct'] >= 20 ? 'text-green-600' : ($v['margen_pct'] >= 10 ? 'text-amber-600' : 'text-red-600') }}">
+                                                    {{ $v['margen_pct'] }}%
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-2.5 text-right text-xs font-semibold {{ $v['utilidad'] > 0 ? 'text-purple-600' : 'text-red-600' }}">
+                                                S/ {{ number_format($v['utilidad'], 2) }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+
+                                @else
+                                    {{-- Producto sin variantes: fila simple --}}
+                                    <tr class="hover:bg-gray-50 transition">
+                                        <td class="px-3 py-3 text-center text-gray-300">
+                                            <i class="fas fa-minus text-xs"></i>
+                                        </td>
+                                        <td class="px-4 py-3 font-medium text-gray-800">{{ $p['nombre'] }}</td>
+                                        <td class="px-4 py-3 text-gray-500">{{ $p['categoria'] }}</td>
+                                        <td class="px-4 py-3 text-gray-500">{{ $p['marca'] }}</td>
+                                        <td class="px-4 py-3 text-center">
+                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold {{ $p['tipo'] === 'serie' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
+                                                {{ ucfirst($p['tipo']) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($p['stock']) }}</td>
+                                        <td class="px-4 py-3 text-right text-gray-600 font-mono text-xs">
+                                            {{ $p['precio_compra'] > 0 ? 'S/ '.number_format($p['precio_compra'], 2) : '—' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-right text-gray-600 font-mono text-xs">
+                                            {{ $p['precio_venta'] > 0 ? 'S/ '.number_format($p['precio_venta'], 2) : '—' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-semibold text-orange-700">S/ {{ number_format($p['valor_compra'], 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-green-700">S/ {{ number_format($p['valor_venta'], 2) }}</td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="font-semibold {{ $p['margen_pct'] >= 20 ? 'text-green-600' : ($p['margen_pct'] >= 10 ? 'text-amber-600' : 'text-red-600') }}">
+                                                {{ $p['margen_pct'] }}%
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-semibold {{ $p['utilidad'] > 0 ? 'text-purple-700' : 'text-red-600' }}">
+                                            S/ {{ number_format($p['utilidad'], 2) }}
+                                        </td>
+                                    </tr>
+                                @endif
                             @endforeach
                         </tbody>
                         <tfoot class="bg-gray-50 border-t-2 border-gray-300">
                             <tr>
-                                <td colspan="4" class="px-4 py-3 text-sm font-bold text-gray-700">
+                                <td colspan="5" class="px-4 py-3 text-sm font-bold text-gray-700">
                                     TOTALES — {{ number_format($totales['items']) }} productos
                                 </td>
                                 <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($totales['unidades']) }}</td>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Venta;
 use App\Models\Cliente;
 use App\Models\Empresa;
+use App\Models\GuiaRemision;
 use App\Models\Producto;
 use App\Models\ProductoVariante;
 use App\Models\Almacen;
@@ -173,8 +174,10 @@ class VentaController extends Controller
                 ]])
             : collect();
 
+        $empresa = Empresa::first();
+
         return view('ventas.create', compact(
-            'clientes', 'productos', 'almacenes', 'categorias', 'almacenPredeterminado', 'pagosConfig'
+            'clientes', 'productos', 'almacenes', 'categorias', 'almacenPredeterminado', 'pagosConfig', 'empresa'
         ));
     }
 
@@ -187,20 +190,23 @@ class VentaController extends Controller
         $metodoPago      = $validated['metodo_pago'] ?? null;
         $pago            = $metodoPago ? ['metodo_pago' => $metodoPago] : null;
 
+        // Resolver sucursal del almacén seleccionado
+        $sucursalId = Sucursal::where('almacen_id', $validated['almacen_id'])->value('id');
+
         $datosVenta = [
             'user_id'          => auth()->id(),
             'cliente_id'       => $validated['cliente_id'] ?? null,
             'almacen_id'       => $validated['almacen_id'],
+            'sucursal_id'      => $sucursalId,
             'fecha'            => now()->toDateString(),
             'subtotal'         => $subtotal,
             'igv'              => 0,
             'total'            => $subtotal,
             'observaciones'    => $validated['observaciones'] ?? null,
             'tipo_comprobante' => $tipoComprobante,
-            'guia_remision'    => $validated['guia_remision'] ?? null,
-            'transportista'    => $validated['transportista'] ?? null,
-            'placa_vehiculo'   => $validated['placa_vehiculo'] ?? null,
             'pagos_detalle'    => $validated['pagos_detalle'] ?? null,
+            // Guía de remisión (nueva estructura)
+            'guia_data'        => $validated['guia_data'] ?? null,
         ];
 
         try {
@@ -291,9 +297,34 @@ class VentaController extends Controller
     public function show(Venta $venta)
     {
         $venta->load('vendedor', 'confirmador', 'cliente', 'almacen', 'sucursal', 'serieComprobante',
-            'detalles.producto.categoria', 'detalles.variante.color', 'detalles.imei');
+            'detalles.producto.categoria', 'detalles.variante.color', 'detalles.imei', 'guiaRemision');
 
         return view('ventas.show', compact('venta'));
+    }
+
+    public function guiaPdf(Venta $venta)
+    {
+        $venta->load('cliente', 'almacen', 'detalles.producto', 'detalles.variante', 'guiaRemision');
+
+        $guia = $venta->guiaRemision;
+
+        if (!$guia) {
+            abort(404, 'Esta venta no tiene guía de remisión.');
+        }
+
+        $empresa = Empresa::first();
+
+        $pdf = Pdf::setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled'      => true,
+            'defaultFont'          => 'DejaVu Sans',
+            'chroot'               => public_path(),
+        ])->loadView('pdf.guia-remision', compact('venta', 'guia', 'empresa'));
+
+        $pdf->setPaper('A4', 'portrait');
+
+        $filename = 'guia-' . $venta->codigo . '.pdf';
+        return $pdf->stream($filename);
     }
 
     public function pdf(Request $request, Venta $venta)

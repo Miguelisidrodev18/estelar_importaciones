@@ -112,6 +112,17 @@
                     <i class="fas fa-print"></i> Imprimir
                 </button>
                 @endif
+                @if($venta->guiaRemision)
+                <a href="{{ route('ventas.guia-pdf', $venta) }}" target="_blank"
+                   class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
+                    <i class="fas fa-truck"></i> Ver guía
+                </a>
+                <a href="{{ route('ventas.guia-pdf', $venta) }}" target="_blank"
+                   onclick="setTimeout(() => { const w = window.open(this.href, '_blank'); w && w.print(); }, 200); return false;"
+                   class="inline-flex items-center gap-2 border border-teal-300 bg-teal-50 text-teal-700 hover:bg-teal-100 px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
+                    <i class="fas fa-print"></i> Imprimir guía
+                </a>
+                @endif
                 <a href="{{ $venta->tipo_comprobante === 'cotizacion' ? route('ventas.cotizaciones') : route('ventas.index') }}"
                    class="inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
                     <i class="fas fa-arrow-left"></i> Volver
@@ -361,6 +372,81 @@
             <div>
                 <p class="text-sm font-semibold text-amber-700">Observaciones</p>
                 <p class="text-sm text-amber-600 mt-0.5">{{ $venta->observaciones }}</p>
+            </div>
+        </div>
+        @endif
+
+        {{-- Guía de Remisión card --}}
+        @if($venta->guiaRemision)
+        @php $guia = $venta->guiaRemision; @endphp
+        <div class="bg-white rounded-2xl border border-teal-100 shadow-sm p-6 mb-7">
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-2">
+                    <div class="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-truck text-teal-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-700 uppercase tracking-wider">Guía de Remisión</h3>
+                        <p class="text-xs text-gray-400 mt-0.5">
+                            <span class="inline-flex items-center gap-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-2 py-0.5 text-xs font-semibold">
+                                {{ $guia->motivo_label }}
+                            </span>
+                            <span class="ml-2">{{ $guia->modalidad_label }}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <a href="{{ route('ventas.guia-pdf', $venta) }}" target="_blank"
+                       class="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+                        <i class="fas fa-file-pdf"></i> Ver PDF
+                    </a>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                <div>
+                    <dt class="text-xs text-gray-400 mb-1">Fecha de Traslado</dt>
+                    <dd class="text-sm font-semibold text-gray-700">{{ $guia->fecha_traslado?->format('d/m/Y') ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-400 mb-1">Peso Bruto</dt>
+                    <dd class="text-sm font-semibold text-gray-700">{{ $guia->peso_total ? number_format($guia->peso_total, 2) . ' kg' : '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-400 mb-1">Nro. Bultos</dt>
+                    <dd class="text-sm font-semibold text-gray-700">{{ $guia->bultos ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-400 mb-1">Modalidad</dt>
+                    <dd class="text-sm font-semibold text-gray-700">{{ $guia->modalidad_label }}</dd>
+                </div>
+                <div class="col-span-2">
+                    <dt class="text-xs text-gray-400 mb-1"><i class="fas fa-map-marker-alt text-green-500 mr-1"></i>Punto de Partida</dt>
+                    <dd class="text-sm text-gray-700">{{ $guia->direccion_partida ?? '—' }}
+                        @if($guia->ubigeo_partida)
+                            <span class="text-xs text-gray-400 font-mono ml-1">({{ $guia->ubigeo_partida }})</span>
+                        @endif
+                    </dd>
+                </div>
+                <div class="col-span-2">
+                    <dt class="text-xs text-gray-400 mb-1"><i class="fas fa-flag-checkered text-red-500 mr-1"></i>Punto de Llegada</dt>
+                    <dd class="text-sm text-gray-700">{{ $guia->direccion_llegada ?? '—' }}
+                        @if($guia->ubigeo_llegada)
+                            <span class="text-xs text-gray-400 font-mono ml-1">({{ $guia->ubigeo_llegada }})</span>
+                        @endif
+                    </dd>
+                </div>
+                @if($guia->transportista_nombre)
+                <div class="col-span-2 md:col-span-4 pt-3 border-t border-gray-100">
+                    <dt class="text-xs text-gray-400 mb-1"><i class="fas fa-id-card mr-1 text-gray-400"></i>Transportista</dt>
+                    <dd class="text-sm font-semibold text-gray-700">
+                        {{ $guia->transportista_nombre }}
+                        @if($guia->transportista_doc)
+                            <span class="text-xs text-gray-500 font-normal ml-2">({{ $guia->transportista_tipo_doc }}: {{ $guia->transportista_doc }})</span>
+                        @endif
+                    </dd>
+                </div>
+                @endif
             </div>
         </div>
         @endif
