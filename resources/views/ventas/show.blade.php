@@ -237,6 +237,69 @@
                     </div>
                 </div>
                 @endif
+
+                {{-- Ver crédito --}}
+                @if($venta->es_credito && $venta->estado_pago !== 'anulado')
+                <a href="{{ route('ventas.credito.show', $venta) }}"
+                   class="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                    <i class="fas fa-calendar-alt"></i> Ver Crédito
+                </a>
+                @endif
+
+                {{-- Editar (Admin, dentro de ventana de tiempo) --}}
+                @if(auth()->user()->role->nombre === 'Administrador' && $venta->estado_pago !== 'anulado' && $venta->created_at->diffInHours(now()) <= config('ventas.edit_window_hours', 24))
+                <a href="{{ route('ventas.edit', $venta) }}"
+                   class="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                    <i class="fas fa-edit"></i> Editar
+                </a>
+                @endif
+
+                {{-- Anular (Admin, venta no anulada ni cotización) --}}
+                @if(auth()->user()->role->nombre === 'Administrador' && !in_array($venta->estado_pago, ['anulado', 'cotizacion']))
+                <div x-data="{ showAnular: false }">
+                    <button @click="showAnular = true"
+                            class="inline-flex items-center gap-2 border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                        <i class="fas fa-ban"></i> Anular
+                    </button>
+                    <div x-show="showAnular" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+                        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAnular = false"></div>
+                        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+                            <div class="bg-gradient-to-r from-red-600 to-rose-600 px-6 py-5">
+                                <h3 class="text-lg font-bold text-white">Anular Comprobante</h3>
+                                <p class="text-red-100 text-sm mt-0.5">{{ $venta->codigo }}</p>
+                            </div>
+                            <div class="p-6">
+                                <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-5 text-sm text-red-700">
+                                    <p class="font-semibold mb-1"><i class="fas fa-exclamation-triangle mr-1"></i>Esta acción es irreversible</p>
+                                    <ul class="list-disc list-inside space-y-0.5 text-xs">
+                                        <li>El stock será devuelto al almacén</li>
+                                        @if($venta->estado_pago === 'pagado')
+                                        <li>Se registrará un egreso en caja</li>
+                                        @endif
+                                        @if($venta->es_credito)
+                                        <li>La cuenta por cobrar será cancelada</li>
+                                        @endif
+                                    </ul>
+                                </div>
+                                <form action="{{ route('ventas.anular', $venta) }}" method="POST">
+                                    @csrf
+                                    <div class="flex gap-3">
+                                        <button type="button" @click="showAnular = false"
+                                                class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                                            Cancelar
+                                        </button>
+                                        <button type="submit"
+                                                class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl font-bold text-sm transition-colors">
+                                            <i class="fas fa-ban mr-1"></i> Anular
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
             </div>
         </div>
 
@@ -246,7 +309,9 @@
                 'pendiente'   => ['bg-amber-50 text-amber-700 border-amber-200', 'fa-clock', 'Pago Pendiente'],
                 'pagado'      => ['bg-green-50 text-green-700 border-green-200', 'fa-check-circle', 'Pagado'],
                 'cancelado'   => ['bg-red-50 text-red-700 border-red-200', 'fa-times-circle', 'Cancelado'],
+                'anulado'     => ['bg-red-50 text-red-700 border-red-200', 'fa-ban', 'Anulado'],
                 'cotizacion'  => ['bg-purple-50 text-purple-700 border-purple-200', 'fa-file-contract', 'Cotización'],
+                'credito'     => ['bg-orange-50 text-orange-700 border-orange-200', 'fa-calendar-alt', 'Crédito'],
             ];
             [$badgeClass, $badgeIcon, $badgeLabel] = $estadoConfig[$venta->estado_pago] ?? ['bg-gray-50 text-gray-700 border-gray-200', 'fa-circle', ucfirst($venta->estado_pago)];
         @endphp
@@ -537,6 +602,69 @@
                 </table>
             </div>
         </div>
+
+        {{-- Resumen de crédito --}}
+        @if($venta->es_credito && $venta->cuentaPorCobrar)
+        @php $cuenta = $venta->cuentaPorCobrar; @endphp
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-6 no-print">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-calendar-alt text-orange-600 text-sm"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900">Crédito — Plan de Cuotas</h3>
+                </div>
+                <a href="{{ route('ventas.credito.show', $venta) }}"
+                   class="text-sm text-orange-600 hover:text-orange-700 font-medium transition">
+                    Ver detalle completo <i class="fas fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+            <div class="p-6">
+                {{-- Barra de progreso --}}
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm text-gray-500 mb-1.5">
+                        <span>Pagado: <span class="font-semibold text-gray-800">S/ {{ number_format($cuenta->monto_pagado, 2) }}</span></span>
+                        <span>Total: <span class="font-semibold text-gray-800">S/ {{ number_format($cuenta->monto_total, 2) }}</span></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-orange-500 h-3 rounded-full transition-all"
+                             style="width: {{ $cuenta->porcentaje_pagado }}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                        <span>{{ $cuenta->porcentaje_pagado }}% pagado</span>
+                        <span>Saldo: <strong class="text-orange-600">S/ {{ number_format($cuenta->saldo_pendiente, 2) }}</strong></span>
+                    </div>
+                </div>
+
+                {{-- Lista cuotas --}}
+                <div class="space-y-2">
+                    @foreach($cuenta->cuotas->take(5) as $cuota)
+                    @php
+                        $hoy = now()->toDateString();
+                        $vencida = $cuota->estado === 'pendiente' && $cuota->fecha_vencimiento->lt(now());
+                    @endphp
+                    <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-gray-400 w-8">{{ $cuota->numero_cuota }}/{{ $cuota->total_cuotas }}</span>
+                            <span class="text-sm text-gray-600">{{ $cuota->fecha_vencimiento->format('d/m/Y') }}</span>
+                            @if($vencida)
+                            <span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-semibold">Vencida</span>
+                            @elseif($cuota->estado === 'pagado')
+                            <span class="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full font-semibold">Pagada</span>
+                            @endif
+                        </div>
+                        <span class="text-sm font-mono font-semibold {{ $cuota->estado === 'pagado' ? 'text-green-600 line-through' : ($vencida ? 'text-red-600' : 'text-gray-700') }}">
+                            S/ {{ number_format($cuota->monto, 2) }}
+                        </span>
+                    </div>
+                    @endforeach
+                    @if($cuenta->cuotas->count() > 5)
+                    <p class="text-xs text-gray-400 text-center pt-1">... y {{ $cuenta->cuotas->count() - 5 }} cuotas más</p>
+                    @endif
+                </div>
+            </div>
+        </div>
+        @endif
 
     </div>
 </body>

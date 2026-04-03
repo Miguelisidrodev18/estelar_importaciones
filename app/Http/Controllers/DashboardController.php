@@ -15,6 +15,8 @@ use App\Models\StockAlmacen;
 use App\Models\Compra;
 use App\Models\DetalleVenta;
 use App\Models\Cuota;
+use App\Models\CuotaCobro;
+use App\Models\CuentaPorCobrar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -126,10 +128,18 @@ class DashboardController extends Controller
         $maxVendido = $topProductos->max('total_vendido') ?: 1;
 
         // ── Notificaciones ────────────────────────────────────────────────────
-        // Cuotas vencidas o por vencer en los próximos 7 días
+        // Cuotas de proveedor vencidas o por vencer en los próximos 7 días
         $notifCuotas = Cuota::where('estado', 'pendiente')
             ->where('fecha_vencimiento', '<=', now()->addDays(7))
             ->with('cuentaPorPagar.proveedor')
+            ->orderBy('fecha_vencimiento')
+            ->limit(10)
+            ->get();
+
+        // Cuotas de crédito a clientes vencidas o por vencer en los próximos 7 días
+        $notifCuotasCobro = CuotaCobro::where('estado', 'pendiente')
+            ->where('fecha_vencimiento', '<=', now()->addDays(7))
+            ->with('cuentaPorCobrar.cliente')
             ->orderBy('fecha_vencimiento')
             ->limit(10)
             ->get();
@@ -142,7 +152,7 @@ class DashboardController extends Controller
             ->limit(10)
             ->get(['id', 'nombre', 'stock_actual', 'stock_minimo']);
 
-        $totalNotificaciones = $notifCuotas->count() + $notifStockBajo->count();
+        $totalNotificaciones = $notifCuotas->count() + $notifCuotasCobro->count() + $notifStockBajo->count();
 
         // ── Últimos movimientos ───────────────────────────────────────────────
         $ultimosMovimientos = MovimientoInventario::with('producto', 'usuario', 'almacen', 'almacenDestino')
@@ -206,6 +216,7 @@ class DashboardController extends Controller
 
             // Notificaciones
             'notif_cuotas'         => $notifCuotas,
+            'notif_cuotas_cobro'   => $notifCuotasCobro,
             'notif_stock_bajo'     => $notifStockBajo,
             'total_notificaciones' => $totalNotificaciones,
         ];
@@ -343,13 +354,27 @@ public function tienda()
         ->limit(10)
         ->get();
 
+    // Cuotas de crédito vencidas o por vencer hoy (alertas para el cajero)
+    $creditosVencidos = CuotaCobro::where('estado', 'pendiente')
+        ->where('fecha_vencimiento', '<=', now()->addDays(3))
+        ->whereHas('cuentaPorCobrar', function ($q) use ($user) {
+            if ($user->almacen_id) {
+                $q->whereHas('venta', fn($v) => $v->where('almacen_id', $user->almacen_id));
+            }
+        })
+        ->with('cuentaPorCobrar.cliente')
+        ->orderBy('fecha_vencimiento')
+        ->limit(5)
+        ->get();
+
     return view('dashboards.tienda', [
-        'ventas_dia' => $ventas_dia,
-        'caja_actual' => $caja_actual,
-        'caja' => $caja,
-        'transacciones_dia' => $transacciones_dia,
-        'clientes_atendidos' => $clientes_atendidos,
-        'ultimas_ventas' => $ultimas_ventas,
+        'ventas_dia'          => $ventas_dia,
+        'caja_actual'         => $caja_actual,
+        'caja'                => $caja,
+        'transacciones_dia'   => $transacciones_dia,
+        'clientes_atendidos'  => $clientes_atendidos,
+        'ultimas_ventas'      => $ultimas_ventas,
+        'creditos_vencidos'   => $creditosVencidos,
     ]);
 }
 }

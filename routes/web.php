@@ -37,6 +37,7 @@ use App\Http\Controllers\PrecioController;
 use App\Http\Controllers\TiendaController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CuentaPorPagarController;
+use App\Http\Controllers\CuentaPorCobrarController;
 use App\Http\Controllers\ReporteVentasController;
 
 // ===================== MIDDLEWARE =====================
@@ -337,12 +338,26 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', [VentaController::class, 'create'])->name('create');
         Route::post('/', [VentaController::class, 'store'])->name('store');
         Route::get('/cotizaciones', [VentaController::class, 'cotizaciones'])->name('cotizaciones');
+        Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
         Route::get('/{venta}', [VentaController::class, 'show'])->name('show');
         Route::get('/{venta}/pdf', [VentaController::class, 'pdf'])->name('pdf');
         Route::get('/{venta}/guia-pdf', [VentaController::class, 'guiaPdf'])->name('guia-pdf');
         Route::post('/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->middleware('role:Administrador,Tienda')->name('confirmar-pago');
         Route::post('/{venta}/convertir', [VentaController::class, 'convertir'])->middleware('role:Administrador,Tienda')->name('convertir');
-        Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
+        // Crédito
+        Route::get('/{venta}/credito', [VentaController::class, 'showCredito'])->name('credito.show');
+        Route::post('/{venta}/credito/pago', [VentaController::class, 'registrarPagoCredito'])->middleware('role:Administrador,Tienda')->name('credito.pago');
+        // Edición limitada (solo Administrador, dentro de ventana de tiempo)
+        Route::get('/{venta}/edit', [VentaController::class, 'editVenta'])->middleware('role:Administrador')->name('edit');
+        Route::put('/{venta}', [VentaController::class, 'updateVenta'])->middleware('role:Administrador')->name('update');
+        // Anulación
+        Route::post('/{venta}/anular', [VentaController::class, 'anularVenta'])->middleware('role:Administrador')->name('anular');
+    });
+
+    // Cuentas por cobrar (crédito a clientes)
+    Route::prefix('cuentas-por-cobrar')->name('cuentas-por-cobrar.')->middleware('role:Administrador,Tienda')->group(function () {
+        Route::get('/', [CuentaPorCobrarController::class, 'index'])->name('index');
+        Route::get('/{cuentaPorCobrar}', [CuentaPorCobrarController::class, 'show'])->name('show');
     });
     // ========================================
     // MÓDULO DE REPORTES DE VENTAS

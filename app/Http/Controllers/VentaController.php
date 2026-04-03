@@ -13,9 +13,11 @@ use App\Models\Categoria;
 use App\Models\Imei;
 use App\Models\StockAlmacen;
 use App\Models\Sucursal;
+use App\Models\CuentaPorCobrar;
 use App\Services\VentaService;
 use App\Services\VarianteService;
 use App\Http\Requests\StoreVentaRequest;
+use App\Http\Requests\UpdateVentaRequest;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -187,8 +189,11 @@ class VentaController extends Controller
 
         $subtotal        = collect($validated['detalles'])->sum(fn($d) => $d['cantidad'] * $d['precio_unitario']);
         $tipoComprobante = $validated['tipo_comprobante'] ?? 'boleta';
+        $condicionPago   = $validated['condicion_pago'] ?? 'contado';
+        $esCredito       = $condicionPago === 'credito';
         $metodoPago      = $validated['metodo_pago'] ?? null;
-        $pago            = $metodoPago ? ['metodo_pago' => $metodoPago] : null;
+        $pago            = ($metodoPago && !$esCredito) ? ['metodo_pago' => $metodoPago] : null;
+        $creditoData     = $esCredito ? ($validated['credito'] ?? []) : null;
 
         // Resolver sucursal del almacén seleccionado
         $sucursalId = Sucursal::where('almacen_id', $validated['almacen_id'])->value('id');
@@ -204,6 +209,7 @@ class VentaController extends Controller
             'total'            => $subtotal,
             'observaciones'    => $validated['observaciones'] ?? null,
             'tipo_comprobante' => $tipoComprobante,
+            'condicion_pago'   => $condicionPago,
             'pagos_detalle'    => $validated['pagos_detalle'] ?? null,
             // Guía de remisión (nueva estructura)
             'guia_data'        => $validated['guia_data'] ?? null,
@@ -215,6 +221,9 @@ class VentaController extends Controller
             if ($tipoComprobante === 'cotizacion') {
                 $venta = $service->crearCotizacion($datosVenta, $validated['detalles']);
                 $msg   = 'Cotización guardada exitosamente.';
+            } elseif ($esCredito) {
+                $venta = $service->crearVenta($datosVenta, $validated['detalles'], null, $creditoData);
+                $msg   = 'Venta a crédito registrada exitosamente. Se han generado las cuotas de pago.';
             } else {
                 $venta = $service->crearVenta($datosVenta, $validated['detalles'], $pago);
                 $msg   = 'Venta registrada exitosamente.';
@@ -297,7 +306,8 @@ class VentaController extends Controller
     public function show(Venta $venta)
     {
         $venta->load('vendedor', 'confirmador', 'cliente', 'almacen', 'sucursal', 'serieComprobante',
-            'detalles.producto.categoria', 'detalles.variante.color', 'detalles.imei', 'guiaRemision');
+            'detalles.producto.categoria', 'detalles.variante.color', 'detalles.imei', 'guiaRemision',
+            'cuentaPorCobrar.cuotas');
 
         return view('ventas.show', compact('venta'));
     }
@@ -398,6 +408,95 @@ class VentaController extends Controller
 
         return response()->json($imeis);
     }
+    public function editVenta(Venta $venta)
+    {
+        $ventanaMaxima = config('ventas.edit_window_hours', 24);
+        $horasTranscurridas = $venta->created_at->diffInHours(now());
+
+        if ($venta->estado_pago === 'anulado') {
+            return redirect()->route('ventas.show', $venta)->with('error', 'No se puede editar una venta anulada.');
+        }
+
+        if ($horasTranscurridas > $ventanaMaxima) {
+            return redirect()->route('ventas.show', $venta)
+                ->with('error', "Solo se pueden editar comprobantes dentro de las {$ventanaMaxima} horas de emisión.");
+        }
+
+        return view('ventas.edit', compact('venta', 'ventanaMaxima'));
+    }
+
+    public function updateVenta(UpdateVentaRequest $request, Venta $venta)
+    {
+        try {
+            app(VentaService::class)->editarVenta($venta, $request->validated());
+            return redirect()->route('ventas.show', $venta)->with('success', 'Comprobante actualizado correctamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function anularVenta(Request $request, Venta $venta)
+    {
+        try {
+            app(VentaService::class)->anularVenta($venta);
+            return redirect()->route('ventas.show', $venta)->with('success', 'Venta anulada correctamente. El stock ha sido revertido.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function showCredito(Venta $venta)
+    {
+        if (!$venta->es_credito) {
+            return redirect()->route('ventas.show', $venta)->with('error', 'Esta venta no es a crédito.');
+        }
+
+        $venta->load('cliente', 'vendedor', 'almacen', 'detalles.producto');
+        $cuenta = $venta->cuentaPorCobrar()->with(['cuotas', 'pagos.usuario'])->firstOrFail();
+
+        return view('ventas.credito.show', compact('venta', 'cuenta'));
+    }
+
+    public function registrarPagoCredito(Request $request, Venta $venta)
+    {
+        $validated = $request->validate([
+            'monto'          => 'required|numeric|min:0.01',
+            'metodo_pago'    => 'required|in:efectivo,transferencia,yape,plin',
+            'fecha_pago'     => 'required|date|before_or_equal:today',
+            'cuota_cobro_id' => 'nullable|exists:cuotas_cobro,id',
+            'referencia'     => 'nullable|string|max:100',
+            'observaciones'  => 'nullable|string|max:300',
+        ]);
+
+        $cuenta = $venta->cuentaPorCobrar;
+
+        if (!$cuenta || !$venta->es_credito) {
+            return back()->with('error', 'Esta venta no tiene cuenta por cobrar.');
+        }
+
+        if ($cuenta->estado === 'anulado') {
+            return back()->with('error', 'La cuenta por cobrar está anulada.');
+        }
+
+        if ($cuenta->estado === 'pagado') {
+            return back()->with('error', 'Esta cuenta ya fue pagada completamente.');
+        }
+
+        // Verificar que el monto no exceda el saldo pendiente
+        $saldo = (float) $cuenta->monto_total - (float) $cuenta->monto_pagado;
+        if ((float) $validated['monto'] > round($saldo, 2) + 0.01) {
+            return back()->with('error', 'El monto excede el saldo pendiente de S/ ' . number_format($saldo, 2));
+        }
+
+        try {
+            app(VentaService::class)->registrarPagoCredito($cuenta, $validated);
+            return redirect()->route('ventas.credito.show', $venta)
+                ->with('success', 'Pago de S/ ' . number_format($validated['monto'], 2) . ' registrado exitosamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
     public function dashboardTienda()
 {
     $user = auth()->user();

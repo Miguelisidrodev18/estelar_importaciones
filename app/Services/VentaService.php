@@ -9,6 +9,10 @@ use App\Models\GuiaRemision;
 use App\Models\Imei;
 use App\Models\StockAlmacen;
 use App\Models\MovimientoInventario;
+use App\Models\CuentaPorCobrar;
+use App\Models\CuotaCobro;
+use App\Models\PagoCredito;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -24,16 +28,26 @@ class VentaService
     /**
      * Crear una nueva venta
      */
-    public function crearVenta(array $datosVenta, array $detalles, ?array $pago = null)
+    public function crearVenta(array $datosVenta, array $detalles, ?array $pago = null, ?array $creditoData = null)
     {
-        return DB::transaction(function () use ($datosVenta, $detalles, $pago) {
+        return DB::transaction(function () use ($datosVenta, $detalles, $pago, $creditoData) {
 
             // Extraer guia_data antes de crear la venta (no es columna de ventas)
             $guiaData = $datosVenta['guia_data'] ?? null;
             unset($datosVenta['guia_data']);
 
+            $esCredito = ($datosVenta['condicion_pago'] ?? 'contado') === 'credito' || !empty($creditoData);
+
             // Validar stock antes de procesar
             $this->validarStockDisponible($detalles, $datosVenta['almacen_id']);
+
+            // Para ventas a crédito, el estado inicial es 'credito' (sin pago inmediato)
+            if ($esCredito) {
+                $datosVenta['estado_pago']   = 'credito';
+                $datosVenta['es_credito']    = true;
+                $datosVenta['condicion_pago']= 'credito';
+                $datosVenta['metodo_pago']   = null;
+            }
 
             // Crear la venta
             $venta = Venta::create($datosVenta);
@@ -73,14 +87,14 @@ class VentaService
             }
 
             // Calcular IGV (18%)
-            $igv = $subtotal * 0.18;
+            $igv   = $subtotal * 0.18;
             $total = $subtotal + $igv;
 
             // Actualizar venta con montos calculados
             $venta->update([
                 'subtotal' => $subtotal,
-                'igv' => $igv,
-                'total' => $total
+                'igv'      => $igv,
+                'total'    => $total,
             ]);
 
             // Crear guía de remisión si se proporcionaron datos
@@ -88,24 +102,270 @@ class VentaService
                 GuiaRemision::create(array_merge(['venta_id' => $venta->id], $guiaData));
             }
 
-            // Si hay pago, procesarlo
-            if ($pago) {
-                $this->procesarPago($venta, $pago);
-            }
-
-            // Registrar movimiento en caja si se procesó un pago
-            if ($pago) {
-                $this->registrarEnCaja($venta, $pago['metodo_pago'] ?? 'efectivo');
+            if ($esCredito) {
+                // Crear cuenta por cobrar con las cuotas
+                $this->crearCuentaPorCobrar($venta, $creditoData ?? []);
+            } else {
+                // Si hay pago, procesarlo y registrar en caja
+                if ($pago) {
+                    $this->procesarPago($venta, $pago);
+                    $this->registrarEnCaja($venta, $pago['metodo_pago'] ?? 'efectivo');
+                }
             }
 
             Log::info('Venta creada', [
-                'venta_id' => $venta->id,
-                'user_id' => $venta->user_id,
-                'total' => $venta->total
+                'venta_id'   => $venta->id,
+                'user_id'    => $venta->user_id,
+                'total'      => $venta->total,
+                'es_credito' => $esCredito,
             ]);
 
             return $venta->fresh(['detalles.producto', 'cliente']);
         });
+    }
+
+    /**
+     * Crear la cuenta por cobrar y sus cuotas para una venta a crédito
+     */
+    private function crearCuentaPorCobrar(Venta $venta, array $creditoData): CuentaPorCobrar
+    {
+        $numeroCuotas    = (int) ($creditoData['numero_cuotas'] ?? 1);
+        $diasEntreCuotas = (int) ($creditoData['dias_entre_cuotas'] ?? 30);
+        $fechaInicio     = Carbon::parse($creditoData['fecha_inicio'] ?? now()->toDateString());
+
+        $fechaVencimientoFinal = $fechaInicio->copy()->addDays($diasEntreCuotas * $numeroCuotas);
+
+        $cuenta = CuentaPorCobrar::create([
+            'venta_id'                => $venta->id,
+            'cliente_id'              => $venta->cliente_id,
+            'user_id'                 => auth()->id(),
+            'monto_total'             => $venta->total,
+            'monto_pagado'            => 0,
+            'numero_cuotas'           => $numeroCuotas,
+            'dias_entre_cuotas'       => $diasEntreCuotas,
+            'fecha_inicio'            => $fechaInicio,
+            'fecha_vencimiento_final' => $fechaVencimientoFinal,
+            'estado'                  => 'vigente',
+        ]);
+
+        // Calcular monto por cuota (la primera absorbe el redondeo)
+        $montoPorCuota  = round($venta->total / $numeroCuotas, 2);
+        $montoTotal     = $montoPorCuota * $numeroCuotas;
+        $diferencia     = round($venta->total - $montoTotal, 2);
+
+        for ($i = 1; $i <= $numeroCuotas; $i++) {
+            $monto = $montoPorCuota;
+            if ($i === 1) {
+                $monto = round($monto + $diferencia, 2);
+            }
+
+            CuotaCobro::create([
+                'cuenta_por_cobrar_id' => $cuenta->id,
+                'numero_cuota'         => $i,
+                'total_cuotas'         => $numeroCuotas,
+                'monto'                => $monto,
+                'fecha_vencimiento'    => $fechaInicio->copy()->addDays($diasEntreCuotas * $i),
+                'estado'               => 'pendiente',
+            ]);
+        }
+
+        return $cuenta;
+    }
+
+    /**
+     * Registrar un pago de crédito contra una cuenta por cobrar
+     */
+    public function registrarPagoCredito(CuentaPorCobrar $cuenta, array $pagoData): PagoCredito
+    {
+        return DB::transaction(function () use ($cuenta, $pagoData) {
+            $monto = (float) $pagoData['monto'];
+
+            // Crear registro de pago
+            $pago = PagoCredito::create([
+                'cuenta_por_cobrar_id' => $cuenta->id,
+                'cuota_cobro_id'       => $pagoData['cuota_cobro_id'] ?? null,
+                'usuario_id'           => auth()->id(),
+                'monto'                => $monto,
+                'fecha_pago'           => $pagoData['fecha_pago'] ?? now()->toDateString(),
+                'metodo_pago'          => $pagoData['metodo_pago'],
+                'referencia'           => $pagoData['referencia'] ?? null,
+                'observaciones'        => $pagoData['observaciones'] ?? null,
+            ]);
+
+            // Actualizar monto pagado y fecha último pago en la cuenta
+            $nuevoPagado = round((float) $cuenta->monto_pagado + $monto, 2);
+            $cuenta->update([
+                'monto_pagado'    => $nuevoPagado,
+                'fecha_ultimo_pago'=> now()->toDateString(),
+            ]);
+
+            // Marcar la cuota asociada como pagada (si se especificó)
+            if (!empty($pagoData['cuota_cobro_id'])) {
+                $cuota = CuotaCobro::find($pagoData['cuota_cobro_id']);
+                if ($cuota && $cuota->estado === 'pendiente') {
+                    $cuota->update([
+                        'estado'         => 'pagado',
+                        'fecha_pago_real'=> now()->toDateString(),
+                    ]);
+                }
+            }
+
+            // Si el monto pagado cubre el total, cerrar la cuenta y actualizar la venta
+            if ($nuevoPagado >= (float) $cuenta->monto_total) {
+                $cuenta->update(['estado' => 'pagado']);
+                $cuenta->venta->update([
+                    'estado_pago'         => 'pagado',
+                    'fecha_confirmacion'  => now(),
+                    'usuario_confirma_id' => auth()->id(),
+                ]);
+                // Registrar en caja el ingreso total (monto de este pago)
+                $this->registrarEnCajaCredito($cuenta->venta, $monto, $pagoData['metodo_pago']);
+            } else {
+                // Registrar el pago parcial en caja
+                $this->registrarEnCajaCredito($cuenta->venta, $monto, $pagoData['metodo_pago']);
+            }
+
+            Log::info('Pago de crédito registrado', [
+                'cuenta_id' => $cuenta->id,
+                'monto'     => $monto,
+                'pagado'    => $nuevoPagado,
+                'total'     => $cuenta->monto_total,
+            ]);
+
+            return $pago;
+        });
+    }
+
+    /**
+     * Editar campos no contables de una venta (tiempo limitado, solo Admin)
+     */
+    public function editarVenta(Venta $venta, array $datos): Venta
+    {
+        if ($venta->estado_pago === 'anulado') {
+            throw new \Exception('No se puede editar una venta anulada.');
+        }
+
+        // Si es crédito con pagos registrados, no permitir edición
+        if ($venta->es_credito && $venta->cuentaPorCobrar && $venta->cuentaPorCobrar->pagos()->count() > 0) {
+            throw new \Exception('No se puede editar una venta a crédito que ya tiene pagos registrados.');
+        }
+
+        $horasTranscurridas = $venta->created_at->diffInHours(now());
+        $ventanaMaxima      = config('ventas.edit_window_hours', 24);
+
+        if ($horasTranscurridas > $ventanaMaxima) {
+            throw new \Exception("Solo se pueden editar comprobantes dentro de las {$ventanaMaxima} horas de su emisión.");
+        }
+
+        $camposPermitidos = ['observaciones', 'metodo_pago', 'fecha'];
+        $actualizacion    = array_intersect_key($datos, array_flip($camposPermitidos));
+
+        Log::info('Venta editada', [
+            'venta_id'   => $venta->id,
+            'user_id'    => auth()->id(),
+            'cambios'    => $actualizacion,
+            'horas_desde_creacion' => $horasTranscurridas,
+        ]);
+
+        $venta->update($actualizacion);
+
+        return $venta->fresh();
+    }
+
+    /**
+     * Anular una venta (revertir stock)
+     */
+    public function anularVenta(Venta $venta): void
+    {
+        if (in_array($venta->estado_pago, ['anulado', 'cotizacion'])) {
+            throw new \Exception('Esta venta ya está anulada o es una cotización.');
+        }
+
+        // Si tiene cuenta por cobrar con pagos, no se puede anular
+        if ($venta->es_credito && $venta->cuentaPorCobrar) {
+            $cuenta = $venta->cuentaPorCobrar;
+            if ($cuenta->pagos()->count() > 0) {
+                throw new \Exception('No se puede anular esta venta: tiene pagos de crédito registrados. Gestione la devolución manualmente.');
+            }
+        }
+
+        DB::transaction(function () use ($venta) {
+            // Revertir stock de cada detalle
+            $venta->load('detalles');
+            foreach ($venta->detalles as $detalle) {
+                $stock = StockAlmacen::firstOrCreate(
+                    [
+                        'producto_id' => $detalle->producto_id,
+                        'almacen_id'  => $venta->almacen_id,
+                    ],
+                    ['cantidad' => 0]
+                );
+
+                $stockAnterior = $stock->cantidad;
+                $stock->increment('cantidad', $detalle->cantidad);
+
+                // Si tenía IMEIs, devolverlos
+                if ($detalle->imei_id) {
+                    Imei::where('id', $detalle->imei_id)
+                        ->update([
+                            'estado_imei'      => 'en_stock',
+                            'venta_id'         => null,
+                            'detalle_venta_id' => null,
+                            'fecha_venta'      => null,
+                        ]);
+                }
+
+                MovimientoInventario::create([
+                    'producto_id'     => $detalle->producto_id,
+                    'almacen_id'      => $venta->almacen_id,
+                    'user_id'         => auth()->id(),
+                    'tipo_movimiento' => 'ingreso',
+                    'cantidad'        => $detalle->cantidad,
+                    'stock_anterior'  => $stockAnterior,
+                    'stock_nuevo'     => $stock->cantidad,
+                    'motivo'          => 'Anulación de venta #' . $venta->codigo,
+                    'estado'          => 'completado',
+                ]);
+            }
+
+            // Si es crédito sin pagos, anular la cuenta por cobrar y sus cuotas
+            if ($venta->es_credito && $venta->cuentaPorCobrar) {
+                $venta->cuentaPorCobrar->cuotas()->delete();
+                $venta->cuentaPorCobrar->update(['estado' => 'anulado']);
+            }
+
+            // Si estaba pagada, registrar egreso en caja (devolución)
+            if ($venta->estado_pago === 'pagado') {
+                $this->registrarEnCaja($venta, 'anulacion');
+            }
+
+            $venta->update(['estado_pago' => 'anulado']);
+        });
+    }
+
+    /**
+     * Registrar ingreso en caja por pago parcial de crédito
+     */
+    private function registrarEnCajaCredito(Venta $venta, float $monto, string $metodoPago): void
+    {
+        $caja = \App\Models\Caja::where('user_id', auth()->id())
+            ->where('estado', 'abierta')
+            ->first();
+
+        if ($caja) {
+            $cajaService = app(CajaService::class);
+            $cajaService->registrarMovimiento(
+                $caja->id,
+                'ingreso',
+                $monto,
+                'Pago crédito venta #' . $venta->codigo,
+                $venta->id,
+                null,
+                null,
+                $metodoPago,
+                null
+            );
+        }
     }
 
     /**
@@ -137,7 +397,7 @@ class VentaService
     private function validarImeisDisponibles(array $imeis, int $almacenId)
     {
         $codigosImei = array_column($imeis, 'codigo_imei');
-        
+
         $existentes = Imei::whereIn('codigo_imei', $codigosImei)
             ->where('almacen_id', $almacenId)
             ->where('estado_imei', 'en_stock')
@@ -145,7 +405,7 @@ class VentaService
 
         if ($existentes->count() !== count($codigosImei)) {
             $encontrados = $existentes->pluck('codigo_imei')->toArray();
-            $faltantes = array_diff($codigosImei, $encontrados);
+            $faltantes   = array_diff($codigosImei, $encontrados);
             throw new \Exception("Los siguientes IMEIs no están disponibles: " . implode(', ', $faltantes));
         }
     }
@@ -175,21 +435,17 @@ class VentaService
         $stockNuevo    = 0;
 
         if (!empty($imeis)) {
-            // Producto serie/IMEI: el stock se controla por IMEI individual.
-            // Los IMEIs ya fueron marcados como 'vendido' antes de llegar aquí.
             $stockNuevo    = Imei::where('producto_id', $productoId)
                                  ->where('almacen_id', $almacenId)
                                  ->where('estado_imei', 'en_stock')
                                  ->count();
             $stockAnterior = $stockNuevo + $cantidad;
 
-            // Actualizar stock_actual global del producto
             $totalStock = Imei::where('producto_id', $productoId)
                                ->where('estado_imei', 'en_stock')
                                ->count();
             $producto->update(['stock_actual' => $totalStock]);
 
-            // Actualizar stock_actual de la variante (conteo de IMEIs en_stock para esa variante)
             if ($varianteId) {
                 $stockVariante = Imei::where('variante_id', $varianteId)
                                      ->where('estado_imei', 'en_stock')
@@ -198,7 +454,6 @@ class VentaService
                     ->update(['stock_actual' => $stockVariante]);
             }
         } else {
-            // Producto por cantidad: usar StockAlmacen
             $stock = StockAlmacen::where('producto_id', $productoId)
                 ->where('almacen_id', $almacenId)
                 ->first();
@@ -212,8 +467,6 @@ class VentaService
                 $producto->update(['stock_actual' => $totalStock]);
             }
 
-            // Actualizar stock_actual de la variante (suma de stock_almacen para esa variante)
-            // stock_almacen no tiene variante_id, así que decrementamos directamente
             if ($varianteId) {
                 $variante = \App\Models\ProductoVariante::find($varianteId);
                 if ($variante) {
@@ -223,7 +476,6 @@ class VentaService
             }
         }
 
-        // Registrar movimiento de inventario
         MovimientoInventario::create([
             'producto_id'     => $productoId,
             'almacen_id'      => $almacenId,
@@ -243,12 +495,11 @@ class VentaService
      */
     private function procesarPago(Venta $venta, array $pago)
     {
-        // Aquí iría la lógica de pago (conexión con pasarela, etc.)
         $venta->update([
-            'estado_pago' => 'pagado',
-            'metodo_pago' => $pago['metodo_pago'],
-            'fecha_confirmacion' => now(),
-            'usuario_confirma_id' => auth()->id()
+            'estado_pago'         => 'pagado',
+            'metodo_pago'         => $pago['metodo_pago'],
+            'fecha_confirmacion'  => now(),
+            'usuario_confirma_id' => auth()->id(),
         ]);
     }
 
@@ -257,7 +508,6 @@ class VentaService
      */
     private function registrarEnCaja(Venta $venta, string $metodoPago)
     {
-        // Buscar caja abierta del usuario
         $caja = \App\Models\Caja::where('user_id', auth()->id())
             ->where('estado', 'abierta')
             ->first();
@@ -269,11 +519,11 @@ class VentaService
                 'ingreso',
                 $venta->total,
                 'Venta #' . $venta->codigo,
-                $venta->id,  // venta_id
-                null,         // compra_id
-                null,         // observaciones
-                $metodoPago,  // metodo_pago
-                null          // referencia
+                $venta->id,
+                null,
+                null,
+                $metodoPago,
+                null
             );
         }
     }
@@ -329,17 +579,15 @@ class VentaService
             $venta->load('detalles');
 
             $detalles = $venta->detalles->map(fn($d) => [
-                'producto_id'  => $d->producto_id,
-                'variante_id'  => $d->variante_id,
-                'cantidad'     => $d->cantidad,
+                'producto_id'     => $d->producto_id,
+                'variante_id'     => $d->variante_id,
+                'cantidad'        => $d->cantidad,
                 'precio_unitario' => (float) $d->precio_unitario,
-                'imeis'        => [],
+                'imeis'           => [],
             ])->toArray();
 
-            // Validate stock
             $this->validarStockDisponible($detalles, $venta->almacen_id);
 
-            // Deduct stock for each detail
             foreach ($detalles as $detalle) {
                 $this->descontarStock(
                     $detalle['producto_id'],
@@ -382,72 +630,15 @@ class VentaService
 
         DB::transaction(function () use ($venta, $metodoPago, $usuarioId) {
             $venta->update([
-                'estado_pago' => 'pagado',
-                'metodo_pago' => $metodoPago,
+                'estado_pago'         => 'pagado',
+                'metodo_pago'         => $metodoPago,
                 'usuario_confirma_id' => $usuarioId,
-                'fecha_confirmacion' => now()
+                'fecha_confirmacion'  => now(),
             ]);
 
             $this->registrarEnCaja($venta, $metodoPago);
         });
 
         return $venta;
-    }
-
-    /**
-     * Anular una venta (revertir stock)
-     */
-    public function anularVenta(Venta $venta)
-    {
-        if ($venta->estado_pago !== 'pagado') {
-            throw new \Exception('Solo se pueden anular ventas pagadas');
-        }
-
-        DB::transaction(function () use ($venta) {
-            // Revertir stock de cada detalle
-            foreach ($venta->detalles as $detalle) {
-                $stock = StockAlmacen::firstOrCreate(
-                    [
-                        'producto_id' => $detalle->producto_id,
-                        'almacen_id' => $venta->almacen_id
-                    ],
-                    ['cantidad' => 0]
-                );
-
-                $stockAnterior = $stock->cantidad;
-                $stock->increment('cantidad', $detalle->cantidad);
-
-                // Si tenía IMEIs, devolverlos
-                if ($detalle->imei_id) {
-                    Imei::where('id', $detalle->imei_id)
-                        ->update([
-                            'estado_imei' => 'en_stock',
-                            'venta_id' => null,
-                            'detalle_venta_id' => null,
-                            'fecha_venta' => null
-                        ]);
-                }
-
-                // Registrar movimiento de reversión
-                MovimientoInventario::create([
-                    'producto_id' => $detalle->producto_id,
-                    'almacen_id' => $venta->almacen_id,
-                    'user_id' => auth()->id(),
-                    'tipo_movimiento' => 'ingreso',
-                    'cantidad' => $detalle->cantidad,
-                    'stock_anterior' => $stockAnterior,
-                    'stock_nuevo' => $stock->cantidad,
-                    'motivo' => 'Anulación de venta #' . $venta->id,
-                    'estado' => 'completado'
-                ]);
-            }
-
-            $venta->update([
-                'estado_pago' => 'anulado'
-            ]);
-
-            // Registrar en caja (egreso)
-            $this->registrarEnCaja($venta, 'anulacion');
-        });
     }
 }

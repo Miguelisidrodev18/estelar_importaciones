@@ -24,6 +24,11 @@ class Cliente extends Model
         return $this->hasMany(Venta::class);
     }
 
+    public function cuentasPorCobrar()
+    {
+        return $this->hasMany(CuentaPorCobrar::class);
+    }
+
     public function scopeActivos($query)
     {
         return $query->where('estado', 'activo');

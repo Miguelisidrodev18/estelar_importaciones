@@ -493,6 +493,67 @@
 
                 {{-- Payment methods (hidden for cotizacion) --}}
                 <div x-show="orden.tipoComprobante !== 'cotizacion'" x-cloak class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                    {{-- Contado / Crédito toggle --}}
+                    <div class="flex items-center gap-1 mb-3 bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+                        <button @click="orden.condicionPago = 'contado'"
+                                :class="orden.condicionPago === 'contado' ? 'bg-white dark:bg-gray-600 shadow text-blue-700 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                                class="flex-1 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1">
+                            <i class="fas fa-money-bill-wave text-xs"></i> Contado
+                        </button>
+                        <button @click="orden.condicionPago = 'credito'"
+                                :class="orden.condicionPago === 'credito' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                                class="flex-1 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1">
+                            <i class="fas fa-calendar-alt text-xs"></i> Crédito
+                        </button>
+                    </div>
+
+                    {{-- Crédito options --}}
+                    <div x-show="orden.condicionPago === 'credito'" x-cloak class="mb-3 space-y-2">
+                        <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-3 text-xs text-orange-700 dark:text-orange-300 flex items-start gap-2">
+                            <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
+                            <span>El cliente se lleva el producto ahora y paga en cuotas. Se requiere cliente registrado.</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Nro. Cuotas</label>
+                                <select x-model.number="orden.credito.numero_cuotas"
+                                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-orange-500">
+                                    <template x-for="n in [1,2,3,4,6,12,18,24]" :key="n">
+                                        <option :value="n" x-text="n + (n === 1 ? ' cuota' : ' cuotas')"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Días entre cuotas</label>
+                                <select x-model.number="orden.credito.dias_entre_cuotas"
+                                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-orange-500">
+                                    <option value="7">Semanal (7d)</option>
+                                    <option value="15">Quincenal (15d)</option>
+                                    <option value="30">Mensual (30d)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Fecha primera cuota</label>
+                            <input type="date" x-model="orden.credito.fecha_inicio"
+                                   :min="new Date().toISOString().split('T')[0]"
+                                   class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        {{-- Preview de cuotas --}}
+                        <div x-show="total > 0" class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                            <p class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Vista previa de cuotas</p>
+                            <div class="space-y-1">
+                                <template x-for="i in orden.credito.numero_cuotas" :key="i">
+                                    <div class="flex justify-between text-xs text-gray-600 dark:text-gray-300">
+                                        <span x-text="'Cuota ' + i + ' — ' + fechaCuota(i)"></span>
+                                        <span class="font-mono font-semibold" x-text="'S/ ' + montoCuota(i).toFixed(2)"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div x-show="orden.condicionPago !== 'credito'">
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Método de pago</p>
                         <button @click="agregarPago()" :disabled="orden.pagos.length >= 4"
@@ -598,6 +659,7 @@
                             </div>
                         </template>
                     </div>
+                    </div>{{-- end x-show contado --}}
                 </div>
 
             </div>{{-- end scrollable area --}}
@@ -629,12 +691,19 @@
 
                 <button @click="procesarPago()"
                         :disabled="orden.carrito.length === 0 || !orden.almacenId || guardando"
-                        :class="orden.tipoComprobante === 'cotizacion' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200 dark:shadow-amber-900/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-blue-900/30'"
+                        :class="{
+                            'bg-amber-500 hover:bg-amber-600 shadow-amber-200 dark:shadow-amber-900/30': orden.tipoComprobante === 'cotizacion',
+                            'bg-orange-600 hover:bg-orange-700 shadow-orange-200 dark:shadow-orange-900/30': orden.condicionPago === 'credito' && orden.tipoComprobante !== 'cotizacion',
+                            'bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-blue-900/30': orden.condicionPago !== 'credito' && orden.tipoComprobante !== 'cotizacion',
+                        }"
                         class="w-full disabled:opacity-40 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg">
                     <template x-if="orden.tipoComprobante === 'cotizacion'">
                         <span x-show="!guardando"><i class="fas fa-file-contract mr-1"></i>Guardar Cotización <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
                     </template>
-                    <template x-if="orden.tipoComprobante !== 'cotizacion'">
+                    <template x-if="orden.tipoComprobante !== 'cotizacion' && orden.condicionPago === 'credito'">
+                        <span x-show="!guardando"><i class="fas fa-calendar-check mr-1"></i>Emitir a Crédito <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
+                    </template>
+                    <template x-if="orden.tipoComprobante !== 'cotizacion' && orden.condicionPago !== 'credito'">
                         <span x-show="!guardando"><i class="fas fa-cash-register mr-1"></i>Cobrar <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
                     </template>
                     <span x-show="guardando" x-cloak><i class="fas fa-spinner fa-spin mr-1"></i> Procesando...</span>
@@ -694,10 +763,16 @@
                     <span class="text-gray-500 dark:text-gray-400">Formato</span>
                     <span class="font-semibold text-gray-700 dark:text-gray-200" x-text="formatoImpresion === 'ticket' ? 'Ticket 80mm' : 'A4'"></span>
                 </div>
-                <div x-show="orden.tipoComprobante !== 'cotizacion'" class="flex justify-between text-sm">
+                <div x-show="orden.tipoComprobante !== 'cotizacion' && orden.condicionPago !== 'credito'" class="flex justify-between text-sm">
                     <span class="text-gray-500 dark:text-gray-400">Método</span>
                     <span class="font-semibold text-gray-700 dark:text-gray-200 capitalize"
                           x-text="orden.pagos.length > 1 ? 'Mixto (' + orden.pagos.length + ' métodos)' : orden.pagos[0]?.metodo"></span>
+                </div>
+                <div x-show="orden.condicionPago === 'credito'" class="flex justify-between text-sm">
+                    <span class="text-gray-500 dark:text-gray-400">Condición</span>
+                    <span class="font-semibold text-orange-600 dark:text-orange-400">
+                        Crédito — <span x-text="orden.credito.numero_cuotas + ' cuotas'"></span>
+                    </span>
                 </div>
                 <div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
                     <span class="text-base font-bold text-gray-800 dark:text-gray-100">Total</span>
@@ -1285,6 +1360,12 @@ function crearOrden(id) {
         },
         carrito:          [],
         pagos:            [{ metodo: 'efectivo', monto: 0 }],
+        condicionPago:    'contado',
+        credito: {
+            numero_cuotas:    3,
+            dias_entre_cuotas: 30,
+            fecha_inicio:     new Date().toISOString().split('T')[0],
+        },
     };
 }
 
@@ -1354,6 +1435,7 @@ function posApp() {
         get falta()       { return Math.max(0, this.total - this.totalPagado); },
         get puedePagar()  {
             if (this.orden.tipoComprobante === 'cotizacion') return true;
+            if (this.orden.condicionPago === 'credito') return !!this.orden.clienteId;
             if (this.orden.pagos.length === 1 && this.orden.pagos[0].monto === 0) return true;
             return this.totalPagado >= this.total;
         },
@@ -1592,6 +1674,21 @@ function posApp() {
         agregarPago() { if (this.orden.pagos.length >= 4) return; this.orden.pagos.push({ metodo: 'efectivo', monto: 0 }); },
         quitarPago(idx) { this.orden.pagos.splice(idx, 1); },
 
+        // Crédito helpers
+        fechaCuota(numeroCuota) {
+            const fecha = new Date(this.orden.credito.fecha_inicio + 'T12:00:00');
+            fecha.setDate(fecha.getDate() + this.orden.credito.dias_entre_cuotas * numeroCuota);
+            return fecha.toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' });
+        },
+        montoCuota(numeroCuota) {
+            const total = this.total;
+            const n = this.orden.credito.numero_cuotas;
+            const base = Math.round((total / n) * 100) / 100;
+            const totalBase = Math.round(base * n * 100) / 100;
+            const diff = Math.round((total - totalBase) * 100) / 100;
+            return numeroCuota === 1 ? base + diff : base;
+        },
+
         procesarPago() {
             if (this.orden.carrito.length === 0) { this.toast('warning', 'Agrega productos al carrito'); return; }
             if (!this.orden.almacenId) { this.toast('warning', 'Selecciona un almacén'); return; }
@@ -1632,9 +1729,12 @@ function posApp() {
             this.guardando = true;
             this.showPago  = false;
 
+            const esCredito = this.orden.condicionPago === 'credito';
             let metodoPago  = this.orden.pagos[0].metodo;
             let pagosDetalle = null;
-            if (this.orden.pagos.length > 1) {
+            if (esCredito) {
+                metodoPago = null;
+            } else if (this.orden.pagos.length > 1) {
                 metodoPago   = 'mixto';
                 pagosDetalle = this.orden.pagos.map(p => ({ metodo: p.metodo, monto: parseFloat(p.monto) || 0 }));
             } else if (this.orden.tipoComprobante === 'cotizacion') {
@@ -1668,8 +1768,10 @@ function posApp() {
                             transportista_doc:      this.orden.guia.transportista_doc || null,
                             transportista_nombre:   this.orden.guia.transportista_nombre || null,
                         } : null,
+                        condicion_pago:   this.orden.condicionPago,
                         metodo_pago:      metodoPago,
                         pagos_detalle:    pagosDetalle,
+                        credito:          esCredito ? this.orden.credito : null,
                         formato_impresion: this.formatoImpresion,
                         detalles: this.orden.carrito.map(i => ({
                             producto_id:      i.producto_id,

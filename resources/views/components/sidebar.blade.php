@@ -23,7 +23,7 @@
             x-data="{
                 inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }},
                 comprasOpen: {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') || request()->routeIs('cuentas-por-pagar.*') ? 'true' : 'false' }},
-                ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') || request()->routeIs('precios.*') ? 'true' : 'false' }},
+                ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') || request()->routeIs('precios.*') || request()->routeIs('cuentas-por-cobrar.*') ? 'true' : 'false' }},
                 reportesOpen: {{ request()->routeIs('reportes.*') ? 'true' : 'false' }},
                 trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
                 cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }},
@@ -128,6 +128,12 @@
                                 <a href="{{ route('precios.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('precios.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-tags mr-3 text-sm"></i>Gestión de Precios
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('cuentas-por-cobrar.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cuentas-por-cobrar.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-hand-holding-usd mr-3 text-sm"></i>Cuentas por Cobrar
                                 </a>
                             </li>
                         </ul>

@@ -18,6 +18,8 @@ class Venta extends Model
         'subtotal',
         'igv',
         'total',
+        'es_credito',
+        'condicion_pago',
         'metodo_pago',
         'tipo_comprobante',
         'guia_remision',
@@ -36,12 +38,13 @@ class Venta extends Model
     ];
 
     protected $casts = [
-        'fecha' => 'date',
-        'fecha_confirmacion' => 'datetime',
-        'subtotal' => 'decimal:2',
-        'igv' => 'decimal:2',
-        'total' => 'decimal:2',
-        'pagos_detalle' => 'array',
+        'fecha'             => 'date',
+        'fecha_confirmacion'=> 'datetime',
+        'subtotal'          => 'decimal:2',
+        'igv'               => 'decimal:2',
+        'total'             => 'decimal:2',
+        'pagos_detalle'     => 'array',
+        'es_credito'        => 'boolean',
     ];
 
     public function vendedor()
@@ -100,6 +103,11 @@ class Venta extends Model
         return $this->hasOne(GuiaRemision::class);
     }
 
+    public function cuentaPorCobrar()
+    {
+        return $this->hasOne(CuentaPorCobrar::class);
+    }
+
     public function scopePendientes($query)
     {
         return $query->where('estado_pago', 'pendiente');
@@ -108,6 +116,11 @@ class Venta extends Model
     public function scopePagadas($query)
     {
         return $query->where('estado_pago', 'pagado');
+    }
+
+    public function scopeCredito($query)
+    {
+        return $query->where('estado_pago', 'credito');
     }
 
     protected static function boot()

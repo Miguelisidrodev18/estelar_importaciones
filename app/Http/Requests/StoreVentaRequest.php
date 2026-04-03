@@ -48,11 +48,18 @@ class StoreVentaRequest extends FormRequest
             'transportista'            => 'nullable|string|max:150',
             'placa_vehiculo'           => 'nullable|string|max:20',
 
-            // Pago
+            // Pago y condición
+            'condicion_pago'           => 'nullable|in:contado,credito',
             'metodo_pago'              => 'nullable|in:efectivo,transferencia,yape,plin,mixto',
             'pagos_detalle'            => 'nullable|array',
             'pagos_detalle.*.metodo'   => 'required_with:pagos_detalle|in:efectivo,transferencia,yape,plin',
             'pagos_detalle.*.monto'    => 'required_with:pagos_detalle|numeric|min:0.01',
+
+            // Crédito
+            'credito'                        => 'nullable|array',
+            'credito.numero_cuotas'          => 'required_if:condicion_pago,credito|integer|min:1|max:24',
+            'credito.dias_entre_cuotas'      => 'required_if:condicion_pago,credito|in:7,15,30',
+            'credito.fecha_inicio'           => 'required_if:condicion_pago,credito|date|after_or_equal:today',
 
             // Detalle de productos
             'detalles'                       => 'required|array|min:1',
@@ -115,6 +122,18 @@ class StoreVentaRequest extends FormRequest
                     'cliente_id',
                     'Para emitir factura, el RUC debe tener exactamente 11 dígitos.'
                 );
+            }
+        });
+
+        // Crédito: requiere cliente y no puede tener metodo_pago
+        $validator->after(function (Validator $v) {
+            if ($this->input('condicion_pago') === 'credito') {
+                if (!$this->input('cliente_id')) {
+                    $v->errors()->add('cliente_id', 'Para ventas a crédito debe seleccionar un cliente.');
+                }
+                if ($this->input('metodo_pago')) {
+                    $v->errors()->add('metodo_pago', 'Las ventas a crédito no tienen método de pago inmediato.');
+                }
             }
         });
 
