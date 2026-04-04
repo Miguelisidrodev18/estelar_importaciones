@@ -46,6 +46,11 @@ use App\Http\Middleware\VerifyMasterPassword;
 Route::get('/', function () {
     return redirect()->route('login');
 });
+
+// Página de bloqueo por falta de pago
+Route::get('/sistema-suspendido', function () {
+    return view('sistema_bloqueado');
+})->name('sistema.bloqueado');
 /*
 |--------------------------------------------------------------------------
 | RUTA PRINCIPAL
