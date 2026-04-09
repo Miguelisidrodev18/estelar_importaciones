@@ -53,11 +53,30 @@
                             @endif
                         </p>
                     </div>
+                @elseif($almacenes->isNotEmpty())
+                    <div class="col-span-2">
+                        <label class="block text-xs text-gray-400 mb-1">
+                            <i class="fas fa-warehouse mr-1"></i> Seleccionar almacén para este turno
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <select name="almacen_id" form="formAbrirCaja" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">— Elige un almacén —</option>
+                            @foreach($almacenes as $a)
+                                <option value="{{ $a->id }}">{{ $a->nombre }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-blue-600 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Como administrador puedes abrir caja en cualquier almacén.
+                        </p>
+                    </div>
                 @else
                     <div class="col-span-2">
                         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
                             <i class="fas fa-exclamation-triangle mr-2"></i>
-                            No tienes un almacén asignado. Contacta al administrador.
+                            No hay almacenes activos. Crea uno antes de abrir caja.
                         </div>
                     </div>
                 @endif
@@ -65,7 +84,7 @@
         </div>
 
         {{-- Formulario de apertura --}}
-        @if($almacen)
+        @if($almacen || $almacenes->isNotEmpty())
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-5">
@@ -117,7 +136,12 @@
 <script>
 function confirmarApertura(form) {
     var monto = parseFloat(document.getElementById('montoInicial').value) || 0;
-    return confirm('¿Confirmar apertura de caja con S/ ' + monto.toFixed(2) + '?\n\nAlmacén: {{ $almacen->nombre ?? "" }}');
+    var selectEl = form.querySelector('[name="almacen_id"]');
+    var almacenNombre = '{{ $almacen->nombre ?? "" }}';
+    if (selectEl) {
+        almacenNombre = selectEl.options[selectEl.selectedIndex]?.text ?? '';
+    }
+    return confirm('¿Confirmar apertura de caja con S/ ' + monto.toFixed(2) + '?\n\nAlmacén: ' + almacenNombre);
 }
 </script>
 </body>

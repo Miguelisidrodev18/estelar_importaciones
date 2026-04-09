@@ -246,21 +246,154 @@
                 </a>
                 @endif
 
-                {{-- Editar (Admin, dentro de ventana de tiempo) --}}
-                @if(auth()->user()->role->nombre === 'Administrador' && $venta->estado_pago !== 'anulado' && $venta->created_at->diffInHours(now()) <= config('ventas.edit_window_hours', 24))
-                <a href="{{ route('ventas.edit', $venta) }}"
-                   class="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
-                    <i class="fas fa-edit"></i> Editar
-                </a>
-                @endif
+                {{-- Acciones: Editar / Anular / Eliminar (Admin y Tienda) --}}
+                @php
+                    $rolActual       = auth()->user()->role->nombre;
+                    $puedeEditar     = in_array($rolActual, ['Administrador','Tienda'])
+                                       && $venta->estado_pago !== 'anulado'
+                                       && !$venta->es_nota_credito
+                                       && $venta->created_at->diffInHours(now()) <= config('ventas.edit_window_hours', 24);
+                    // Anular directo: solo si NO fue aceptado por SUNAT
+                    $puedeAnular     = in_array($rolActual, ['Administrador','Tienda'])
+                                       && !in_array($venta->estado_pago, ['anulado','cotizacion'])
+                                       && !$venta->es_nota_credito
+                                       && $venta->puede_anular_directo;
+                    // Nota de Crédito: solo si fue aceptado por SUNAT y no es cotización/NC
+                    $puedeGenerarNC  = in_array($rolActual, ['Administrador','Tienda'])
+                                       && $venta->es_aceptado_sunat
+                                       && !in_array($venta->estado_pago, ['anulado','cotizacion'])
+                                       && !$venta->es_nota_credito;
+                    $puedeEliminar   = in_array($rolActual, ['Administrador','Tienda'])
+                                       && $venta->estado_pago !== 'cotizacion'
+                                       && !$venta->es_aceptado_sunat; // no eliminar docs aceptados por SUNAT
+                    $esTienda        = $rolActual === 'Tienda';
+                @endphp
 
-                {{-- Anular (Admin, venta no anulada ni cotización) --}}
-                @if(auth()->user()->role->nombre === 'Administrador' && !in_array($venta->estado_pago, ['anulado', 'cotizacion']))
-                <div x-data="{ showAnular: false }">
-                    <button @click="showAnular = true"
+                @if($puedeEditar || $puedeAnular || $puedeEliminar || $puedeGenerarNC)
+                <div x-data="{
+                    showClave:    false,
+                    showAnular:   false,
+                    showEliminar: false,
+                    pendingAccion: '',
+                    clave: '',
+                    claveError: '',
+                    cargando: false,
+                    esTienda: {{ $esTienda ? 'true' : 'false' }},
+
+                    iniciarAccion(accion) {
+                        if (this.esTienda) {
+                            this.pendingAccion = accion;
+                            this.clave = '';
+                            this.claveError = '';
+                            this.showClave = true;
+                        } else {
+                            this.ejecutarAccion(accion);
+                        }
+                    },
+
+                    showNC: false,
+                    motivoNc: '01',
+
+                    ejecutarAccion(accion) {
+                        if (accion === 'editar') {
+                            window.location.href = '{{ route('ventas.edit', $venta) }}';
+                        } else if (accion === 'anular') {
+                            this.showAnular = true;
+                        } else if (accion === 'eliminar') {
+                            this.showEliminar = true;
+                        } else if (accion === 'nota_credito') {
+                            this.showNC = true;
+                        }
+                    },
+
+                    async verificarClave() {
+                        this.cargando = true;
+                        this.claveError = '';
+                        try {
+                            const resp = await fetch('{{ route('ventas.verificar-clave', $venta) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+                                },
+                                body: JSON.stringify({ clave: this.clave })
+                            });
+                            const data = await resp.json();
+                            if (data.ok) {
+                                this.showClave = false;
+                                this.ejecutarAccion(this.pendingAccion);
+                            } else {
+                                this.claveError = data.mensaje || 'Contraseña incorrecta.';
+                            }
+                        } catch(e) {
+                            this.claveError = 'Error de conexión. Intente nuevamente.';
+                        }
+                        this.cargando = false;
+                    }
+                }">
+
+                    {{-- Botón Editar --}}
+                    @if($puedeEditar)
+                    <button @click="iniciarAccion('editar')"
+                            class="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                    @endif
+
+                    {{-- Botón Nota de Crédito SUNAT (solo si doc ya fue aceptado) --}}
+                    @if($puedeGenerarNC)
+                    <button @click="iniciarAccion('nota_credito')"
+                            class="inline-flex items-center gap-2 border border-indigo-400 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                        <i class="fas fa-file-minus"></i> Nota de Crédito
+                    </button>
+                    @endif
+
+                    {{-- Botón Anular --}}
+                    @if($puedeAnular)
+                    <button @click="iniciarAccion('anular')"
                             class="inline-flex items-center gap-2 border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
                         <i class="fas fa-ban"></i> Anular
                     </button>
+                    @endif
+
+                    {{-- Botón Eliminar --}}
+                    @if($puedeEliminar)
+                    <button @click="iniciarAccion('eliminar')"
+                            class="inline-flex items-center gap-2 border border-red-700 bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                        <i class="fas fa-trash-alt"></i> Eliminar
+                    </button>
+                    @endif
+
+                    {{-- Modal: verificar contraseña (solo Tienda) --}}
+                    <div x-show="showClave" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+                        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showClave = false"></div>
+                        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+                            <div class="bg-gradient-to-r from-gray-700 to-gray-900 px-6 py-5">
+                                <h3 class="text-lg font-bold text-white"><i class="fas fa-lock mr-2"></i>Verificación de seguridad</h3>
+                                <p class="text-gray-300 text-sm mt-0.5">Ingresa tu contraseña para continuar</p>
+                            </div>
+                            <div class="p-6">
+                                <p class="text-sm text-gray-600 mb-4">Para realizar esta acción debes confirmar tu identidad ingresando la contraseña de tu cuenta.</p>
+                                <input type="password" x-model="clave" @keyup.enter="verificarClave()"
+                                       placeholder="Contraseña"
+                                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-500 focus:border-gray-500 outline-none mb-2">
+                                <p x-show="claveError" x-text="claveError" class="text-red-600 text-xs mb-3"></p>
+                                <div class="flex gap-3">
+                                    <button type="button" @click="showClave = false"
+                                            class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                                        Cancelar
+                                    </button>
+                                    <button type="button" @click="verificarClave()" :disabled="cargando || !clave"
+                                            class="flex-1 bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white py-2.5 rounded-xl font-bold text-sm transition-colors">
+                                        <span x-show="!cargando">Confirmar</span>
+                                        <span x-show="cargando"><i class="fas fa-spinner fa-spin mr-1"></i>Verificando...</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Modal: confirmar Anular --}}
                     <div x-show="showAnular" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
                         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAnular = false"></div>
                         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
@@ -273,12 +406,9 @@
                                     <p class="font-semibold mb-1"><i class="fas fa-exclamation-triangle mr-1"></i>Esta acción es irreversible</p>
                                     <ul class="list-disc list-inside space-y-0.5 text-xs">
                                         <li>El stock será devuelto al almacén</li>
-                                        @if($venta->estado_pago === 'pagado')
-                                        <li>Se registrará un egreso en caja</li>
-                                        @endif
-                                        @if($venta->es_credito)
-                                        <li>La cuenta por cobrar será cancelada</li>
-                                        @endif
+                                        <li>La venta quedará visible como "Anulado"</li>
+                                        @if($venta->estado_pago === 'pagado')<li>Se registrará un egreso en caja</li>@endif
+                                        @if($venta->es_credito)<li>La cuenta por cobrar será cancelada</li>@endif
                                     </ul>
                                 </div>
                                 <form action="{{ route('ventas.anular', $venta) }}" method="POST">
@@ -297,6 +427,90 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Modal: confirmar Eliminar --}}
+                    <div x-show="showEliminar" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+                        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showEliminar = false"></div>
+                        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+                            <div class="bg-gradient-to-r from-red-800 to-red-900 px-6 py-5">
+                                <h3 class="text-lg font-bold text-white">Eliminar Comprobante</h3>
+                                <p class="text-red-200 text-sm mt-0.5">{{ $venta->codigo }}</p>
+                            </div>
+                            <div class="p-6">
+                                <div class="bg-red-50 border border-red-300 rounded-xl p-4 mb-5 text-sm text-red-800">
+                                    <p class="font-semibold mb-1"><i class="fas fa-skull-crossbones mr-1"></i>Eliminación permanente</p>
+                                    <ul class="list-disc list-inside space-y-0.5 text-xs">
+                                        <li>La venta desaparecerá de todos los listados</li>
+                                        <li>El stock será devuelto al almacén</li>
+                                        @if($venta->estado_pago === 'pagado')<li>Se registrará un egreso en caja</li>@endif
+                                        @if($venta->es_credito)<li>La cuenta por cobrar será cancelada</li>@endif
+                                    </ul>
+                                </div>
+                                <form action="{{ route('ventas.destroy', $venta) }}" method="POST">
+                                    @csrf
+                                    @method('DELETE')
+                                    <div class="flex gap-3">
+                                        <button type="button" @click="showEliminar = false"
+                                                class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                                            Cancelar
+                                        </button>
+                                        <button type="submit"
+                                                class="flex-1 bg-red-800 hover:bg-red-900 text-white py-2.5 rounded-xl font-bold text-sm transition-colors">
+                                            <i class="fas fa-trash-alt mr-1"></i> Eliminar
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Modal: Nota de Crédito SUNAT --}}
+                    <div x-show="showNC" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+                        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showNC = false"></div>
+                        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+                            <div class="bg-gradient-to-r from-indigo-600 to-purple-700 px-6 py-5">
+                                <h3 class="text-lg font-bold text-white"><i class="fas fa-file-minus mr-2"></i>Nota de Crédito Electrónica</h3>
+                                <p class="text-indigo-200 text-sm mt-0.5">{{ $venta->numero_documento ?? $venta->codigo }}</p>
+                            </div>
+                            <div class="p-6">
+                                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-5 text-sm text-indigo-800">
+                                    <p class="font-semibold mb-1"><i class="fas fa-info-circle mr-1"></i>¿Por qué Nota de Crédito?</p>
+                                    <p class="text-xs leading-relaxed">Este comprobante ya fue <strong>aceptado por SUNAT</strong>. La normativa peruana exige emitir una Nota de Crédito para anularlo — no se puede simplemente eliminar o marcar como anulado.</p>
+                                </div>
+                                <form action="{{ route('ventas.nota-credito', $venta) }}" method="POST">
+                                    @csrf
+                                    <div class="mb-5">
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">Motivo (Tabla 10 SUNAT) *</label>
+                                        <select name="motivo_codigo" x-model="motivoNc"
+                                                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                            @foreach(\App\Services\VentaService::MOTIVOS_NC as $codigo => $desc)
+                                            <option value="{{ $codigo }}">{{ $codigo }} — {{ $desc }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-xl px-4 py-3 mb-5 flex justify-between items-center">
+                                        <span class="text-sm text-gray-500">Monto a revertir</span>
+                                        <span class="text-xl font-bold text-gray-900">S/ {{ number_format($venta->total, 2) }}</span>
+                                    </div>
+                                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-xs text-amber-700">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        Después de generar la NC debes enviarla a SUNAT (OSE/SOL) para que sea válida legalmente.
+                                    </div>
+                                    <div class="flex gap-3">
+                                        <button type="button" @click="showNC = false"
+                                                class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                                            Cancelar
+                                        </button>
+                                        <button type="submit"
+                                                class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-sm transition-colors">
+                                            <i class="fas fa-file-minus mr-1"></i> Generar NC
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
                 @endif
 
@@ -315,11 +529,46 @@
             ];
             [$badgeClass, $badgeIcon, $badgeLabel] = $estadoConfig[$venta->estado_pago] ?? ['bg-gray-50 text-gray-700 border-gray-200', 'fa-circle', ucfirst($venta->estado_pago)];
         @endphp
-        <div class="inline-flex items-center gap-2 border {{ $badgeClass }} px-4 py-1.5 rounded-full text-sm font-semibold mb-6">
-            <i class="fas {{ $badgeIcon }}"></i>
-            {{ $badgeLabel }}
-            @if($venta->estado_pago === 'pagado' && $venta->fecha_confirmacion)
-                <span class="text-xs opacity-70">· {{ $venta->fecha_confirmacion->format('d/m/Y H:i') }}</span>
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+            {{-- Badge estado de pago --}}
+            <div class="inline-flex items-center gap-2 border {{ $badgeClass }} px-4 py-1.5 rounded-full text-sm font-semibold">
+                <i class="fas {{ $badgeIcon }}"></i>
+                {{ $badgeLabel }}
+                @if($venta->estado_pago === 'pagado' && $venta->fecha_confirmacion)
+                    <span class="text-xs opacity-70">· {{ $venta->fecha_confirmacion->format('d/m/Y H:i') }}</span>
+                @endif
+            </div>
+
+            {{-- Badge estado SUNAT (solo boleta/factura/NC) --}}
+            @if(!in_array($venta->tipo_comprobante, ['cotizacion']))
+            @php
+                $sunatConfig = [
+                    'pendiente_envio' => ['bg-yellow-50 text-yellow-700 border-yellow-300', 'fa-clock', 'Pendiente envío SUNAT'],
+                    'enviado'         => ['bg-blue-50 text-blue-700 border-blue-300',   'fa-paper-plane', 'Enviado a SUNAT'],
+                    'aceptado'        => ['bg-green-50 text-green-700 border-green-300', 'fa-shield-alt', 'Aceptado por SUNAT'],
+                    'rechazado'       => ['bg-red-50 text-red-700 border-red-300',       'fa-times-circle', 'Rechazado por SUNAT'],
+                    'anulado_baja'    => ['bg-gray-50 text-gray-600 border-gray-300',   'fa-ban', 'Anulado (NC emitida)'],
+                    'no_aplica'       => ['bg-gray-50 text-gray-500 border-gray-200',   'fa-minus-circle', 'No aplica SUNAT'],
+                ];
+                [$sBadge, $sIcon, $sLabel] = $sunatConfig[$venta->estado_sunat] ?? ['bg-gray-50 text-gray-500 border-gray-200', 'fa-question', $venta->estado_sunat ?? '—'];
+            @endphp
+            <div class="inline-flex items-center gap-2 border {{ $sBadge }} px-3 py-1.5 rounded-full text-xs font-semibold">
+                <i class="fas {{ $sIcon }}"></i>
+                {{ $sLabel }}
+            </div>
+            @endif
+
+            {{-- Badge "Nota de Crédito" si es NC --}}
+            @if($venta->es_nota_credito)
+            <div class="inline-flex items-center gap-2 border bg-indigo-50 text-indigo-700 border-indigo-300 px-3 py-1.5 rounded-full text-xs font-semibold">
+                <i class="fas fa-file-minus"></i>
+                Nota de Crédito · {{ $venta->motivo_nc_codigo }} — {{ $venta->motivo_nc_descripcion }}
+            </div>
+            @if($venta->ventaOrigen)
+            <div class="text-xs text-gray-500">
+                Referencia: <a href="{{ route('ventas.show', $venta->ventaOrigen) }}" class="text-indigo-600 font-semibold hover:underline">{{ $venta->ventaOrigen->numero_documento ?? $venta->ventaOrigen->codigo }}</a>
+            </div>
+            @endif
             @endif
         </div>
 

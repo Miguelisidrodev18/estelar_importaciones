@@ -14,12 +14,14 @@ use App\Models\Imei;
 use App\Models\StockAlmacen;
 use App\Models\Sucursal;
 use App\Models\CuentaPorCobrar;
+use App\Models\AuditoriaVenta;
 use App\Services\VentaService;
 use App\Services\VarianteService;
 use App\Http\Requests\StoreVentaRequest;
 use App\Http\Requests\UpdateVentaRequest;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class VentaController extends Controller
 {
@@ -178,8 +180,17 @@ class VentaController extends Controller
 
         $empresa = Empresa::first();
 
+        // Estado de la caja del usuario actual
+        $cajaActual     = \App\Models\Caja::where('user_id', auth()->id())
+            ->where('estado', 'abierta')
+            ->latest()
+            ->first();
+        $cajaAbierta    = (bool) $cajaActual;
+        $cajaDiaAnterior = $cajaActual && $cajaActual->fecha->lt(today());
+
         return view('ventas.create', compact(
-            'clientes', 'productos', 'almacenes', 'categorias', 'almacenPredeterminado', 'pagosConfig', 'empresa'
+            'clientes', 'productos', 'almacenes', 'categorias', 'almacenPredeterminado', 'pagosConfig', 'empresa',
+            'cajaAbierta', 'cajaDiaAnterior', 'cajaActual'
         ));
     }
 
@@ -427,8 +438,10 @@ class VentaController extends Controller
 
     public function updateVenta(UpdateVentaRequest $request, Venta $venta)
     {
+        $requirioClave = $this->claveTiendaVerificada($venta);
+
         try {
-            app(VentaService::class)->editarVenta($venta, $request->validated());
+            app(VentaService::class)->editarVenta($venta, $request->validated(), $requirioClave);
             return redirect()->route('ventas.show', $venta)->with('success', 'Comprobante actualizado correctamente.');
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
@@ -437,12 +450,133 @@ class VentaController extends Controller
 
     public function anularVenta(Request $request, Venta $venta)
     {
+        $requirioClave = $this->claveTiendaVerificada($venta);
+
         try {
-            app(VentaService::class)->anularVenta($venta);
+            app(VentaService::class)->anularVenta($venta, $requirioClave);
             return redirect()->route('ventas.show', $venta)->with('success', 'Venta anulada correctamente. El stock ha sido revertido.');
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    public function generarNotaCredito(Request $request, Venta $venta)
+    {
+        $request->validate([
+            'motivo_codigo' => 'required|string|size:2',
+        ]);
+
+        if (!array_key_exists($request->motivo_codigo, \App\Services\VentaService::MOTIVOS_NC)) {
+            return back()->with('error', 'Motivo de nota de crédito inválido.');
+        }
+
+        $requirioClave = $this->claveTiendaVerificada($venta);
+
+        try {
+            $nc = app(VentaService::class)->generarNotaCredito(
+                $venta,
+                $request->motivo_codigo,
+                $requirioClave
+            );
+
+            return redirect()
+                ->route('ventas.show', $nc)
+                ->with('success', "Nota de Crédito {$nc->codigo} generada correctamente. Envíala a SUNAT para completar el proceso.");
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function eliminarVenta(Request $request, Venta $venta)
+    {
+        $requirioClave = $this->claveTiendaVerificada($venta);
+
+        try {
+            app(VentaService::class)->eliminarVenta($venta, $requirioClave);
+            return redirect()->route('ventas.index')->with('success', 'Venta eliminada correctamente. El stock ha sido revertido.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Verificar contraseña propia para rol Tienda antes de acción sensible.
+     * POST /ventas/{venta}/verificar-clave — devuelve JSON
+     */
+    public function verificarClave(Request $request, Venta $venta)
+    {
+        $rol = auth()->user()->role->nombre;
+
+        // Admin no necesita verificar clave
+        if ($rol === 'Administrador') {
+            return response()->json(['ok' => true]);
+        }
+
+        $request->validate(['clave' => 'required|string']);
+
+        if (!Hash::check($request->clave, auth()->user()->password)) {
+            return response()->json(['ok' => false, 'mensaje' => 'Contraseña incorrecta.'], 422);
+        }
+
+        // Token válido por 3 minutos, de un solo uso
+        session(['venta_clave_ok.' . $venta->id => now()->addMinutes(3)->timestamp]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Bitácora de auditoría — solo Administrador
+     */
+    public function bitacora(Request $request)
+    {
+        $query = AuditoriaVenta::with('venta', 'usuario')
+            ->orderByDesc('created_at');
+
+        if ($request->filled('accion')) {
+            $query->where('accion', $request->accion);
+        }
+        if ($request->filled('usuario_id')) {
+            $query->where('usuario_id', $request->usuario_id);
+        }
+        if ($request->filled('desde')) {
+            $query->whereDate('created_at', '>=', $request->desde);
+        }
+        if ($request->filled('hasta')) {
+            $query->whereDate('created_at', '<=', $request->hasta);
+        }
+
+        $registros = $query->paginate(20)->withQueryString();
+
+        $usuarios = \App\Models\User::orderBy('name')->get(['id', 'name']);
+
+        return view('ventas.auditoria.index', compact('registros', 'usuarios'));
+    }
+
+    /**
+     * Helper: verifica si el token de clave ya fue validado para esta venta.
+     * - Admin → siempre true (no necesita clave)
+     * - Tienda → consume token de sesión (un solo uso)
+     * Retorna true si requirió clave (Tienda), false si es Admin.
+     */
+    private function claveTiendaVerificada(Venta $venta): bool
+    {
+        $rol = auth()->user()->role->nombre;
+
+        if ($rol === 'Administrador') {
+            return false; // Admin no necesita clave
+        }
+
+        $key       = 'venta_clave_ok.' . $venta->id;
+        $expiry    = session($key);
+
+        if (!$expiry || now()->timestamp > $expiry) {
+            abort(403, 'Se requiere verificación de contraseña para realizar esta acción.');
+        }
+
+        // Consumir token (un solo uso)
+        session()->forget($key);
+
+        return true; // Sí requirió clave (rol Tienda)
     }
 
     public function showCredito(Venta $venta)

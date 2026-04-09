@@ -12,6 +12,7 @@ use App\Models\MovimientoInventario;
 use App\Models\CuentaPorCobrar;
 use App\Models\CuotaCobro;
 use App\Models\PagoCredito;
+use App\Models\AuditoriaVenta;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -237,9 +238,9 @@ class VentaService
     }
 
     /**
-     * Editar campos no contables de una venta (tiempo limitado, solo Admin)
+     * Editar campos no contables de una venta (tiempo limitado)
      */
-    public function editarVenta(Venta $venta, array $datos): Venta
+    public function editarVenta(Venta $venta, array $datos, bool $requirioClave = false): Venta
     {
         if ($venta->estado_pago === 'anulado') {
             throw new \Exception('No se puede editar una venta anulada.');
@@ -260,25 +261,218 @@ class VentaService
         $camposPermitidos = ['observaciones', 'metodo_pago', 'fecha'];
         $actualizacion    = array_intersect_key($datos, array_flip($camposPermitidos));
 
-        Log::info('Venta editada', [
-            'venta_id'   => $venta->id,
-            'user_id'    => auth()->id(),
-            'cambios'    => $actualizacion,
-            'horas_desde_creacion' => $horasTranscurridas,
-        ]);
+        $datosAnteriores = $venta->only($camposPermitidos);
 
         $venta->update($actualizacion);
+
+        $this->registrarAuditoria($venta, 'editar', $datosAnteriores, $venta->fresh()->only($camposPermitidos), $requirioClave);
 
         return $venta->fresh();
     }
 
     /**
-     * Anular una venta (revertir stock)
+     * Eliminar (soft-delete) una venta — revierte stock y oculta de las listas normales
      */
-    public function anularVenta(Venta $venta): void
+    public function eliminarVenta(Venta $venta, bool $requirioClave = false): void
+    {
+        if ($venta->estado_pago === 'anulado') {
+            throw new \Exception('No se puede eliminar una venta ya anulada. Use la papelera directamente si lo necesita.');
+        }
+
+        // Si tiene cuenta por cobrar con pagos, no se puede eliminar
+        if ($venta->es_credito && $venta->cuentaPorCobrar) {
+            $cuenta = $venta->cuentaPorCobrar;
+            if ($cuenta->pagos()->count() > 0) {
+                throw new \Exception('No se puede eliminar esta venta: tiene pagos de crédito registrados. Anule los pagos primero.');
+            }
+        }
+
+        DB::transaction(function () use ($venta, $requirioClave) {
+            $datosAnteriores = $venta->only([
+                'codigo', 'estado_pago', 'estado_sunat', 'total', 'cliente_id', 'fecha', 'tipo_comprobante',
+            ]);
+
+            $this->revertirStock($venta, 'Eliminación de venta #' . $venta->codigo);
+
+            // Si es crédito sin pagos, anular la cuenta por cobrar y sus cuotas
+            if ($venta->es_credito && $venta->cuentaPorCobrar) {
+                $venta->cuentaPorCobrar->cuotas()->delete();
+                $venta->cuentaPorCobrar->update(['estado' => 'anulado']);
+            }
+
+            // Si estaba pagada, registrar egreso en caja (devolución)
+            if ($venta->estado_pago === 'pagado') {
+                $this->registrarEnCaja($venta, 'eliminacion');
+            }
+
+            $this->registrarAuditoria($venta, 'eliminar', $datosAnteriores, null, $requirioClave);
+
+            // SoftDelete — la venta desaparece de las listas normales
+            $venta->delete();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // SUNAT — Motivos de Nota de Crédito (tabla 10 UBL 2.1)
+    // ══════════════════════════════════════════════════════════════════
+    public const MOTIVOS_NC = [
+        '01' => 'Anulación de la operación',
+        '02' => 'Anulación por error en el RUC',
+        '03' => 'Corrección por error en la descripción',
+        '04' => 'Descuento global',
+        '05' => 'Descuento por ítem',
+        '06' => 'Devolución total',
+        '07' => 'Devolución por ítem',
+        '08' => 'Bonificación',
+        '09' => 'Disminución en el valor',
+        '10' => 'Otros conceptos',
+    ];
+
+    /**
+     * Generar Nota de Crédito para un comprobante ya aceptado por SUNAT.
+     * Esta es la ÚNICA forma válida de cancelar facturas/boletas aceptadas.
+     */
+    public function generarNotaCredito(Venta $venta, string $motivoCodigo, bool $requirioClave = false): Venta
+    {
+        if (!array_key_exists($motivoCodigo, self::MOTIVOS_NC)) {
+            throw new \Exception("Motivo de nota de crédito inválido: {$motivoCodigo}");
+        }
+
+        if ($venta->es_nota_credito) {
+            throw new \Exception('No se puede generar una nota de crédito sobre otra nota de crédito.');
+        }
+
+        if ($venta->estado_pago === 'cotizacion') {
+            throw new \Exception('Las cotizaciones no requieren nota de crédito.');
+        }
+
+        // Verificar que no tenga ya una NC de anulación activa
+        $ncExistente = $venta->notasCredito()
+            ->where('motivo_nc_codigo', '01')
+            ->where('estado_pago', '!=', 'anulado')
+            ->first();
+        if ($ncExistente) {
+            throw new \Exception("Ya existe una nota de crédito de anulación para este comprobante ({$ncExistente->codigo}).");
+        }
+
+        // Si tiene cuenta por cobrar con pagos, bloquear
+        if ($venta->es_credito && $venta->cuentaPorCobrar && $venta->cuentaPorCobrar->pagos()->count() > 0) {
+            throw new \Exception('No se puede generar NC: la venta tiene pagos de crédito registrados. Gestione la devolución manualmente.');
+        }
+
+        return DB::transaction(function () use ($venta, $motivoCodigo, $requirioClave) {
+            $tipoNc      = $venta->tipo_comprobante === 'factura' ? 'nc_factura' : 'nc_boleta';
+            $motivoDesc  = self::MOTIVOS_NC[$motivoCodigo];
+
+            // Buscar serie de NC correspondiente al tipo de comprobante de origen
+            $serieNc = \App\Models\SerieComprobante::where('sucursal_id', $venta->sucursal_id)
+                ->where('tipo_comprobante', $tipoNc)
+                ->where('activo', true)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$serieNc) {
+                throw new \Exception(
+                    "No existe una serie activa de {$tipoNc} para esta sucursal. " .
+                    "Configure la serie en Administración → Series de Comprobantes."
+                );
+            }
+
+            $correlativo = $serieNc->correlativo_actual + 1;
+            $serieNc->update(['correlativo_actual' => $correlativo]);
+
+            $datosAnteriores = $venta->only(['codigo', 'estado_pago', 'estado_sunat', 'total']);
+
+            // Crear el registro de la Nota de Crédito
+            $nc = Venta::create([
+                'codigo'                 => 'NC-' . str_pad($correlativo, 5, '0', STR_PAD_LEFT),
+                'user_id'                => auth()->id(),
+                'cliente_id'             => $venta->cliente_id,
+                'almacen_id'             => $venta->almacen_id,
+                'sucursal_id'            => $venta->sucursal_id,
+                'serie_comprobante_id'   => $serieNc->id,
+                'correlativo'            => $correlativo,
+                'fecha'                  => now()->toDateString(),
+                'subtotal'               => $venta->subtotal,
+                'igv'                    => $venta->igv,
+                'total'                  => $venta->total,
+                'tipo_comprobante'       => $tipoNc,
+                'estado_pago'            => 'pagado',
+                'estado_sunat'           => 'pendiente_envio',
+                'condicion_pago'         => 'contado',
+                'venta_origen_id'        => $venta->id,
+                'motivo_nc_codigo'       => $motivoCodigo,
+                'motivo_nc_descripcion'  => $motivoDesc,
+                'observaciones'          => "NC {$motivoDesc} — Ref: {$venta->numero_documento}",
+            ]);
+
+            // Copiar los detalles del comprobante original
+            $venta->load('detalles');
+            foreach ($venta->detalles as $det) {
+                \App\Models\DetalleVenta::create([
+                    'venta_id'        => $nc->id,
+                    'producto_id'     => $det->producto_id,
+                    'variante_id'     => $det->variante_id,
+                    'cantidad'        => $det->cantidad,
+                    'precio_unitario' => $det->precio_unitario,
+                    'subtotal'        => $det->subtotal,
+                ]);
+            }
+
+            // Si la NC es por anulación (motivo 01 o 06 = devolución total) → revertir stock
+            if (in_array($motivoCodigo, ['01', '02', '06'])) {
+                $this->revertirStock($venta, 'Nota de Crédito #' . $nc->codigo);
+
+                // Marcar comprobante original como anulado
+                $venta->update([
+                    'estado_pago'  => 'anulado',
+                    'estado_sunat' => 'anulado_baja', // marcar que fue resuelto vía NC
+                ]);
+
+                // Si es crédito sin pagos, cerrar la cuenta
+                if ($venta->es_credito && $venta->cuentaPorCobrar) {
+                    $venta->cuentaPorCobrar->cuotas()->delete();
+                    $venta->cuentaPorCobrar->update(['estado' => 'anulado']);
+                }
+
+                // Si estaba pagada → registrar egreso en caja
+                if ($venta->estado_pago === 'pagado') {
+                    $this->registrarEnCaja($venta, 'nota_credito');
+                }
+            }
+
+            $this->registrarAuditoria($venta, 'anular', $datosAnteriores, ['nc_generada' => $nc->codigo], $requirioClave);
+
+            Log::info('Nota de Crédito generada', [
+                'nc_id'          => $nc->id,
+                'nc_codigo'      => $nc->codigo,
+                'venta_origen'   => $venta->codigo,
+                'motivo_codigo'  => $motivoCodigo,
+                'motivo_desc'    => $motivoDesc,
+                'user_id'        => auth()->id(),
+            ]);
+
+            return $nc->fresh(['ventaOrigen', 'serieComprobante', 'detalles.producto']);
+        });
+    }
+
+    /**
+     * Anular una venta (revertir stock)
+     * ⚠ Solo válido si el comprobante NO ha sido aceptado por SUNAT.
+     * Si ya fue aceptado, usar generarNotaCredito().
+     */
+    public function anularVenta(Venta $venta, bool $requirioClave = false): void
     {
         if (in_array($venta->estado_pago, ['anulado', 'cotizacion'])) {
             throw new \Exception('Esta venta ya está anulada o es una cotización.');
+        }
+
+        // Bloquear si ya fue aceptada por SUNAT — debe usarse Nota de Crédito
+        if ($venta->es_aceptado_sunat) {
+            throw new \Exception(
+                'Este comprobante fue aceptado por SUNAT y no puede anularse directamente. ' .
+                'Debes generar una Nota de Crédito (motivo 01 - Anulación).'
+            );
         }
 
         // Si tiene cuenta por cobrar con pagos, no se puede anular
@@ -289,44 +483,12 @@ class VentaService
             }
         }
 
-        DB::transaction(function () use ($venta) {
-            // Revertir stock de cada detalle
-            $venta->load('detalles');
-            foreach ($venta->detalles as $detalle) {
-                $stock = StockAlmacen::firstOrCreate(
-                    [
-                        'producto_id' => $detalle->producto_id,
-                        'almacen_id'  => $venta->almacen_id,
-                    ],
-                    ['cantidad' => 0]
-                );
+        DB::transaction(function () use ($venta, $requirioClave) {
+            $datosAnteriores = $venta->only([
+                'codigo', 'estado_pago', 'estado_sunat', 'total', 'cliente_id', 'fecha', 'tipo_comprobante',
+            ]);
 
-                $stockAnterior = $stock->cantidad;
-                $stock->increment('cantidad', $detalle->cantidad);
-
-                // Si tenía IMEIs, devolverlos
-                if ($detalle->imei_id) {
-                    Imei::where('id', $detalle->imei_id)
-                        ->update([
-                            'estado_imei'      => 'en_stock',
-                            'venta_id'         => null,
-                            'detalle_venta_id' => null,
-                            'fecha_venta'      => null,
-                        ]);
-                }
-
-                MovimientoInventario::create([
-                    'producto_id'     => $detalle->producto_id,
-                    'almacen_id'      => $venta->almacen_id,
-                    'user_id'         => auth()->id(),
-                    'tipo_movimiento' => 'ingreso',
-                    'cantidad'        => $detalle->cantidad,
-                    'stock_anterior'  => $stockAnterior,
-                    'stock_nuevo'     => $stock->cantidad,
-                    'motivo'          => 'Anulación de venta #' . $venta->codigo,
-                    'estado'          => 'completado',
-                ]);
-            }
+            $this->revertirStock($venta, 'Anulación de venta #' . $venta->codigo);
 
             // Si es crédito sin pagos, anular la cuenta por cobrar y sus cuotas
             if ($venta->es_credito && $venta->cuentaPorCobrar) {
@@ -340,7 +502,69 @@ class VentaService
             }
 
             $venta->update(['estado_pago' => 'anulado']);
+
+            $this->registrarAuditoria($venta, 'anular', $datosAnteriores, $venta->fresh()->only(['estado_pago']), $requirioClave);
         });
+    }
+
+    /**
+     * Revertir stock de todos los detalles de una venta.
+     * Reutilizado por anularVenta, eliminarVenta y generarNotaCredito.
+     */
+    private function revertirStock(Venta $venta, string $motivo): void
+    {
+        $venta->load('detalles');
+        foreach ($venta->detalles as $detalle) {
+            $stock = StockAlmacen::firstOrCreate(
+                ['producto_id' => $detalle->producto_id, 'almacen_id' => $venta->almacen_id],
+                ['cantidad' => 0]
+            );
+
+            $stockAnterior = $stock->cantidad;
+            $stock->increment('cantidad', $detalle->cantidad);
+
+            if ($detalle->imei_id) {
+                Imei::where('id', $detalle->imei_id)->update([
+                    'estado_imei'      => 'en_stock',
+                    'venta_id'         => null,
+                    'detalle_venta_id' => null,
+                    'fecha_venta'      => null,
+                ]);
+            }
+
+            MovimientoInventario::create([
+                'producto_id'     => $detalle->producto_id,
+                'almacen_id'      => $venta->almacen_id,
+                'user_id'         => auth()->id(),
+                'tipo_movimiento' => 'ingreso',
+                'cantidad'        => $detalle->cantidad,
+                'stock_anterior'  => $stockAnterior,
+                'stock_nuevo'     => $stock->cantidad,
+                'motivo'          => $motivo,
+                'estado'          => 'completado',
+            ]);
+        }
+    }
+
+    /**
+     * Registrar una entrada en la bitácora de auditoría
+     */
+    private function registrarAuditoria(
+        Venta $venta,
+        string $accion,
+        array $datosAnteriores,
+        ?array $datosNuevos,
+        bool $requirioClave
+    ): void {
+        AuditoriaVenta::create([
+            'venta_id'         => $venta->id,
+            'usuario_id'       => auth()->id(),
+            'accion'           => $accion,
+            'datos_anteriores' => $datosAnteriores,
+            'datos_nuevos'     => $datosNuevos,
+            'requirio_clave'   => $requirioClave,
+            'ip_address'       => request()->ip(),
+        ]);
     }
 
     /**

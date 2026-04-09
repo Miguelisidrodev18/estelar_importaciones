@@ -112,10 +112,14 @@
                                     <i class="fas fa-users mr-3 text-sm"></i>Clientes
                                 </a>
                             </li>
+                            @php $mostrarNuevo = \Carbon\Carbon::now()->lt(\Carbon\Carbon::parse('2026-05-10')); @endphp
                             <li>
                                 <a href="{{ route('ventas.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.index') || request()->routeIs('ventas.show') || request()->routeIs('ventas.create') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-receipt mr-3 text-sm"></i>Registrar Ventas
+                                    @if($mostrarNuevo)
+                                    <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">NUEVO</span>
+                                    @endif
                                 </a>
                             </li>
                             <li>
@@ -134,6 +138,18 @@
                                 <a href="{{ route('cuentas-por-cobrar.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cuentas-por-cobrar.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-hand-holding-usd mr-3 text-sm"></i>Cuentas por Cobrar
+                                    @if($mostrarNuevo)
+                                    <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">NUEVO</span>
+                                    @endif
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('ventas.auditoria') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.auditoria') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-clipboard-list mr-3 text-sm"></i>Bitácora de Ventas
+                                    @if($mostrarNuevo)
+                                    <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">NUEVO</span>
+                                    @endif
                                 </a>
                             </li>
                         </ul>

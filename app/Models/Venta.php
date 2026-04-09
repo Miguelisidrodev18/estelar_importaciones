@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Venta extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'codigo',
@@ -27,6 +28,10 @@ class Venta extends Model
         'placa_vehiculo',
         'pagos_detalle',
         'estado_pago',
+        'estado_sunat',
+        'venta_origen_id',
+        'motivo_nc_codigo',
+        'motivo_nc_descripcion',
         'usuario_confirma_id',
         'fecha_confirmacion',
         'observaciones',
@@ -106,6 +111,53 @@ class Venta extends Model
     public function cuentaPorCobrar()
     {
         return $this->hasOne(CuentaPorCobrar::class);
+    }
+
+    public function auditoria()
+    {
+        return $this->hasMany(AuditoriaVenta::class)->orderByDesc('created_at');
+    }
+
+    /** Nota(s) de crédito emitidas contra este comprobante */
+    public function notasCredito()
+    {
+        return $this->hasMany(Venta::class, 'venta_origen_id');
+    }
+
+    /** Comprobante de origen (para NC) */
+    public function ventaOrigen()
+    {
+        return $this->belongsTo(Venta::class, 'venta_origen_id')->withTrashed();
+    }
+
+    // ── Helpers de estado SUNAT ──
+
+    /** ¿Ya fue aceptado por SUNAT? → solo se cancela con NC */
+    public function getEsAceptadoSunatAttribute(): bool
+    {
+        return $this->estado_sunat === 'aceptado';
+    }
+
+    /** ¿Se puede anular directamente (no enviado a SUNAT aún)? */
+    public function getPuedeAnularDirectoAttribute(): bool
+    {
+        return in_array($this->estado_sunat, ['pendiente_envio', 'rechazado', 'no_aplica']);
+    }
+
+    /** ¿Es una nota de crédito? */
+    public function getEsNotaCreditoAttribute(): bool
+    {
+        return in_array($this->tipo_comprobante, ['nc_factura', 'nc_boleta']);
+    }
+
+    /** Número SUNAT de la NC: serie-correlativo */
+    public function getNumeroNcAttribute(): ?string
+    {
+        if (!$this->es_nota_credito) return null;
+        if ($this->serieComprobante && $this->correlativo) {
+            return $this->serieComprobante->serie . '-' . str_pad($this->correlativo, 8, '0', STR_PAD_LEFT);
+        }
+        return null;
     }
 
     public function scopePendientes($query)

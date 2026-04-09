@@ -344,6 +344,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [VentaController::class, 'store'])->name('store');
         Route::get('/cotizaciones', [VentaController::class, 'cotizaciones'])->name('cotizaciones');
         Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
+        // Bitácora de auditoría (solo Admin) — debe ir antes del wildcard /{venta}
+        Route::get('/auditoria', [VentaController::class, 'bitacora'])->middleware('role:Administrador')->name('auditoria');
         Route::get('/{venta}', [VentaController::class, 'show'])->name('show');
         Route::get('/{venta}/pdf', [VentaController::class, 'pdf'])->name('pdf');
         Route::get('/{venta}/guia-pdf', [VentaController::class, 'guiaPdf'])->name('guia-pdf');
@@ -352,11 +354,17 @@ Route::middleware('auth')->group(function () {
         // Crédito
         Route::get('/{venta}/credito', [VentaController::class, 'showCredito'])->name('credito.show');
         Route::post('/{venta}/credito/pago', [VentaController::class, 'registrarPagoCredito'])->middleware('role:Administrador,Tienda')->name('credito.pago');
-        // Edición limitada (solo Administrador, dentro de ventana de tiempo)
-        Route::get('/{venta}/edit', [VentaController::class, 'editVenta'])->middleware('role:Administrador')->name('edit');
-        Route::put('/{venta}', [VentaController::class, 'updateVenta'])->middleware('role:Administrador')->name('update');
-        // Anulación
-        Route::post('/{venta}/anular', [VentaController::class, 'anularVenta'])->middleware('role:Administrador')->name('anular');
+        // Verificación de clave (Tienda debe confirmar su contraseña antes de editar/anular/eliminar)
+        Route::post('/{venta}/verificar-clave', [VentaController::class, 'verificarClave'])->middleware('role:Administrador,Tienda')->name('verificar-clave');
+        // Nota de Crédito SUNAT (Admin + Tienda con clave)
+        Route::post('/{venta}/nota-credito', [VentaController::class, 'generarNotaCredito'])->middleware('role:Administrador,Tienda')->name('nota-credito');
+        // Edición limitada (Admin + Tienda con clave, dentro de ventana de tiempo)
+        Route::get('/{venta}/edit', [VentaController::class, 'editVenta'])->middleware('role:Administrador,Tienda')->name('edit');
+        Route::put('/{venta}', [VentaController::class, 'updateVenta'])->middleware('role:Administrador,Tienda')->name('update');
+        // Anulación (Admin + Tienda con clave)
+        Route::post('/{venta}/anular', [VentaController::class, 'anularVenta'])->middleware('role:Administrador,Tienda')->name('anular');
+        // Eliminación soft-delete (Admin + Tienda con clave)
+        Route::delete('/{venta}', [VentaController::class, 'eliminarVenta'])->middleware('role:Administrador,Tienda')->name('destroy');
     });
 
     // Cuentas por cobrar (crédito a clientes)

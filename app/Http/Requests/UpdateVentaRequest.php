@@ -14,8 +14,8 @@ class UpdateVentaRequest extends FormRequest
 
         if (!$venta) return false;
 
-        // Solo Administrador puede editar
-        if (auth()->user()->role->nombre !== 'Administrador') {
+        // Solo Administrador y Tienda pueden editar
+        if (!in_array(auth()->user()->role->nombre, ['Administrador', 'Tienda'])) {
             return false;
         }
 

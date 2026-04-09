@@ -95,6 +95,31 @@
         </div>
     </header>
 
+    {{-- ════════════════════════════════════════
+         ALERTAS DE CAJA
+    ════════════════════════════════════════ --}}
+    @if(!$cajaAbierta)
+    <div class="bg-red-600 text-white text-sm font-semibold px-4 py-2.5 flex items-center gap-3 shrink-0">
+        <i class="fas fa-lock text-base"></i>
+        <span class="flex-1">Caja cerrada — No puedes registrar ventas de contado hasta abrir tu caja.</span>
+        <a href="{{ route('caja.actual') }}"
+           class="bg-white text-red-700 hover:bg-red-50 px-3 py-1 rounded-lg text-xs font-bold transition-colors whitespace-nowrap">
+            <i class="fas fa-cash-register mr-1"></i>Abrir Caja
+        </a>
+    </div>
+    @elseif($cajaDiaAnterior)
+    <div class="bg-amber-500 text-white text-sm font-semibold px-4 py-2.5 flex items-center gap-3 shrink-0">
+        <i class="fas fa-exclamation-triangle text-base"></i>
+        <span class="flex-1">
+            La caja abierta es del día <strong>{{ $cajaActual->fecha->format('d/m/Y') }}</strong> — Ciérrala y abre una nueva para registrar ventas de hoy correctamente.
+        </span>
+        <a href="{{ route('caja.actual') }}"
+           class="bg-white text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg text-xs font-bold transition-colors whitespace-nowrap">
+            <i class="fas fa-cash-register mr-1"></i>Ver Caja
+        </a>
+    </div>
+    @endif
+
     {{-- ============================
          3-COLUMN BODY
     ============================== --}}
@@ -689,8 +714,17 @@
                     </div>
                 </div>
 
+                {{-- Aviso inline: caja cerrada (solo para ventas contado) --}}
+                <template x-if="!cajaAbierta && orden.tipoComprobante !== 'cotizacion' && orden.condicionPago !== 'credito'">
+                    <div class="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-1">
+                        <i class="fas fa-lock"></i>
+                        <span>Abre tu caja para cobrar ventas</span>
+                        <a href="{{ route('caja.actual') }}" class="ml-auto font-bold underline hover:no-underline whitespace-nowrap">Abrir caja</a>
+                    </div>
+                </template>
+
                 <button @click="procesarPago()"
-                        :disabled="orden.carrito.length === 0 || !orden.almacenId || guardando"
+                        :disabled="orden.carrito.length === 0 || !orden.almacenId || guardando || (!cajaAbierta && orden.tipoComprobante !== 'cotizacion' && orden.condicionPago !== 'credito')"
                         :class="{
                             'bg-amber-500 hover:bg-amber-600 shadow-amber-200 dark:shadow-amber-900/30': orden.tipoComprobante === 'cotizacion',
                             'bg-orange-600 hover:bg-orange-700 shadow-orange-200 dark:shadow-orange-900/30': orden.condicionPago === 'credito' && orden.tipoComprobante !== 'cotizacion',
@@ -704,7 +738,11 @@
                         <span x-show="!guardando"><i class="fas fa-calendar-check mr-1"></i>Emitir a Crédito <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
                     </template>
                     <template x-if="orden.tipoComprobante !== 'cotizacion' && orden.condicionPago !== 'credito'">
-                        <span x-show="!guardando"><i class="fas fa-cash-register mr-1"></i>Cobrar <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
+                        <span x-show="!guardando">
+                            <i class="fas" :class="cajaAbierta ? 'fa-cash-register' : 'fa-lock'"></i>
+                            <span x-text="cajaAbierta ? 'Cobrar' : 'Caja cerrada'"></span>
+                            <kbd x-show="cajaAbierta" class="text-sm opacity-70 font-normal ml-1">F4</kbd>
+                        </span>
                     </template>
                     <span x-show="guardando" x-cloak><i class="fas fa-spinner fa-spin mr-1"></i> Procesando...</span>
                 </button>
@@ -1433,9 +1471,13 @@ function posApp() {
         get totalPagado() { return this.orden.pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0); },
         get vuelto()      { return Math.max(0, this.totalPagado - this.total); },
         get falta()       { return Math.max(0, this.total - this.totalPagado); },
+        cajaAbierta: {{ $cajaAbierta ? 'true' : 'false' }},
+
         get puedePagar()  {
             if (this.orden.tipoComprobante === 'cotizacion') return true;
             if (this.orden.condicionPago === 'credito') return !!this.orden.clienteId;
+            // Ventas contado requieren caja abierta
+            if (!this.cajaAbierta) return false;
             if (this.orden.pagos.length === 1 && this.orden.pagos[0].monto === 0) return true;
             return this.totalPagado >= this.total;
         },
@@ -1493,7 +1535,7 @@ function posApp() {
                     e.preventDefault();
                     if (this.orden.carrito.length > 0 && !this.guardando) this.procesarPago();
                 }
-                // F9: close caja
+                // F9: ir a caja
                 if (e.key === 'F9') { e.preventDefault(); window.location.href = '{{ route("caja.actual") }}'; }
                 // Ctrl+E: efectivo
                 if (e.ctrlKey && e.key === 'e') { e.preventDefault(); this.seleccionarMetodoPago('efectivo'); }
@@ -1692,6 +1734,11 @@ function posApp() {
         procesarPago() {
             if (this.orden.carrito.length === 0) { this.toast('warning', 'Agrega productos al carrito'); return; }
             if (!this.orden.almacenId) { this.toast('warning', 'Selecciona un almacén'); return; }
+            // Bloquear ventas contado sin caja abierta
+            if (!this.cajaAbierta && this.orden.tipoComprobante !== 'cotizacion' && this.orden.condicionPago !== 'credito') {
+                this.toast('error', 'Debes abrir tu caja antes de registrar ventas de contado');
+                return;
+            }
 
             // ── Validación de cliente obligatorio (boleta y factura) ──
             if (this.orden.tipoComprobante !== 'cotizacion' && !this.orden.clienteId) {

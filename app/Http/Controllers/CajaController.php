@@ -68,8 +68,16 @@ class CajaController extends Controller
 
         $user = auth()->user();
         $almacen = $user->almacen ?? null;
+        $almacenes = collect();
 
-        return view('caja.abrir', compact('almacen'));
+        // Admin sin almacén fijo: puede elegir en qué almacén trabajar
+        if (!$almacen && $user->role->nombre === 'Administrador') {
+            $almacenes = \App\Models\Almacen::where('estado', 'activo')
+                ->orderBy('nombre')
+                ->get();
+        }
+
+        return view('caja.abrir', compact('almacen', 'almacenes'));
     }
 
     /**
@@ -79,13 +87,14 @@ class CajaController extends Controller
     {
         $validated = $request->validate([
             'monto_inicial'    => 'required|numeric|min:0',
+            'almacen_id'       => 'nullable|exists:almacenes,id',
             'observaciones'    => 'nullable|string|max:500',
         ]);
 
         try {
             $this->cajaService->abrirCaja(
                 auth()->id(),
-                null, // almacen_id auto desde usuario
+                isset($validated['almacen_id']) ? (int) $validated['almacen_id'] : null,
                 (float) $validated['monto_inicial'],
                 $validated['observaciones'] ?? null
             );
