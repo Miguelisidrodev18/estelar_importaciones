@@ -80,18 +80,43 @@
                             @enderror
                         </div>
 
-                        {{{-- Almacén/Tienda --}}
+                        {{-- Sucursal --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Almacén/Tienda</label>
-                            <select name="almacen_id" 
-                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                <option value="">Sin asignar</option>
-                                @foreach($almacenes as $almacen)
-                                    <option value="{{ $almacen->id }}" {{ old('almacen_id', $user->almacen_id) == $almacen->id ? 'selected' : '' }}>
-                                        {{ $almacen->nombre }}
-                                    </option>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Sucursal</label>
+                            <select id="sucursal_sel"
+                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onchange="onSucursalChange(this.value)">
+                                <option value="">— Sin sucursal —</option>
+                                @foreach($sucursales as $suc)
+                                    @php
+                                        $currentSucursalId = old('sucursal_edit', $user->almacen?->sucursal_id);
+                                        $preselect = ($currentSucursalId == $suc->id) ? 'selected' : '';
+                                    @endphp
+                                    <option value="{{ $suc->id }}" {{ $preselect }}>{{ $suc->nombre }}</option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        {{-- Almacén (cascada) --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Almacén / Tienda</label>
+
+                            <div id="almacen_wrap" class="hidden">
+                                <select id="almacen_sel"
+                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        onchange="document.getElementById('almacen_id_hidden').value = this.value">
+                                    <option value="">Seleccione un almacén</option>
+                                </select>
+                            </div>
+
+                            <div id="almacen_unico_info" class="hidden items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                                <i class="fas fa-warehouse text-blue-500"></i>
+                                <span id="almacen_unico_nombre" class="font-medium text-blue-900"></span>
+                                <span class="text-xs text-blue-400 ml-auto">Auto-seleccionado</span>
+                            </div>
+
+                            <input type="hidden" name="almacen_id" id="almacen_id_hidden"
+                                   value="{{ old('almacen_id', $user->almacen_id) }}">
                             @error('almacen_id')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                             @enderror
@@ -134,5 +159,72 @@
             </div>
         </div>
     </div>
+
+    <script>
+        const sucursalAlmacenesMap = @json(
+            $sucursales->mapWithKeys(fn($s) => [
+                $s->id => $s->almacenes->map(fn($a) => ['id' => $a->id, 'nombre' => $a->nombre])->values()
+            ])
+        );
+
+        function onSucursalChange(sucursalId) {
+            const wrap        = document.getElementById('almacen_wrap');
+            const sel         = document.getElementById('almacen_sel');
+            const infoUnico   = document.getElementById('almacen_unico_info');
+            const nombreUnico = document.getElementById('almacen_unico_nombre');
+            const hidden      = document.getElementById('almacen_id_hidden');
+
+            wrap.classList.add('hidden');
+            infoUnico.classList.add('hidden');
+            infoUnico.classList.remove('flex');
+            sel.innerHTML = '<option value="">Seleccione un almacén</option>';
+
+            if (!sucursalId) {
+                hidden.value = '';
+                return;
+            }
+
+            const almacenes  = sucursalAlmacenesMap[sucursalId] || [];
+            const prevAlmacen = hidden.value;
+
+            if (almacenes.length === 1) {
+                hidden.value            = almacenes[0].id;
+                nombreUnico.textContent = almacenes[0].nombre;
+                infoUnico.classList.remove('hidden');
+                infoUnico.classList.add('flex');
+
+            } else if (almacenes.length > 1) {
+                almacenes.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = a.nombre;
+                    sel.appendChild(opt);
+                });
+                // Restaurar selección previa si pertenece a esta sucursal
+                if (prevAlmacen && almacenes.some(a => String(a.id) === String(prevAlmacen))) {
+                    sel.value = prevAlmacen;
+                } else {
+                    hidden.value = '';
+                }
+                wrap.classList.remove('hidden');
+            } else {
+                hidden.value = '';
+            }
+        }
+
+        // Disparar al cargar para restaurar el estado actual del usuario
+        (function () {
+            const sel = document.getElementById('sucursal_sel');
+            if (sel && sel.value) {
+                onSucursalChange(sel.value);
+                // Asegurar que el almacén correcto quede seleccionado
+                const prev    = '{{ old('almacen_id', $user->almacen_id) }}';
+                const almSel  = document.getElementById('almacen_sel');
+                const hidden  = document.getElementById('almacen_id_hidden');
+                if (almSel && prev) almSel.value = prev;
+                if (hidden && prev) hidden.value  = prev;
+            }
+        })();
+    </script>
 </body>
 </html>

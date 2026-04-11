@@ -47,16 +47,34 @@ class AdminCajaController extends Controller
         // Estado por sucursal
         $sucursales = Sucursal::where('estado', true)->with('almacen')->get();
         $estadoSucursales = $sucursales->map(function ($suc) use ($cajasAbiertas) {
-            $cajaAbierta  = $cajasAbiertas->where('sucursal_id', $suc->id)->first();
-            $ultimaCaja   = Caja::where('sucursal_id', $suc->id)->latest('fecha_apertura')->first();
-            $horasAbierta = $cajaAbierta ? now()->diffInHours($cajaAbierta->fecha_apertura) : null;
-            $alerta       = $cajaAbierta && $horasAbierta > 12;
+            $cajaAbierta = $cajasAbiertas->where('sucursal_id', $suc->id)->first();
+            $ultimaCaja  = Caja::where('sucursal_id', $suc->id)->latest('fecha_apertura')->first();
+
+            $tiempoAbierta = null;
+            $totalMinutos  = 0;
+            if ($cajaAbierta) {
+                $apertura     = \Carbon\Carbon::parse($cajaAbierta->fecha_apertura ?? $cajaAbierta->fecha);
+                $totalMinutos = (int) $apertura->diffInMinutes(now());
+                $dias         = intdiv($totalMinutos, 1440);
+                $horas        = intdiv($totalMinutos % 1440, 60);
+                $minutos      = $totalMinutos % 60;
+
+                if ($dias > 0) {
+                    $tiempoAbierta = "{$dias}d {$horas}h {$minutos}m";
+                } elseif ($horas > 0) {
+                    $tiempoAbierta = "{$horas}h {$minutos}m";
+                } else {
+                    $tiempoAbierta = "{$minutos}m";
+                }
+            }
+
+            $alerta = $cajaAbierta && $totalMinutos > 720; // > 12 horas
 
             return [
                 'sucursal'      => $suc,
                 'caja_abierta'  => $cajaAbierta,
                 'ultima_caja'   => $ultimaCaja,
-                'horas_abierta' => $horasAbierta,
+                'horas_abierta' => $tiempoAbierta,
                 'alerta'        => $alerta,
                 'estado_label'  => $cajaAbierta ? ($alerta ? 'warning' : 'open') : 'closed',
             ];

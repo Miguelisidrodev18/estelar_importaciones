@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Almacen;
+use App\Models\Sucursal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -16,20 +17,13 @@ class UserController extends Controller
      * Display a listing of the resource.
      */
     public function index()
-{
-    $users = User::with('role') // Asegúrate de cargar la relación
-        ->orderBy('name')
-        ->paginate(15);
-    
-    // Para debug: verificar usuarios sin rol
-    $usersSinRol = User::whereNull('role_id')->orWhereDoesntHave('role')->get();
-    if ($usersSinRol->count() > 0) {
-        // Puedes loguearlo o mostrarlo temporalmente
-        \Log::warning('Usuarios sin rol: ' . $usersSinRol->pluck('name'));
+    {
+        $users = User::with(['role', 'almacen.sucursal'])
+            ->orderBy('name')
+            ->paginate(15);
+
+        return view('users.index', compact('users'));
     }
-    
-    return view('users.index', compact('users'));
-}
 
     /**
      * Show the form for creating a new resource.
@@ -37,9 +31,12 @@ class UserController extends Controller
     public function create()
     {
         $roles = Role::orderBy('nombre')->get();
-        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
-        
-        return view('users.create', compact('roles', 'almacenes'));
+        $sucursales = Sucursal::where('estado', 'activo')
+            ->with(['almacenes' => fn($q) => $q->where('estado', 'activo')->orderBy('nombre')])
+            ->orderBy('nombre')
+            ->get();
+
+        return view('users.create', compact('roles', 'sucursales'));
     }
 
     /**
@@ -93,10 +90,14 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
+        $user->load('almacen.sucursal');
         $roles = Role::orderBy('nombre')->get();
-        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
-        
-        return view('users.edit', compact('user', 'roles', 'almacenes'));
+        $sucursales = Sucursal::where('estado', 'activo')
+            ->with(['almacenes' => fn($q) => $q->where('estado', 'activo')->orderBy('nombre')])
+            ->orderBy('nombre')
+            ->get();
+
+        return view('users.edit', compact('user', 'roles', 'sucursales'));
     }
 
     /**

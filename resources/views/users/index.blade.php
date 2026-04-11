@@ -44,7 +44,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Almacén/Tienda</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal / Almacén</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                     </tr>
@@ -81,7 +81,21 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-sm">{{ $user->almacen->nombre ?? '-' }}</td>
+                        <td class="px-6 py-4 text-sm">
+                            @if($user->almacen)
+                                @if($user->almacen->sucursal)
+                                    <p class="font-medium text-gray-900">{{ $user->almacen->sucursal->nombre }}</p>
+                                    <p class="text-xs text-gray-500">
+                                        <i class="fas fa-warehouse mr-1"></i>{{ $user->almacen->nombre }}
+                                    </p>
+                                @else
+                                    <p class="text-gray-700">{{ $user->almacen->nombre }}</p>
+                                    <p class="text-xs text-gray-400 italic">Sin sucursal</p>
+                                @endif
+                            @else
+                                <span class="text-gray-400 italic">Sin asignar</span>
+                            @endif
+                        </td>
                         <td class="px-6 py-4">
                             <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $user->estado == 'activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
                                 {{ ucfirst($user->estado) }}
