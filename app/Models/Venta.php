@@ -185,10 +185,15 @@ class Venta extends Model
         });
     }
 
-    public static function generarCodigo()
+    public static function generarCodigo(): string
     {
-        $ultimo = self::latest('id')->first();
-        $numero = $ultimo ? $ultimo->id + 1 : 1;
+        // Incluir registros soft-deleted para evitar colisiones con códigos ya usados
+        $maxNum = self::withTrashed()
+            ->selectRaw("MAX(CAST(SUBSTRING(codigo, 5) AS UNSIGNED)) as n")
+            ->whereRaw("codigo REGEXP '^VEN-[0-9]+$'")
+            ->value('n');
+
+        $numero = ($maxNum ?? 0) + 1;
         return 'VEN-' . str_pad($numero, 5, '0', STR_PAD_LEFT);
     }
 }
