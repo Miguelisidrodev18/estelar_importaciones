@@ -83,7 +83,12 @@ class CompraController extends Controller
 
         $colores    = Color::where('estado', 'activo')->orderBy('nombre')->get();
         $categorias = Categoria::activas()->orderBy('nombre')->get();
-        $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get(['id', 'nombre', 'almacen_id']);
+
+        // Sucursales con sus almacenes activos para el selector en cascada
+        $sucursales = Sucursal::where('estado', 'activo')
+            ->with(['almacenes' => fn($q) => $q->where('estado', 'activo')->orderBy('nombre')])
+            ->orderBy('nombre')
+            ->get();
 
         return view('compras.create', compact('proveedores', 'almacenes', 'productos', 'colores', 'marcas', 'categorias', 'sucursales'));
     }
@@ -326,46 +331,62 @@ class CompraController extends Controller
 
     public function edit(Compra $compra)
     {
-        // Solo permitir editar si está en estado 'pendiente' o 'borrador'
-        if (!in_array($compra->estado, ['pendiente', 'borrador'])) {
+        // Solo permitir editar si no está anulada
+        if ($compra->estado === 'anulado') {
             return redirect()
                 ->route('compras.show', $compra)
-                ->with('error', 'No se puede editar una compra procesada o anulada');
+                ->with('error', 'No se puede editar una compra anulada');
         }
 
         // Cargar relaciones necesarias
-        $compra->load('detalles.producto');
-        
+        $compra->load(['detalles.producto', 'almacen.sucursal']);
+
         $proveedores = Proveedor::where('estado', 'activo')
-            ->orderBy('razon_social') // 🔴 Cambiado de 'nombre' a 'razon_social'
+            ->orderBy('razon_social')
             ->get();
-            
-        $almacenes = Almacen::where('estado', 'activo')
+
+        $sucursales = Sucursal::where('estado', 'activo')
+            ->with(['almacenes' => fn($q) => $q->where('estado', 'activo')->orderBy('nombre')])
             ->orderBy('nombre')
             ->get();
-        
-        return view('compras.edit', compact('compra', 'proveedores', 'almacenes'));
+
+        return view('compras.edit', compact('compra', 'proveedores', 'sucursales'));
     }
 
     public function update(Request $request, Compra $compra)
     {
-        // Solo permitir editar compras pendientes o borrador
-        if (!in_array($compra->estado, ['pendiente', 'borrador'])) {
-            return back()->with('error', 'No se puede editar una compra procesada o anulada');
+        // No se puede editar una compra anulada
+        if ($compra->estado === 'anulado') {
+            return back()->with('error', 'No se puede editar una compra anulada');
         }
 
         $validated = $request->validate([
-            'almacen_id' => 'required|exists:almacenes,id',
-            'fecha' => 'required|date',
-            'observaciones' => 'nullable|string',
+            'proveedor_id'              => 'required|exists:proveedores,id',
+            'numero_factura'            => 'required|string|max:50',
+            'almacen_id'                => 'required|exists:almacenes,id',
+            'fecha'                     => 'required|date',
+            'forma_pago'                => 'required|in:contado,credito',
+            'condicion_pago'            => 'nullable|integer|min:1|max:365',
+            'observaciones'             => 'nullable|string',
+            'detalles'                  => 'nullable|array',
+            'detalles.*.id'             => 'required_with:detalles|integer|exists:detalle_compras,id',
+            'detalles.*.cantidad'       => 'required_with:detalles|integer|min:1',
+            'detalles.*.precio_unitario'=> 'required_with:detalles|numeric|min:0.01',
+        ], [
+            'detalles.*.cantidad.min'        => 'La cantidad debe ser al menos 1.',
+            'detalles.*.precio_unitario.min' => 'El precio unitario debe ser mayor a 0.',
         ]);
 
+        // condicion_pago solo aplica a crédito
+        if ($validated['forma_pago'] !== 'credito') {
+            $validated['condicion_pago'] = null;
+        }
+
+        $detalles = $validated['detalles'] ?? [];
+        unset($validated['detalles']);
+
         try {
-            $compra->update([
-                'almacen_id' => $validated['almacen_id'],
-                'fecha' => $validated['fecha'],
-                'observaciones' => $validated['observaciones'],
-            ]);
+            $this->compraService->actualizarCabecera($compra, $validated, $detalles);
 
             return redirect()->route('compras.show', $compra)
                 ->with('success', 'Compra actualizada correctamente');
@@ -378,23 +399,18 @@ class CompraController extends Controller
     public function destroy(Compra $compra)
     {
         try {
-            DB::beginTransaction();
-            
-            // Verificar si se puede eliminar
-            if ($compra->estado !== 'pendiente') {
-                throw new \Exception('No se puede eliminar una compra procesada');
+            // No se puede eliminar una compra ya anulada
+            if ($compra->estado === 'anulado') {
+                return back()->with('error', 'No se puede eliminar una compra anulada');
             }
-            
+
             $this->compraService->eliminarCompra($compra);
-            
-            DB::commit();
-            
+
             return redirect()
                 ->route('compras.index')
                 ->with('success', 'Compra eliminada exitosamente');
-                
+
         } catch (\Exception $e) {
-            DB::rollBack();
             return back()->with('error', 'Error al eliminar: ' . $e->getMessage());
         }
     }
@@ -462,7 +478,7 @@ public function importarIMEI(Request $request)
         return $pdf->download('compra-' . $compra->numero_factura . '.pdf');
     }
 
-    public function anular(Compra $compra)
+    public function anular(Request $request, Compra $compra)
     {
         try {
             DB::beginTransaction();
@@ -471,7 +487,8 @@ public function importarIMEI(Request $request)
                 throw new \Exception('La compra ya está anulada');
             }
 
-            $this->compraService->anularCompra($compra);
+            $motivo = $request->input('motivo');
+            $this->compraService->anularCompra($compra, $motivo);
 
             DB::commit();
 

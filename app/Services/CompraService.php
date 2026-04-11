@@ -341,26 +341,32 @@ class CompraService
     /**
      * Anular una compra (revertir stock y movimientos)
      */
-    public function anularCompra(Compra $compra): void
+    public function anularCompra(Compra $compra, ?string $motivo = null): void
     {
-        DB::transaction(function () use ($compra) {
-            
+        DB::transaction(function () use ($compra, $motivo) {
+
             // Verificar que la compra se pueda anular
             if ($compra->estado === 'anulado') {
                 throw new \Exception('La compra ya está anulada');
             }
-            
+
+            $motivoTexto = $motivo ? 'Anulación: ' . $motivo : 'Anulación de compra';
+
             // Revertir stock de cada detalle
             foreach ($compra->detalles as $detalle) {
                 $stock = StockAlmacen::where([
                     'producto_id' => $detalle->producto_id,
                     'almacen_id' => $compra->almacen_id,
                 ])->first();
-                
+
                 if ($stock) {
                     $stockAnterior = $stock->cantidad;
                     $stock->decrement('cantidad', $detalle->cantidad);
-                    
+
+                    // Sincronizar stock_actual del producto
+                    $totalStock = StockAlmacen::where('producto_id', $detalle->producto_id)->sum('cantidad');
+                    $detalle->producto->update(['stock_actual' => $totalStock]);
+
                     // Registrar movimiento de anulación
                     MovimientoInventario::create([
                         'producto_id' => $detalle->producto_id,
@@ -372,11 +378,11 @@ class CompraService
                         'stock_nuevo' => $stock->cantidad,
                         'numero_factura' => $compra->numero_factura,
                         'documento_referencia' => 'ANUL-' . $compra->id,
-                        'motivo' => 'Anulación de compra',
+                        'motivo' => $motivoTexto,
                         'estado' => 'completado',
                     ]);
                 }
-                
+
                 // Marcar IMEIs como devueltos si existen
                 if ($detalle->producto->tipo_inventario === 'serie') {
                     Imei::where('compra_id', $compra->id)
@@ -384,37 +390,180 @@ class CompraService
                         ->update(['estado_imei' => 'devuelto']);
                 }
             }
-            
+
             // Actualizar estado de la compra
             $compra->update([
                 'estado' => 'anulado',
                 'fecha_anulacion' => now(),
+                'motivo_anulacion' => $motivo,
             ]);
-            
-            Log::info('Compra anulada', ['compra_id' => $compra->id]);
+
+            // Anular cuenta por pagar si existe
+            if ($compra->cuentaPorPagar) {
+                $compra->cuentaPorPagar->update(['estado' => 'anulado']);
+            }
+
+            Log::info('Compra anulada', ['compra_id' => $compra->id, 'motivo' => $motivo]);
         });
     }
-    
+
     /**
-     * Eliminar una compra (solo si está pendiente y no tiene movimientos)
+     * Actualizar datos de cabecera y detalles (cantidades/precios) de una compra registrada.
+     *
+     * @param  array $datos         Campos de cabecera (proveedor_id, numero_factura, fecha, etc.)
+     * @param  array $detalles      Lista de ['id' => detalle_id, 'cantidad' => int, 'precio_unitario' => float]
+     */
+    public function actualizarCabecera(Compra $compra, array $datos, array $detalles = []): void
+    {
+        DB::transaction(function () use ($compra, $datos, $detalles) {
+
+            // ── 1. Actualizar detalles (cantidad / precio) ──────────────────
+            foreach ($detalles as $item) {
+                $detalle = DetalleCompra::find($item['id']);
+                if (!$detalle || $detalle->compra_id !== $compra->id) {
+                    continue;
+                }
+
+                $cantidadAntigua  = $detalle->cantidad;
+                $cantidadNueva    = (int) $item['cantidad'];
+                $precioNuevo      = round((float) $item['precio_unitario'], 2);
+                $diff             = $cantidadNueva - $cantidadAntigua;
+
+                // Ajustar stock si la cantidad cambió
+                if ($diff !== 0) {
+                    $stock = StockAlmacen::firstOrCreate(
+                        ['producto_id' => $detalle->producto_id, 'almacen_id' => $compra->almacen_id],
+                        ['cantidad' => 0]
+                    );
+
+                    $stockAnterior = $stock->cantidad;
+
+                    if ($diff > 0) {
+                        $stock->increment('cantidad', $diff);
+                        $tipoMov = 'ingreso';
+                        $motivoMov = "Ajuste de compra #{$compra->id}: cantidad +{$diff}";
+                    } else {
+                        $stock->decrement('cantidad', abs($diff));
+                        $tipoMov = 'salida';
+                        $motivoMov = "Ajuste de compra #{$compra->id}: cantidad {$diff}";
+                    }
+
+                    // Sincronizar stock_actual del producto
+                    $totalStock = StockAlmacen::where('producto_id', $detalle->producto_id)->sum('cantidad');
+                    $detalle->producto->update(['stock_actual' => $totalStock]);
+
+                    // Actualizar variante si existe
+                    if ($detalle->variante_id) {
+                        $detalle->variante?->increment('stock_actual', $diff);
+                    }
+
+                    MovimientoInventario::create([
+                        'producto_id'          => $detalle->producto_id,
+                        'almacen_id'           => $compra->almacen_id,
+                        'user_id'              => auth()->id(),
+                        'tipo_movimiento'      => $tipoMov,
+                        'cantidad'             => abs($diff),
+                        'stock_anterior'       => $stockAnterior,
+                        'stock_nuevo'          => $stock->cantidad,
+                        'numero_factura'       => $compra->numero_factura,
+                        'documento_referencia' => 'EDIT-' . $compra->id,
+                        'motivo'               => $motivoMov,
+                        'estado'               => 'completado',
+                    ]);
+                }
+
+                // Guardar cambios en el detalle
+                $detalle->update([
+                    'cantidad'        => $cantidadNueva,
+                    'precio_unitario' => $precioNuevo,
+                    'subtotal'        => $cantidadNueva * $precioNuevo,
+                ]);
+            }
+
+            // ── 2. Recalcular totales de la compra ──────────────────────────
+            $compra->load('detalles'); // refrescar detalles tras los updates
+            $tipoOp = $compra->tipo_operacion ?? '01';
+
+            $subtotalNuevo = $compra->detalles->sum('subtotal');
+
+            if ($tipoOp === '01') {
+                // Gravado: el subtotal YA incluye IGV si la compra lo maneja así,
+                // o no. Respetamos la misma lógica original: subtotal sin IGV.
+                $igvNuevo   = round($subtotalNuevo * 0.18, 2);
+                $totalNuevo = round($subtotalNuevo + $igvNuevo, 2);
+            } else {
+                $igvNuevo   = 0;
+                $totalNuevo = $subtotalNuevo;
+            }
+
+            // ── 3. Actualizar cabecera ──────────────────────────────────────
+            $camposCabecera = array_merge(
+                array_intersect_key($datos, array_flip([
+                    'proveedor_id', 'numero_factura', 'almacen_id',
+                    'fecha', 'forma_pago', 'condicion_pago', 'observaciones',
+                ])),
+                ['subtotal' => $subtotalNuevo, 'igv' => $igvNuevo, 'total' => $totalNuevo]
+            );
+
+            $compra->update($camposCabecera);
+
+            // ── 4. Sincronizar CuentaPorPagar ───────────────────────────────
+            if ($compra->cuentaPorPagar) {
+                $syncCuenta = [];
+
+                if (isset($datos['proveedor_id']))   $syncCuenta['proveedor_id']  = $datos['proveedor_id'];
+                if (isset($datos['numero_factura'])) $syncCuenta['numero_factura'] = $datos['numero_factura'];
+                if (isset($datos['fecha']))          $syncCuenta['fecha_emision']  = $datos['fecha'];
+
+                // Si el total cambió, ajustar monto_total (sin tocar monto_pagado)
+                if ($totalNuevo != $compra->cuentaPorPagar->monto_total) {
+                    $syncCuenta['monto_total'] = $totalNuevo;
+                    // Recalcular estado según lo que se ha pagado
+                    $saldo = $totalNuevo - $compra->cuentaPorPagar->monto_pagado;
+                    if ($saldo <= 0) {
+                        $syncCuenta['estado'] = 'pagado';
+                    } elseif ($compra->cuentaPorPagar->monto_pagado > 0) {
+                        $syncCuenta['estado'] = 'parcial';
+                    }
+                }
+
+                if (!empty($syncCuenta)) {
+                    $compra->cuentaPorPagar->update($syncCuenta);
+                }
+            }
+
+            Log::info('Compra actualizada (cabecera + detalles)', ['compra_id' => $compra->id]);
+        });
+    }
+
+    /**
+     * Eliminar una compra (revierte stock si está registrada, luego elimina)
      */
     public function eliminarCompra(Compra $compra): void
     {
         DB::transaction(function () use ($compra) {
-            
-            if ($compra->estado !== 'pendiente') {
-                throw new \Exception('Solo se pueden eliminar compras pendientes');
+
+            if ($compra->estado === 'anulado') {
+                throw new \Exception('No se puede eliminar una compra ya anulada');
             }
-            
-            // Eliminar detalles
+
+            // Si tiene stock registrado, revertirlo antes de eliminar
+            if ($compra->estado === 'registrado') {
+                $this->anularCompra($compra, 'Eliminación de compra');
+            }
+
+            // Eliminar cuenta por pagar
+            if ($compra->cuentaPorPagar) {
+                $compra->cuentaPorPagar->delete();
+            }
+
+            // Eliminar detalles e IMEIs
             $compra->detalles()->delete();
-            
-            // Eliminar IMEIs asociados
             Imei::where('compra_id', $compra->id)->delete();
-            
+
             // Eliminar la compra
             $compra->delete();
-            
+
             Log::info('Compra eliminada', ['compra_id' => $compra->id]);
         });
     }

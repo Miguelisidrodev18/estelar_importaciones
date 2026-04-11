@@ -375,18 +375,26 @@
                             @enderror
                         </div>
 
-                        <!-- Sucursal -->
+                        <!-- Sucursal (obligatoria) -->
                         <div class="relative">
                             <label for="sucursal_sel" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                Sucursal
+                                Sucursal <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
-                                <select id="sucursal_sel"
+                                <select id="sucursal_sel" required
                                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white"
-                                        onchange="filtrarAlmacenesPorSucursal(this.value)">
-                                    <option value="">— Todas las sucursales —</option>
+                                        onchange="onSucursalChange(this.value)">
+                                    <option value="">— Seleccione una sucursal —</option>
                                     @foreach($sucursales as $suc)
-                                        <option value="{{ $suc->id }}" data-almacen="{{ $suc->almacen_id }}">
+                                        @php
+                                            // Pre-seleccionar si venimos de un old('almacen_id')
+                                            $preselect = '';
+                                            if (old('almacen_id')) {
+                                                $tieneAlmacen = $suc->almacenes->contains('id', old('almacen_id'));
+                                                $preselect = $tieneAlmacen ? 'selected' : '';
+                                            }
+                                        @endphp
+                                        <option value="{{ $suc->id }}" {{ $preselect }}>
                                             {{ $suc->nombre }}
                                         </option>
                                     @endforeach
@@ -395,20 +403,15 @@
                             </div>
                         </div>
 
-                        <!-- Almacén -->
-                        <div class="relative">
+                        <!-- Almacén (aparece solo si la sucursal tiene 2+ almacenes) -->
+                        <div id="almacen_wrap" class="relative {{ old('almacen_id') ? '' : 'hidden' }}">
                             <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-1.5">
                                 Almacén Destino <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
-                                <select name="almacen_id" id="almacen_id" required
+                                <select name="almacen_id" id="almacen_id"
                                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white">
                                     <option value="">Seleccione un almacén</option>
-                                    @foreach($almacenes as $almacen)
-                                        <option value="{{ $almacen->id }}" {{ old('almacen_id') == $almacen->id ? 'selected' : '' }}>
-                                            {{ $almacen->nombre }}
-                                        </option>
-                                    @endforeach
                                 </select>
                                 <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
                             </div>
@@ -417,6 +420,25 @@
                                     <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
                                 </p>
                             @enderror
+                        </div>
+
+                        <!-- Info: almacén único (auto-seleccionado) -->
+                        <div id="almacen_unico_info" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Almacén Destino</label>
+                            <div class="flex items-center gap-2 px-4 py-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                                <i class="fas fa-warehouse text-blue-600"></i>
+                                <span id="almacen_unico_nombre" class="text-sm font-semibold text-blue-900"></span>
+                                <span class="text-xs text-blue-500 ml-auto">Auto-seleccionado</span>
+                            </div>
+                        </div>
+
+                        <!-- Error: sucursal sin almacenes -->
+                        <div id="almacen_sin_almacen" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Almacén Destino</label>
+                            <div class="flex items-center gap-2 px-4 py-3 bg-red-50 border-2 border-red-200 rounded-xl text-red-700">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span class="text-sm">Esta sucursal no tiene almacenes activos. Créalo primero en el módulo de Inventario.</span>
+                            </div>
                         </div>
 
                         <!-- Fecha -->
@@ -1002,43 +1024,72 @@
     // FUNCIONES DE UTILIDAD
     // ============================================
     // ============================================
-    // SUCURSAL → ALMACÉN
+    // SUCURSAL → ALMACÉN (selector en cascada)
     // ============================================
-    // Mapa: sucursal_id → almacen_id (viene del servidor)
-    const sucursalAlmacenMap = @json($sucursales->pluck('almacen_id', 'id'));
-    // Todas las opciones de almacén (guardadas al cargar)
-    let todasOpcionesAlmacen = null;
+    // Mapa: sucursal_id → [{id, nombre}, ...]
+    const sucursalAlmacenesMap = @json(
+        $sucursales->mapWithKeys(fn($s) => [
+            $s->id => $s->almacenes->map(fn($a) => ['id' => $a->id, 'nombre' => $a->nombre])->values()
+        ])
+    );
 
-    function filtrarAlmacenesPorSucursal(sucursalId) {
-        const sel = document.getElementById('almacen_id');
-        if (!todasOpcionesAlmacen) {
-            // Guardar snapshot la primera vez
-            todasOpcionesAlmacen = Array.from(sel.options).map(o => ({ value: o.value, text: o.text }));
+    function onSucursalChange(sucursalId) {
+        const wrap       = document.getElementById('almacen_wrap');
+        const selAlmacen = document.getElementById('almacen_id');
+        const infoUnico  = document.getElementById('almacen_unico_info');
+        const infoError  = document.getElementById('almacen_sin_almacen');
+        const nombreUnico = document.getElementById('almacen_unico_nombre');
+
+        // Ocultar todo primero
+        wrap.classList.add('hidden');
+        infoUnico.classList.add('hidden');
+        infoError.classList.add('hidden');
+        selAlmacen.value = '';
+        selAlmacen.required = false;
+
+        if (!sucursalId) return;
+
+        const almacenes = sucursalAlmacenesMap[sucursalId] || [];
+
+        if (almacenes.length === 0) {
+            // Sin almacenes → mostrar aviso
+            infoError.classList.remove('hidden');
+
+        } else if (almacenes.length === 1) {
+            // Un único almacén → auto-seleccionar, mostrar info
+            selAlmacen.value = almacenes[0].id;
+            nombreUnico.textContent = almacenes[0].nombre;
+            infoUnico.classList.remove('hidden');
+            // Poblar también el select (oculto) para que se envíe
+            selAlmacen.innerHTML = `<option value="${almacenes[0].id}" selected>${almacenes[0].nombre}</option>`;
+
+        } else {
+            // Múltiples almacenes → mostrar dropdown
+            selAlmacen.innerHTML = '<option value="">Seleccione un almacén</option>';
+            almacenes.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = a.nombre;
+                selAlmacen.appendChild(opt);
+            });
+            selAlmacen.required = true;
+            wrap.classList.remove('hidden');
         }
-
-        // Restaurar todas las opciones
-        sel.innerHTML = '';
-        todasOpcionesAlmacen.forEach(o => {
-            const opt = document.createElement('option');
-            opt.value = o.value;
-            opt.textContent = o.text;
-            sel.appendChild(opt);
-        });
-
-        if (!sucursalId) return;  // sin filtro, mostrar todos
-
-        const almacenId = sucursalAlmacenMap[sucursalId];
-        if (!almacenId) return;  // sucursal sin almacén asignado
-
-        // Auto-seleccionar el almacén de la sucursal y ocultar el resto
-        Array.from(sel.options).forEach(opt => {
-            if (opt.value && String(opt.value) !== String(almacenId)) {
-                opt.style.display = 'none';
-            }
-        });
-        sel.value = almacenId;
-        sel.dispatchEvent(new Event('change'));
     }
+
+    // Si venimos de una validación fallida, re-disparar el cambio de sucursal
+    (function() {
+        const sel = document.getElementById('sucursal_sel');
+        if (sel && sel.value) {
+            onSucursalChange(sel.value);
+            // Restaurar el almacén seleccionado previamente
+            const oldAlmacen = '{{ old('almacen_id') }}';
+            if (oldAlmacen) {
+                const selAlmacen = document.getElementById('almacen_id');
+                if (selAlmacen) selAlmacen.value = oldAlmacen;
+            }
+        }
+    })();
 
     function toggleCondicionPago(valor) {
         const div = document.getElementById('condicion_pago_div');
@@ -2600,7 +2651,7 @@
         // Ejecutar cálculo inicial para reflejar el tipo de operación por defecto
         calcularTotales();
 
-        // Validación del proveedor al enviar el formulario
+        // Validación del formulario al enviar
         document.getElementById('compraForm').addEventListener('submit', function(e) {
             if (!document.getElementById('proveedor_id').value) {
                 e.preventDefault();
@@ -2611,6 +2662,29 @@
                     confirmButtonColor: '#1e3a8a'
                 });
                 document.getElementById('buscar_proveedor')?.focus();
+                return false;
+            }
+            // Validar sucursal
+            if (!document.getElementById('sucursal_sel').value) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sucursal requerida',
+                    text: 'Debes seleccionar la sucursal de destino.',
+                    confirmButtonColor: '#1e3a8a'
+                });
+                document.getElementById('sucursal_sel')?.focus();
+                return false;
+            }
+            // Validar almacén (puede estar oculto pero debe tener valor)
+            if (!document.getElementById('almacen_id').value) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Almacén requerido',
+                    text: 'La sucursal seleccionada no tiene almacén asignado. Crea uno en el módulo de Inventario.',
+                    confirmButtonColor: '#1e3a8a'
+                });
                 return false;
             }
             // Validar que haya al menos un producto
@@ -2624,7 +2698,7 @@
                 });
                 return false;
             }
-            
+
             return true; // Todo OK, se envía
         });
     });

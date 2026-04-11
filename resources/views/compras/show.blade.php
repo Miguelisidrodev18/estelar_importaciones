@@ -50,8 +50,12 @@
                             <i class="fas fa-edit"></i>Editar
                         </a>
                         <button onclick="anularCompra({{ $compra->id }})"
-                                class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition text-sm flex items-center gap-1.5">
+                                class="px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition text-sm flex items-center gap-1.5">
                             <i class="fas fa-ban"></i>Anular
+                        </button>
+                        <button onclick="eliminarCompra({{ $compra->id }})"
+                                class="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition text-sm flex items-center gap-1.5">
+                            <i class="fas fa-trash"></i>Eliminar
                         </button>
                     @endif
                     <a href="{{ route('compras.index') }}"
@@ -154,6 +158,10 @@
                             }
                             if ($compra->transportista) {
                                 $rows[] = ['Transportista', $compra->transportista, ''];
+                            }
+                            if ($compra->estado === 'anulado') {
+                                $rows[] = ['Fecha anulación', $compra->fecha_anulacion ? \Carbon\Carbon::parse($compra->fecha_anulacion)->format('d/m/Y H:i') : '—', 'text-red-600'];
+                                $rows[] = ['Motivo anulación', $compra->motivo_anulacion ?? '—', 'text-red-600'];
                             }
                         @endphp
                         @foreach($rows as [$label, $value, $cls])
@@ -520,14 +528,24 @@
     <script>
         function anularCompra(id) {
             Swal.fire({
-                title: '¿Anular compra?',
-                text: 'Esta acción no se puede deshacer. El stock se revertirá.',
+                title: 'Anular compra',
+                html: `<p class="text-gray-600 mb-3">El stock ingresado se revertirá. Esta acción no se puede deshacer.</p>
+                       <label class="block text-sm font-medium text-gray-700 text-left mb-1">Motivo de anulación <span class="text-red-500">*</span></label>
+                       <textarea id="swal-motivo" class="swal2-textarea" rows="2" placeholder="Ej: Factura errónea, proveedor equivocado..."></textarea>`,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#d33',
+                confirmButtonColor: '#ea580c',
                 cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Sí, anular',
-                cancelButtonText: 'Cancelar'
+                confirmButtonText: '<i class="fas fa-ban mr-1"></i>Anular',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const motivo = document.getElementById('swal-motivo').value.trim();
+                    if (!motivo) {
+                        Swal.showValidationMessage('Debes ingresar un motivo de anulación');
+                        return false;
+                    }
+                    return motivo;
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
                     fetch(`/compras/${id}/anular`, {
@@ -535,18 +553,45 @@
                         headers: {
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                             'Content-Type': 'application/json'
-                        }
+                        },
+                        body: JSON.stringify({ motivo: result.value })
                     })
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
-                            Swal.fire({ icon: 'success', title: '¡Anulada!', text: 'La compra ha sido anulada correctamente.', timer: 2000 })
+                            Swal.fire({ icon: 'success', title: '¡Anulada!', text: 'La compra ha sido anulada y el stock revertido.', timer: 2000 })
                                 .then(() => location.reload());
                         } else {
                             Swal.fire('Error', data.message, 'error');
                         }
                     })
                     .catch(() => Swal.fire('Error', 'No se pudo conectar al servidor', 'error'));
+                }
+            });
+        }
+
+        function eliminarCompra(id) {
+            Swal.fire({
+                title: 'Eliminar compra',
+                html: `<p class="text-gray-600">Se revertirá el stock y se eliminará el registro permanentemente.</p>
+                       <p class="mt-2 text-red-600 font-semibold">Esta acción no se puede deshacer.</p>`,
+                icon: 'error',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: '<i class="fas fa-trash mr-1"></i>Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = `/compras/${id}`;
+                    form.innerHTML = `
+                        <input type="hidden" name="_token" value="${document.querySelector('meta[name="csrf-token"]').content}">
+                        <input type="hidden" name="_method" value="DELETE">
+                    `;
+                    document.body.appendChild(form);
+                    form.submit();
                 }
             });
         }
