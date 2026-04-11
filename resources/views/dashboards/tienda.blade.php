@@ -79,6 +79,48 @@
         </div>
 
         <div class="p-6">
+
+            {{-- ⚠ ALERTA: CAJA DE DÍA ANTERIOR SIN CERRAR --}}
+            @if(isset($caja_atrasada) && $caja_atrasada)
+            @php
+                $fechaCajaAtrasada = \Carbon\Carbon::parse($caja_atrasada->fecha)->locale('es')->isoFormat('D [de] MMMM [de] YYYY');
+                $aperturaCajaAtras = $caja_atrasada->fecha_apertura
+                    ? \Carbon\Carbon::parse($caja_atrasada->fecha_apertura)
+                    : \Carbon\Carbon::parse($caja_atrasada->fecha);
+                $totalMinAtraso = (int) $aperturaCajaAtras->diffInMinutes(now());
+                $diasAtraso    = intdiv($totalMinAtraso, 1440);
+                $horasAtraso   = intdiv($totalMinAtraso % 1440, 60);
+                $minutosAtraso = $totalMinAtraso % 60;
+                $tiempoAtraso  = '';
+                if ($diasAtraso > 0)   $tiempoAtraso .= $diasAtraso . ' ' . ($diasAtraso == 1 ? 'día' : 'días') . ', ';
+                if ($horasAtraso > 0)  $tiempoAtraso .= $horasAtraso . ' ' . ($horasAtraso == 1 ? 'hora' : 'horas') . ', ';
+                $tiempoAtraso .= $minutosAtraso . ' ' . ($minutosAtraso == 1 ? 'minuto' : 'minutos');
+            @endphp
+            <div class="mb-6 bg-red-50 border-2 border-red-400 rounded-xl p-5 shadow-md">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 bg-red-100 rounded-full p-3">
+                        <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-red-800 font-bold text-lg mb-1">
+                            Caja sin cerrar del {{ $fechaCajaAtrasada }}
+                        </h3>
+                        <p class="text-red-700 text-sm mb-3">
+                            Tienes una caja abierta hace <strong>{{ $tiempoAtraso }}</strong>
+                            con un saldo de <strong>S/ {{ number_format($caja_atrasada->monto_final, 2) }}</strong>
+                            en el almacén <strong>{{ $caja_atrasada->almacen->nombre ?? '—' }}</strong>.
+                            Debes cerrarla antes de abrir una nueva caja para hoy.
+                        </p>
+                        <a href="{{ route('caja.actual') }}"
+                           class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2 rounded-lg text-sm transition-colors">
+                            <i class="fas fa-lock"></i>
+                            Cerrar Caja del {{ $fechaCajaAtrasada }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             {{-- Barra de Acciones Rápidas --}}
             <div class="mb-6">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
@@ -142,8 +184,23 @@
                             </div>
                             <div class="ml-3">
                                 <p class="text-sm text-green-700">
-                                    Caja abierta desde {{ $caja->created_at->format('H:i') }} | 
+                                    Caja abierta desde {{ $caja->created_at->format('H:i') }} |
                                     Monto inicial: S/ {{ number_format($caja->monto_inicial, 2) }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @elseif(isset($caja_atrasada) && $caja_atrasada)
+                    {{-- Cuando hay caja atrasada, no mostrar el botón "Abrir Caja" --}}
+                    <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-clock text-orange-400 text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-orange-700">
+                                    No hay caja abierta para hoy. Primero debes cerrar la caja pendiente del
+                                    {{ \Carbon\Carbon::parse($caja_atrasada->fecha)->locale('es')->isoFormat('D [de] MMMM') }}.
                                 </p>
                             </div>
                         </div>

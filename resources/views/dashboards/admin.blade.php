@@ -173,6 +173,74 @@
 
         <div class="p-6">
 
+            {{-- ⚠ ALERTA: CAJAS DE DÍAS ANTERIORES SIN CERRAR --}}
+            @if(isset($cajas_atrasadas) && $cajas_atrasadas->count() > 0)
+            <div class="mb-6 bg-red-50 border-2 border-red-400 rounded-xl p-5 shadow-md">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 bg-red-100 rounded-full p-3">
+                        <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-red-800 font-bold text-lg mb-1">
+                            {{ $cajas_atrasadas->count() }} {{ $cajas_atrasadas->count() == 1 ? 'Caja sin cerrar' : 'Cajas sin cerrar' }} de días anteriores
+                        </h3>
+                        <p class="text-red-700 text-sm mb-3">
+                            Los siguientes usuarios tienen cajas abiertas de días anteriores que no fueron cerradas. Contacta al cajero o usa la opción "Forzar Cierre".
+                        </p>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-left text-red-700 border-b border-red-200">
+                                        <th class="pb-2 pr-4 font-semibold">Cajero</th>
+                                        <th class="pb-2 pr-4 font-semibold">Fecha</th>
+                                        <th class="pb-2 pr-4 font-semibold">Almacén</th>
+                                        <th class="pb-2 pr-4 font-semibold">Saldo</th>
+                                        <th class="pb-2 font-semibold">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($cajas_atrasadas as $cajaAtras)
+                                    @php
+                                        $apertura  = $cajaAtras->fecha_apertura
+                                            ? \Carbon\Carbon::parse($cajaAtras->fecha_apertura)
+                                            : \Carbon\Carbon::parse($cajaAtras->fecha);
+                                        $totalMin  = (int) $apertura->diffInMinutes(now());
+                                        $dias      = intdiv($totalMin, 1440);
+                                        $horas     = intdiv($totalMin % 1440, 60);
+                                        $minutos   = $totalMin % 60;
+                                        $tiempoStr = '';
+                                        if ($dias > 0)   $tiempoStr .= $dias . 'd ';
+                                        if ($horas > 0)  $tiempoStr .= $horas . 'h ';
+                                        $tiempoStr .= $minutos . 'min';
+                                    @endphp
+                                    <tr class="border-b border-red-100 last:border-0">
+                                        <td class="py-2 pr-4 font-medium text-gray-800">
+                                            {{ $cajaAtras->usuario->name ?? '—' }}
+                                        </td>
+                                        <td class="py-2 pr-4 text-red-700">
+                                            {{ \Carbon\Carbon::parse($cajaAtras->fecha)->locale('es')->isoFormat('D [de] MMMM, YYYY') }}
+                                            <span class="ml-1 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
+                                                hace {{ trim($tiempoStr) }}
+                                            </span>
+                                        </td>
+                                        <td class="py-2 pr-4 text-gray-600">{{ $cajaAtras->almacen->nombre ?? '—' }}</td>
+                                        <td class="py-2 pr-4 font-semibold text-gray-800">S/ {{ number_format($cajaAtras->monto_final, 2) }}</td>
+                                        <td class="py-2">
+                                            <a href="{{ route('admin.cajas.show', $cajaAtras->id) }}"
+                                               class="inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-xs font-semibold transition-colors">
+                                                <i class="fas fa-lock text-xs"></i> Cerrar
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             {{-- ──────────────────────────────────────────────────────── --}}
             {{-- FILA 1: KPIs Principales                                --}}
             {{-- ──────────────────────────────────────────────────────── --}}

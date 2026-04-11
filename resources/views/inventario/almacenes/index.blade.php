@@ -37,7 +37,7 @@
         @endif
 
         <!-- Estadísticas -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-900">
                 <div class="flex items-center justify-between">
                     <div>
@@ -77,11 +77,23 @@
             <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600 font-medium">Sucursales</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ $stats['sucursales'] }}</p>
+                        <p class="text-sm text-gray-600 font-medium">Tiendas</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ $stats['tiendas'] }}</p>
                     </div>
                     <div class="bg-orange-100 rounded-full p-3">
-                        <i class="fas fa-building text-orange-600 text-2xl"></i>
+                        <i class="fas fa-store text-orange-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-teal-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Depósitos</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-2">{{ $stats['depositos'] }}</p>
+                    </div>
+                    <div class="bg-teal-100 rounded-full p-3">
+                        <i class="fas fa-boxes text-teal-600 text-2xl"></i>
                     </div>
                 </div>
             </div>
@@ -97,8 +109,9 @@
                         <select name="tipo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             <option value="">Todos los tipos</option>
                             <option value="principal" {{ request('tipo') == 'principal' ? 'selected' : '' }}>Principal</option>
-                            <option value="sucursal" {{ request('tipo') == 'sucursal' ? 'selected' : '' }}>Sucursal</option>
-                            <option value="temporal" {{ request('tipo') == 'temporal' ? 'selected' : '' }}>Temporal</option>
+                            <option value="tienda"    {{ request('tipo') == 'tienda'    ? 'selected' : '' }}>Tienda</option>
+                            <option value="deposito"  {{ request('tipo') == 'deposito'  ? 'selected' : '' }}>Depósito</option>
+                            <option value="temporal"  {{ request('tipo') == 'temporal'  ? 'selected' : '' }}>Temporal</option>
                         </select>
                     </div>
 
@@ -145,9 +158,9 @@
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Almacén</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Encargado</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dirección</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
                         </tr>
@@ -169,32 +182,34 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                @if($almacen->tipo === 'principal')
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                        <i class="fas fa-star mr-1"></i>Principal
-                                    </span>
-                                @elseif($almacen->tipo === 'sucursal')
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        <i class="fas fa-building mr-1"></i>Sucursal
+                                @if($almacen->sucursal)
+                                    <span class="inline-flex items-center gap-1 text-sm text-blue-700 font-medium">
+                                        <i class="fas fa-store text-blue-400 text-xs"></i>
+                                        {{ $almacen->sucursal->nombre }}
                                     </span>
                                 @else
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        <i class="fas fa-clock mr-1"></i>Temporal
-                                    </span>
+                                    <span class="text-sm text-gray-400 italic">Sin sucursal</span>
                                 @endif
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @php
+                                    $tipoBadge = match($almacen->tipo) {
+                                        'principal' => ['bg-purple-100 text-purple-800', 'fa-star',       'Principal'],
+                                        'tienda'    => ['bg-orange-100 text-orange-800', 'fa-store',      'Tienda'],
+                                        'deposito'  => ['bg-teal-100 text-teal-800',     'fa-boxes',      'Depósito'],
+                                        'temporal'  => ['bg-gray-100 text-gray-800',     'fa-clock',      'Temporal'],
+                                        default     => ['bg-gray-100 text-gray-600',     'fa-warehouse',  ucfirst($almacen->tipo)],
+                                    };
+                                @endphp
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $tipoBadge[0] }}">
+                                    <i class="fas {{ $tipoBadge[1] }} mr-1"></i>{{ $tipoBadge[2] }}
+                                </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @if($almacen->encargado)
                                     <span class="text-sm text-gray-900">{{ $almacen->nombre_encargado }}</span>
                                 @else
                                     <span class="text-sm text-gray-400 italic">Sin asignar</span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4">
-                                @if($almacen->direccion)
-                                    <span class="text-sm text-gray-600">{{ Str::limit($almacen->direccion, 40) }}</span>
-                                @else
-                                    <span class="text-sm text-gray-400 italic">Sin dirección</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
@@ -234,7 +249,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center">
+                            <td colspan="8" class="px-6 py-12 text-center">
                                 <div class="flex flex-col items-center justify-center text-gray-500">
                                     <i class="fas fa-warehouse text-6xl mb-4"></i>
                                     <p class="text-lg font-medium">No hay almacenes registrados</p>

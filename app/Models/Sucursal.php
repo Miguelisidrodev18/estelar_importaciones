@@ -20,9 +20,28 @@ class Sucursal extends Model
 
     // ── Relaciones ────────────────────────────────────────────
 
+    /**
+     * Almacén principal de la sucursal (campo almacen_id en sucursales)
+     */
     public function almacen()
     {
         return $this->belongsTo(Almacen::class);
+    }
+
+    /**
+     * Todos los almacenes que pertenecen a esta sucursal
+     */
+    public function almacenes()
+    {
+        return $this->hasMany(Almacen::class);
+    }
+
+    /**
+     * Cajas abiertas en esta sucursal
+     */
+    public function cajas()
+    {
+        return $this->hasMany(\App\Models\Caja::class);
     }
 
     public function series()

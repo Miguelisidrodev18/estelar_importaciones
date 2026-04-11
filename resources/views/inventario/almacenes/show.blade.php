@@ -24,17 +24,29 @@
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center
-                {{ $almacen->tipo === 'principal' ? 'bg-purple-100' : 'bg-blue-100' }}">
-                <i class="fas {{ $almacen->tipo === 'principal' ? 'fa-star text-purple-600' : 'fa-store text-blue-600' }} text-xl"></i>
+            @php
+                $tipoIcono = match($almacen->tipo) {
+                    'principal' => ['bg-purple-100', 'fa-star text-purple-600'],
+                    'tienda'    => ['bg-orange-100', 'fa-store text-orange-600'],
+                    'deposito'  => ['bg-teal-100',   'fa-boxes text-teal-600'],
+                    default     => ['bg-gray-100',   'fa-warehouse text-gray-600'],
+                };
+                $tipoBadgeShow = match($almacen->tipo) {
+                    'principal' => 'bg-purple-100 text-purple-700',
+                    'tienda'    => 'bg-orange-100 text-orange-700',
+                    'deposito'  => 'bg-teal-100 text-teal-700',
+                    default     => 'bg-gray-100 text-gray-600',
+                };
+            @endphp
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center {{ $tipoIcono[0] }}">
+                <i class="fas {{ $tipoIcono[1] }} text-xl"></i>
             </div>
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">{{ $almacen->nombre }}</h1>
                 <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-2">
                     <span class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{{ $almacen->codigo }}</span>
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
-                        {{ $almacen->tipo === 'principal' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
-                        {{ ucfirst($almacen->tipo) }}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {{ $tipoBadgeShow }}">
+                        {{ $almacen->tipo_label }}
                     </span>
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
                         {{ $almacen->estado === 'activo' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">
@@ -72,8 +84,9 @@
                 </div>
                 <div class="p-5 space-y-3">
                     @foreach([
-                        ['Código',    $almacen->codigo,    'font-mono text-xs bg-gray-100 px-2 py-0.5 rounded'],
-                        ['Tipo',      ucfirst($almacen->tipo), ''],
+                        ['Código',    $almacen->codigo,       'font-mono text-xs bg-gray-100 px-2 py-0.5 rounded'],
+                        ['Tipo',      $almacen->tipo_label,   ''],
+                        ['Sucursal',  $almacen->sucursal?->nombre ?? '—', 'text-blue-700'],
                         ['Estado',    ucfirst($almacen->estado), $almacen->estado === 'activo' ? 'text-green-700 font-semibold' : 'text-gray-500'],
                         ['Creado',    $almacen->created_at->format('d/m/Y'), 'text-gray-500 text-xs'],
                     ] as [$label, $value, $extra])

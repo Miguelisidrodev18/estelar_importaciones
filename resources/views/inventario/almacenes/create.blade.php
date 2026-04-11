@@ -51,8 +51,9 @@
                             <select name="tipo" id="tipo" 
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                     required>
-                                <option value="principal" {{ old('tipo') == 'principal' ? 'selected' : '' }}>Principal</option>
-                                <option value="sucursal" {{ old('tipo') == 'sucursal' ? 'selected' : '' }}>Sucursal</option>
+                                <option value="principal" {{ old('tipo') == 'principal' ? 'selected' : '' }}>Principal (almacén central)</option>
+                                <option value="tienda"   {{ old('tipo') == 'tienda'   ? 'selected' : '' }}>Tienda (punto de venta)</option>
+                                <option value="deposito" {{ old('tipo') == 'deposito' ? 'selected' : '' }}>Depósito (almacén secundario)</option>
                                 <option value="temporal" {{ old('tipo') == 'temporal' ? 'selected' : '' }}>Temporal</option>
                             </select>
                         </div>
@@ -70,10 +71,30 @@
                             </select>
                         </div>
 
+                        <!-- Sucursal -->
+                        <div>
+                            <label for="sucursal_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                Sucursal
+                                <span class="ml-1 text-xs text-gray-400">(opcional)</span>
+                            </label>
+                            <select name="sucursal_id" id="sucursal_id"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">— Sin sucursal —</option>
+                                @foreach($sucursales as $sucursal)
+                                    <option value="{{ $sucursal->id }}" {{ old('sucursal_id') == $sucursal->id ? 'selected' : '' }}>
+                                        {{ $sucursal->nombre }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('sucursal_id')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <!-- Encargado -->
                         <div>
                             <label for="encargado_id" class="block text-sm font-medium text-gray-700 mb-2">Encargado</label>
-                            <select name="encargado_id" id="encargado_id" 
+                            <select name="encargado_id" id="encargado_id"
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                                 <option value="">Sin asignar</option>
                                 @foreach($usuarios as $usuario)

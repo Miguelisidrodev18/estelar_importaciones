@@ -27,6 +27,7 @@ class Almacen extends Model
         'direccion',
         'telefono',
         'encargado_id',
+        'sucursal_id',
         'tipo',
         'estado',
     ];
@@ -50,11 +51,11 @@ class Almacen extends Model
     }
 
     /**
-     * Relación inversa: sucursal que tiene este almacén asignado
+     * Relación: Un almacén pertenece a una sucursal
      */
     public function sucursal()
     {
-        return $this->hasOne(Sucursal::class, 'almacen_id');
+        return $this->belongsTo(Sucursal::class);
     }
 
     /**
@@ -98,11 +99,19 @@ class Almacen extends Model
     }
 
     /**
-     * Scope para sucursales
+     * Scope para almacenes tipo tienda (puntos de venta)
      */
-    public function scopeSucursales($query)
+    public function scopeTiendas($query)
     {
-        return $query->where('tipo', 'sucursal');
+        return $query->where('tipo', 'tienda');
+    }
+
+    /**
+     * Scope para almacenes tipo depósito
+     */
+    public function scopeDepositos($query)
+    {
+        return $query->where('tipo', 'deposito');
     }
 
     /**
@@ -126,9 +135,31 @@ class Almacen extends Model
     /**
      * Verificar si es almacén principal
      */
-    public function esPrincipal()
+    public function esPrincipal(): bool
     {
         return $this->tipo === 'principal';
+    }
+
+    /**
+     * Verificar si es punto de venta (tienda)
+     */
+    public function esTienda(): bool
+    {
+        return $this->tipo === 'tienda';
+    }
+
+    /**
+     * Etiqueta legible del tipo
+     */
+    public function getTipoLabelAttribute(): string
+    {
+        return match($this->tipo) {
+            'principal' => 'Principal',
+            'tienda'    => 'Tienda',
+            'deposito'  => 'Depósito',
+            'temporal'  => 'Temporal',
+            default     => ucfirst($this->tipo),
+        };
     }
 
     /**

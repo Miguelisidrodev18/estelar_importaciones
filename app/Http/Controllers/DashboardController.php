@@ -17,12 +17,14 @@ use App\Models\DetalleVenta;
 use App\Models\Cuota;
 use App\Models\CuotaCobro;
 use App\Models\CuentaPorCobrar;
+use App\Services\CajaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    public function __construct(private CajaService $cajaService) {}
     public function index()
 {
     $user = auth()->user();
@@ -160,7 +162,13 @@ class DashboardController extends Controller
             ->limit(8)
             ->get();
 
+        // Cajas de días anteriores sin cerrar (todas las del sistema)
+        $cajasAtrasadas = $this->cajaService->cajasAtrasadasTodas();
+
         $data = [
+            // Cajas atrasadas
+            'cajas_atrasadas'   => $cajasAtrasadas,
+
             // Usuarios
             'total_usuarios'    => User::count(),
             'usuarios_activos'  => User::where('estado', 'activo')->count(),
@@ -268,6 +276,9 @@ class DashboardController extends Controller
         ->limit(10)
         ->get();
     
+    // Caja atrasada del vendedor (por si acaso tiene una asignada)
+    $cajaAtrasada = $this->cajaService->cajaAtrasada($user->id);
+
     $data = [
         'ventas_hoy' => $ventas_dia,
         'ventas_mes' => $ventas_mes,
@@ -277,6 +288,7 @@ class DashboardController extends Controller
         'total_por_cobrar' => $total_por_cobrar,
         'tiendas' => $tiendas,
         'ultimas_ventas' => $ultimas_ventas,
+        'caja_atrasada' => $cajaAtrasada,
     ];
 
     return view('dashboards.vendedor', $data);
@@ -339,12 +351,16 @@ public function tienda()
         ->distinct('cliente_id')
         ->count('cliente_id');
     
-    // Buscar caja abierta del usuario
+    // Buscar caja abierta del usuario (de hoy)
     $caja = Caja::where('user_id', $user->id)
         ->where('estado', 'abierta')
+        ->whereDate('fecha', $hoy)
         ->first();
 
-    $caja_actual = $caja ? $caja->monto_final : 0;
+    // Caja abierta de un día anterior (sin cerrar)
+    $cajaAtrasada = $this->cajaService->cajaAtrasada($user->id);
+
+    $caja_actual = $caja ? $caja->monto_final : ($cajaAtrasada ? $cajaAtrasada->monto_final : 0);
 
     // Últimas ventas del día
     $ultimas_ventas = Venta::where('user_id', $user->id)
@@ -371,6 +387,7 @@ public function tienda()
         'ventas_dia'          => $ventas_dia,
         'caja_actual'         => $caja_actual,
         'caja'                => $caja,
+        'caja_atrasada'       => $cajaAtrasada,
         'transacciones_dia'   => $transacciones_dia,
         'clientes_atendidos'  => $clientes_atendidos,
         'ultimas_ventas'      => $ultimas_ventas,

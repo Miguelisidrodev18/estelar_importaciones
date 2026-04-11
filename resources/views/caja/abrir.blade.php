@@ -22,6 +22,58 @@
 
     <div class="max-w-xl mx-auto">
 
+        {{-- ⚠ BLOQUEO: CAJA DE DÍA ANTERIOR SIN CERRAR --}}
+        @if(isset($cajaAtrasada) && $cajaAtrasada)
+        @php
+            $fechaCajaAtrasada = \Carbon\Carbon::parse($cajaAtrasada->fecha)->locale('es')->isoFormat('D [de] MMMM [de] YYYY');
+            $diasAtraso = \Carbon\Carbon::parse($cajaAtrasada->fecha)->diffInDays(now());
+        @endphp
+        <div class="bg-red-50 border-2 border-red-400 rounded-xl p-6 mb-6 shadow-md">
+            <div class="flex items-start gap-4 mb-4">
+                <div class="shrink-0 bg-red-100 rounded-full p-3">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-3xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-red-800 font-bold text-xl mb-1">
+                        No puedes abrir una nueva caja
+                    </h3>
+                    <p class="text-red-700 text-sm">
+                        Tienes una caja del <strong>{{ $fechaCajaAtrasada }}</strong> que no fue cerrada
+                        (hace <strong>{{ $diasAtraso }} {{ $diasAtraso == 1 ? 'día' : 'días' }}</strong>).
+                        Debes cerrarla primero para poder abrir la caja de hoy.
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg border border-red-200 p-4 mb-4">
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <p class="text-xs text-gray-400">Fecha de apertura</p>
+                        <p class="font-semibold text-gray-800">{{ $fechaCajaAtrasada }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400">Almacén</p>
+                        <p class="font-semibold text-gray-800">{{ $cajaAtrasada->almacen->nombre ?? '—' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400">Monto inicial</p>
+                        <p class="font-semibold text-gray-800">S/ {{ number_format($cajaAtrasada->monto_inicial, 2) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400">Saldo actual</p>
+                        <p class="font-semibold text-gray-800">S/ {{ number_format($cajaAtrasada->monto_final, 2) }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <a href="{{ route('caja.actual') }}"
+               class="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-colors text-base">
+                <i class="fas fa-lock"></i>
+                Ir a Cerrar la Caja del {{ $fechaCajaAtrasada }}
+            </a>
+        </div>
+        @endif
+
         {{-- Info del usuario/turno --}}
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
@@ -102,9 +154,11 @@
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold text-lg">S/</span>
                         <input type="number" name="monto_inicial" id="montoInicial" step="0.01" min="0"
-                               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-xl font-bold
-                                      focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                                      @error('monto_inicial') border-red-400 @enderror"
+                               @class([
+                                   'w-full pl-10 pr-4 py-3 border rounded-lg text-xl font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                                   'border-red-400' => $errors->has('monto_inicial'),
+                                   'border-gray-300' => !$errors->has('monto_inicial'),
+                               ])
                                value="{{ old('monto_inicial', '0.00') }}"
                                placeholder="0.00" required autofocus>
                     </div>

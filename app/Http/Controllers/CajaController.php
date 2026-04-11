@@ -62,13 +62,19 @@ class CajaController extends Controller
         $cajaActiva = $this->cajaService->cajaActiva();
 
         if ($cajaActiva) {
-            return redirect()->route('caja.actual')
-                ->with('info', 'Ya tienes una caja abierta.');
+            // Si la caja activa es de hoy, redirigir a la vista actual
+            if ($cajaActiva->fecha >= now()->toDateString()) {
+                return redirect()->route('caja.actual')
+                    ->with('info', 'Ya tienes una caja abierta hoy.');
+            }
         }
 
         $user = auth()->user();
         $almacen = $user->almacen ?? null;
         $almacenes = collect();
+
+        // Caja atrasada (de un día anterior sin cerrar)
+        $cajaAtrasada = $this->cajaService->cajaAtrasada();
 
         // Admin sin almacén fijo: puede elegir en qué almacén trabajar
         if (!$almacen && $user->role->nombre === 'Administrador') {
@@ -77,7 +83,7 @@ class CajaController extends Controller
                 ->get();
         }
 
-        return view('caja.abrir', compact('almacen', 'almacenes'));
+        return view('caja.abrir', compact('almacen', 'almacenes', 'cajaAtrasada'));
     }
 
     /**

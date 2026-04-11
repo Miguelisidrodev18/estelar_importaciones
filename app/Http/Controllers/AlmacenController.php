@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Almacen;
+use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -21,7 +22,7 @@ class AlmacenController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Almacen::with('encargado');
+        $query = Almacen::with(['encargado', 'sucursal']);
         
         // Filtro por tipo
         if ($request->filled('tipo')) {
@@ -37,10 +38,11 @@ class AlmacenController extends Controller
         
         // Estadísticas
         $stats = [
-            'total' => Almacen::count(),
-            'activos' => Almacen::activos()->count(),
-            'principal' => Almacen::principal()->count(),
-            'sucursales' => Almacen::sucursales()->count(),
+            'total'    => Almacen::count(),
+            'activos'  => Almacen::activos()->count(),
+            'principal'=> Almacen::principal()->count(),
+            'tiendas'  => Almacen::tiendas()->count(),
+            'depositos'=> Almacen::depositos()->count(),
         ];
         
         // Verificar permisos
@@ -56,12 +58,13 @@ class AlmacenController extends Controller
      */
     public function create()
     {
-        // Obtener usuarios que pueden ser encargados (Admin, Almacenero)
         $usuarios = User::whereHas('role', function($query) {
             $query->whereIn('nombre', ['Administrador', 'Almacenero']);
         })->orderBy('name')->get();
-        
-        return view('inventario.almacenes.create', compact('usuarios'));
+
+        $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get();
+
+        return view('inventario.almacenes.create', compact('usuarios', 'sucursales'));
     }
 
     /**
@@ -70,18 +73,18 @@ class AlmacenController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nombre' => 'required|string|max:100',
-            'direccion' => 'nullable|string|max:255',
-            'telefono' => 'nullable|string|max:20',
+            'nombre'       => 'required|string|max:100',
+            'direccion'    => 'nullable|string|max:255',
+            'telefono'     => 'nullable|string|max:20',
             'encargado_id' => 'nullable|exists:users,id',
-            'tipo' => 'required|in:principal,sucursal,temporal',
-            'estado' => 'required|in:activo,inactivo',
+            'sucursal_id'  => 'nullable|exists:sucursales,id',
+            'tipo'         => 'required|in:principal,tienda,deposito,temporal',
+            'estado'       => 'required|in:activo,inactivo',
         ], [
             'nombre.required' => 'El nombre del almacén es obligatorio',
-            'tipo.required' => 'Debe seleccionar el tipo de almacén',
+            'tipo.required'   => 'Debe seleccionar el tipo de almacén',
         ]);
 
-        // Generar código automático
         $validated['codigo'] = Almacen::generarCodigo();
 
         Almacen::create($validated);
@@ -141,8 +144,10 @@ class AlmacenController extends Controller
         $usuarios = User::whereHas('role', function($query) {
             $query->whereIn('nombre', ['Administrador', 'Almacenero']);
         })->orderBy('name')->get();
-        
-        return view('inventario.almacenes.edit', compact('almacen', 'usuarios'));
+
+        $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get();
+
+        return view('inventario.almacenes.edit', compact('almacen', 'usuarios', 'sucursales'));
     }
 
     /**
@@ -151,12 +156,13 @@ class AlmacenController extends Controller
     public function update(Request $request, Almacen $almacen)
     {
         $validated = $request->validate([
-            'nombre' => 'required|string|max:100',
-            'direccion' => 'nullable|string|max:255',
-            'telefono' => 'nullable|string|max:20',
+            'nombre'       => 'required|string|max:100',
+            'direccion'    => 'nullable|string|max:255',
+            'telefono'     => 'nullable|string|max:20',
             'encargado_id' => 'nullable|exists:users,id',
-            'tipo' => 'required|in:principal,sucursal,temporal',
-            'estado' => 'required|in:activo,inactivo',
+            'sucursal_id'  => 'nullable|exists:sucursales,id',
+            'tipo'         => 'required|in:principal,tienda,deposito,temporal',
+            'estado'       => 'required|in:activo,inactivo',
         ]);
 
         $almacen->update($validated);

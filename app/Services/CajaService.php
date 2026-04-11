@@ -2,14 +2,40 @@
 
 namespace App\Services;
 
+use App\Models\Almacen;
 use App\Models\Caja;
 use App\Models\MovimientoCaja;
-use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class CajaService
 {
+    /**
+     * Retorna la caja abierta de un día anterior (si existe).
+     * Útil para mostrar advertencias en dashboards.
+     */
+    public function cajaAtrasada(?int $userId = null): ?Caja
+    {
+        $userId = $userId ?? auth()->id();
+        return Caja::where('user_id', $userId)
+            ->where('estado', 'abierta')
+            ->whereDate('fecha', '<', now()->toDateString())
+            ->with(['almacen', 'sucursal'])
+            ->first();
+    }
+
+    /**
+     * Retorna todas las cajas abiertas de días anteriores (para admin).
+     */
+    public function cajasAtrasadasTodas(): \Illuminate\Database\Eloquent\Collection
+    {
+        return Caja::where('estado', 'abierta')
+            ->whereDate('fecha', '<', now()->toDateString())
+            ->with(['usuario', 'almacen', 'sucursal'])
+            ->orderBy('fecha')
+            ->get();
+    }
+
     /**
      * Abrir caja para un usuario.
      * Si no se pasa almacen_id, se toma del usuario.
@@ -25,7 +51,17 @@ class CajaService
             ->first();
 
         if ($cajaAbierta) {
-            throw new \Exception('Ya tienes una caja abierta. Ciérrala antes de abrir una nueva.');
+            // Si la caja abierta es de un día anterior, dar mensaje específico
+            if ($cajaAbierta->fecha < now()->toDateString()) {
+                $fechaFormateada = \Carbon\Carbon::parse($cajaAbierta->fecha)
+                    ->locale('es')
+                    ->isoFormat('D [de] MMMM [de] YYYY');
+                throw new \Exception(
+                    "Tienes una caja del {$fechaFormateada} que no fue cerrada. " .
+                    "Debes cerrarla antes de abrir una nueva caja para hoy."
+                );
+            }
+            throw new \Exception('Ya tienes una caja abierta hoy. Ciérrala antes de abrir una nueva.');
         }
 
         if (!$almacenId) {
@@ -36,7 +72,9 @@ class CajaService
             }
         }
 
-        $sucursalId = Sucursal::where('almacen_id', $almacenId)->value('id');
+        // Obtener sucursal_id directamente del almacén (Almacen belongsTo Sucursal)
+        $almacen    = Almacen::find($almacenId);
+        $sucursalId = $almacen?->sucursal_id;
 
         return Caja::create([
             'user_id'                => $userId,

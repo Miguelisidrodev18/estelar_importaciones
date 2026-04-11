@@ -15,10 +15,50 @@
     <!-- Main Content -->
     <div class="md:ml-64 p-4 md:p-8">
         <!-- Header -->
-        <x-header 
-            title="Dashboard Vendedor" 
-            subtitle="¡Hola {{ auth()->user()->name }}! Aquí está tu resumen de ventas." 
+        <x-header
+            title="Dashboard Vendedor"
+            subtitle="¡Hola {{ auth()->user()->name }}! Aquí está tu resumen de ventas."
         />
+
+        {{-- ⚠ ALERTA: CAJA DE DÍA ANTERIOR SIN CERRAR --}}
+        @if(isset($caja_atrasada) && $caja_atrasada)
+        @php
+            $fechaCajaAtrasada = \Carbon\Carbon::parse($caja_atrasada->fecha)->locale('es')->isoFormat('D [de] MMMM [de] YYYY');
+            $aperturaCajaAtras = $caja_atrasada->fecha_apertura
+                ? \Carbon\Carbon::parse($caja_atrasada->fecha_apertura)
+                : \Carbon\Carbon::parse($caja_atrasada->fecha);
+            $totalMinAtraso = (int) $aperturaCajaAtras->diffInMinutes(now());
+            $diasAtraso    = intdiv($totalMinAtraso, 1440);
+            $horasAtraso   = intdiv($totalMinAtraso % 1440, 60);
+            $minutosAtraso = $totalMinAtraso % 60;
+            $tiempoAtraso  = '';
+            if ($diasAtraso > 0)   $tiempoAtraso .= $diasAtraso . ' ' . ($diasAtraso == 1 ? 'día' : 'días') . ', ';
+            if ($horasAtraso > 0)  $tiempoAtraso .= $horasAtraso . ' ' . ($horasAtraso == 1 ? 'hora' : 'horas') . ', ';
+            $tiempoAtraso .= $minutosAtraso . ' ' . ($minutosAtraso == 1 ? 'minuto' : 'minutos');
+        @endphp
+        <div class="mb-6 bg-red-50 border-2 border-red-400 rounded-xl p-5 shadow-md">
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 bg-red-100 rounded-full p-3">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-red-800 font-bold text-lg mb-1">
+                        Caja sin cerrar del {{ $fechaCajaAtrasada }}
+                    </h3>
+                    <p class="text-red-700 text-sm mb-3">
+                        Tienes una caja abierta hace <strong>{{ $tiempoAtraso }}</strong>
+                        con un saldo de <strong>S/ {{ number_format($caja_atrasada->monto_final, 2) }}</strong>.
+                        Debes cerrarla antes de abrir una nueva caja para hoy.
+                    </p>
+                    <a href="{{ route('caja.actual') }}"
+                       class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-lock"></i>
+                        Cerrar Caja del {{ $fechaCajaAtrasada }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        @endif
 
         <!-- KPIs -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
