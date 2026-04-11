@@ -116,7 +116,7 @@
                                 <div>
                                     <p class="text-gray-400">Abierta hace</p>
                                     <p class="font-semibold {{ $item['alerta'] ? 'text-yellow-600' : 'text-gray-700' }}">
-                                        {{ $item['horas_abierta'] }}h
+                                        {{ $item['horas_abierta'] }}
                                     </p>
                                 </div>
                             </div>

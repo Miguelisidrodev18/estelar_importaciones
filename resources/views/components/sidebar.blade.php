@@ -112,14 +112,10 @@
                                     <i class="fas fa-users mr-3 text-sm"></i>Clientes
                                 </a>
                             </li>
-                            @php $mostrarNuevo = \Carbon\Carbon::now()->lt(\Carbon\Carbon::parse('2026-05-10')); @endphp
                             <li>
                                 <a href="{{ route('ventas.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.index') || request()->routeIs('ventas.show') || request()->routeIs('ventas.create') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-receipt mr-3 text-sm"></i>Registrar Ventas
-                                    @if($mostrarNuevo)
-                                    <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">NUEVO</span>
-                                    @endif
                                 </a>
                             </li>
                             <li>
@@ -138,23 +134,18 @@
                                 <a href="{{ route('cuentas-por-cobrar.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cuentas-por-cobrar.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-hand-holding-usd mr-3 text-sm"></i>Cuentas por Cobrar
-                                    @if($mostrarNuevo)
-                                    <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">NUEVO</span>
-                                    @endif
                                 </a>
                             </li>
                             <li>
                                 <a href="{{ route('ventas.auditoria') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.auditoria') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-clipboard-list mr-3 text-sm"></i>Bitácora de Ventas
-                                    @if($mostrarNuevo)
-                                    <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">NUEVO</span>
-                                    @endif
                                 </a>
                             </li>
                         </ul>
                     </li>
                       {{-- Compras --}}
+                    @php $mostrarActualizado = \Carbon\Carbon::now()->lt(\Carbon\Carbon::parse('2026-05-11')); @endphp
                     <li>
                         <button @click="comprasOpen = !comprasOpen"
                                 class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') || request()->routeIs('cuentas-por-pagar.*') ? 'bg-blue-700' : '' }}">
@@ -174,6 +165,9 @@
                                 <a href="{{ route('compras.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-file-invoice mr-3 text-sm"></i>Registrar Compras
+                                    @if($mostrarActualizado)
+                                    <span class="ml-auto text-[10px] font-bold bg-orange-400 text-orange-900 px-1.5 py-0.5 rounded-full leading-none">UPD</span>
+                                    @endif
                                 </a>
                             </li>
                             <li>
@@ -391,6 +385,8 @@
                                         <span class="ml-auto bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold shrink-0">
                                             {{ $_alertasCaja > 9 ? '9+' : $_alertasCaja }}
                                         </span>
+                                    @elseif($mostrarActualizado)
+                                        <span class="ml-auto text-[10px] font-bold bg-orange-400 text-orange-900 px-1.5 py-0.5 rounded-full leading-none">UPD</span>
                                     @endif
                                 </a>
                             </li>
@@ -402,6 +398,9 @@
                         <a href="{{ route('users.index') }}"
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('users.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-users mr-3"></i>Usuarios
+                            @if($mostrarActualizado)
+                            <span class="ml-auto text-[10px] font-bold bg-orange-400 text-orange-900 px-1.5 py-0.5 rounded-full leading-none">UPD</span>
+                            @endif
                         </a>
                     </li>
 
