@@ -203,12 +203,14 @@ class CajaService
         $ventasYape          = $ingresos->whereNotNull('venta_id')->where('metodo_pago', 'yape')->sum('monto');
         $ventasPlin          = $ingresos->whereNotNull('venta_id')->where('metodo_pago', 'plin')->sum('monto');
         $ventasTransferencia = $ingresos->whereNotNull('venta_id')->where('metodo_pago', 'transferencia')->sum('monto');
+        $ventasMixto         = $ingresos->whereNotNull('venta_id')->where('metodo_pago', 'mixto')->sum('monto');
         $ingresosManual      = $ingresos->whereNull('venta_id')
             ->whereNotIn('concepto', ['Sobrante en cierre de caja'])
             ->sum('monto');
         $egresosTotal        = $egresos->whereNotIn('concepto', ['Faltante en cierre de caja'])->sum('monto');
 
-        $totalVentas = $ventasEfectivo + $ventasYape + $ventasPlin + $ventasTransferencia;
+        // total_ventas incluye todos los métodos de pago (efectivo, yape, plin, transferencia, mixto)
+        $totalVentas = $ingresos->whereNotNull('venta_id')->sum('monto');
         $saldoEsperado = $caja->monto_inicial + $ventasEfectivo + $ingresosManual - $egresosTotal;
 
         return [
@@ -217,6 +219,7 @@ class CajaService
             'ventas_yape'          => (float) $ventasYape,
             'ventas_plin'          => (float) $ventasPlin,
             'ventas_transferencia' => (float) $ventasTransferencia,
+            'ventas_mixto'         => (float) $ventasMixto,
             'total_ventas'         => (float) $totalVentas,
             'ingresos_manual'      => (float) $ingresosManual,
             'total_ingresos'       => (float) ($totalVentas + $ingresosManual),

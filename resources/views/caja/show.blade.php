@@ -121,11 +121,14 @@
                     @foreach(['ventas_efectivo' => ['Efectivo', 'text-green-700', 'bg-green-50'],
                               'ventas_yape'     => ['Yape',     'text-purple-700', 'bg-purple-50'],
                               'ventas_plin'     => ['Plin',     'text-blue-700',   'bg-blue-50'],
-                              'ventas_transferencia' => ['Transferencia', 'text-orange-700', 'bg-orange-50']] as $key => [$label, $color, $bg])
+                              'ventas_transferencia' => ['Transferencia', 'text-orange-700', 'bg-orange-50'],
+                              'ventas_mixto'    => ['Mixto',    'text-gray-700',   'bg-gray-50']] as $key => [$label, $color, $bg])
+                    @if(($arqueo[$key] ?? 0) > 0)
                     <div class="flex items-center justify-between p-2 rounded-lg {{ $bg }}">
                         <span class="text-sm {{ $color }} font-medium">{{ $label }}</span>
                         <span class="text-sm font-bold {{ $color }}">S/ {{ number_format($arqueo[$key], 2) }}</span>
                     </div>
+                    @endif
                     @endforeach
                     <div class="border-t border-gray-200 pt-2 flex justify-between text-sm font-bold text-gray-800">
                         <span>Total ventas</span>

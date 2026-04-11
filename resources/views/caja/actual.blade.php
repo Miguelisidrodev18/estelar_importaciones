@@ -93,6 +93,15 @@
                 <p class="text-lg font-bold text-orange-700">S/ {{ number_format($arqueo['ventas_transferencia'], 2) }}</p>
             </div>
         </div>
+        @if(($arqueo['ventas_mixto'] ?? 0) > 0)
+        <div class="grid grid-cols-1 gap-4 mt-3">
+            <div class="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <i class="fas fa-layer-group text-gray-600 text-xl mb-1"></i>
+                <p class="text-xs text-gray-500">Mixto (efectivo + otro)</p>
+                <p class="text-lg font-bold text-gray-700">S/ {{ number_format($arqueo['ventas_mixto'], 2) }}</p>
+            </div>
+        </div>
+        @endif
         @if($arqueo['ingresos_manual'] > 0)
             <p class="text-xs text-gray-400 mt-3 text-right">
                 + S/ {{ number_format($arqueo['ingresos_manual'], 2) }} en ingresos manuales
