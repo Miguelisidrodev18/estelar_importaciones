@@ -587,28 +587,28 @@
                         </button>
                     </div>
 
-                    {{-- Quick method buttons --}}
-                    <div class="grid grid-cols-4 gap-1.5 mb-3">
+                    {{-- Quick method buttons (solo visibles con 1 método de pago) --}}
+                    <div x-show="orden.pagos.length === 1" class="grid grid-cols-4 gap-1.5 mb-3">
                         <button @click="seleccionarMetodoPago('efectivo')"
-                                :class="orden.pagos.length === 1 && orden.pagos[0].metodo === 'efectivo' ? 'bg-green-50 border-green-400 text-green-700 dark:bg-green-900/20 dark:border-green-600 dark:text-green-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                :class="orden.pagos[0].metodo === 'efectivo' ? 'bg-green-50 border-green-400 text-green-700 dark:bg-green-900/20 dark:border-green-600 dark:text-green-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
                                 class="flex flex-col items-center gap-0.5 py-2 rounded-xl border transition text-xs font-semibold">
                             <i class="fas fa-money-bill-wave text-green-500 text-sm"></i>
                             <span>Efectivo</span>
                         </button>
                         <button @click="seleccionarMetodoPago('yape')"
-                                :class="orden.pagos.length === 1 && orden.pagos[0].metodo === 'yape' ? 'bg-purple-50 border-purple-400 text-purple-700 dark:bg-purple-900/20 dark:border-purple-600 dark:text-purple-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                :class="orden.pagos[0].metodo === 'yape' ? 'bg-purple-50 border-purple-400 text-purple-700 dark:bg-purple-900/20 dark:border-purple-600 dark:text-purple-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
                                 class="flex flex-col items-center gap-0.5 py-2 rounded-xl border transition text-xs font-semibold">
                             <i class="fas fa-mobile-alt text-purple-500 text-sm"></i>
                             <span>Yape</span>
                         </button>
                         <button @click="seleccionarMetodoPago('plin')"
-                                :class="orden.pagos.length === 1 && orden.pagos[0].metodo === 'plin' ? 'bg-teal-50 border-teal-400 text-teal-700 dark:bg-teal-900/20 dark:border-teal-600 dark:text-teal-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                :class="orden.pagos[0].metodo === 'plin' ? 'bg-teal-50 border-teal-400 text-teal-700 dark:bg-teal-900/20 dark:border-teal-600 dark:text-teal-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
                                 class="flex flex-col items-center gap-0.5 py-2 rounded-xl border transition text-xs font-semibold">
                             <i class="fas fa-mobile-alt text-teal-500 text-sm"></i>
                             <span>Plin</span>
                         </button>
                         <button @click="seleccionarMetodoPago('transferencia')"
-                                :class="orden.pagos.length === 1 && orden.pagos[0].metodo === 'transferencia' ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/20 dark:border-blue-600 dark:text-blue-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                :class="orden.pagos[0].metodo === 'transferencia' ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/20 dark:border-blue-600 dark:text-blue-400' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
                                 class="flex flex-col items-center gap-0.5 py-2 rounded-xl border transition text-xs font-semibold">
                             <i class="fas fa-university text-blue-500 text-sm"></i>
                             <span>Transf.</span>
@@ -1479,7 +1479,7 @@ function posApp() {
             // Ventas contado requieren caja abierta
             if (!this.cajaAbierta) return false;
             if (this.orden.pagos.length === 1 && this.orden.pagos[0].monto === 0) return true;
-            return this.totalPagado >= this.total;
+            return Math.round(this.totalPagado * 100) >= Math.round(this.total * 100);
         },
 
         // ── Computed: filtered products ──
@@ -1537,12 +1537,10 @@ function posApp() {
                 }
                 // F9: ir a caja
                 if (e.key === 'F9') { e.preventDefault(); window.location.href = '{{ route("caja.actual") }}'; }
-                // Ctrl+E: efectivo
-                if (e.ctrlKey && e.key === 'e') { e.preventDefault(); this.seleccionarMetodoPago('efectivo'); }
-                // Ctrl+Y: Yape
-                if (e.ctrlKey && e.key === 'y') { e.preventDefault(); this.seleccionarMetodoPago('yape'); }
-                // Ctrl+P: Plin
-                if (e.ctrlKey && e.key === 'p') { e.preventDefault(); this.seleccionarMetodoPago('plin'); }
+                // Ctrl+E/Y/P: solo cambia método si hay 1 pago (evita resetear pago mixto)
+                if (e.ctrlKey && e.key === 'e' && this.orden.pagos.length === 1) { e.preventDefault(); this.seleccionarMetodoPago('efectivo'); }
+                if (e.ctrlKey && e.key === 'y' && this.orden.pagos.length === 1) { e.preventDefault(); this.seleccionarMetodoPago('yape'); }
+                if (e.ctrlKey && e.key === 'p' && this.orden.pagos.length === 1) { e.preventDefault(); this.seleccionarMetodoPago('plin'); }
             });
             this.$watch('showPago', v => {
                 if (v && this.orden.pagos.length === 1) {
