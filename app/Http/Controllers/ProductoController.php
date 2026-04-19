@@ -252,11 +252,32 @@ public function create()
 }
     public function show(Producto $producto)
     {
-        $producto->load(['categoria', 'movimientos' => function($query) {
-            $query->latest()->limit(10);
-        }]);
-        
-        return view('inventario.productos.show', compact('producto'));
+        $producto->load([
+            'categoria',
+            'marca',
+            'modelo',
+            'color',
+            'unidadMedida',
+            'variantesActivas.color',
+            'movimientos' => fn($q) => $q->latest()->limit(10),
+        ]);
+
+        // Stock real: para serie/IMEI usar suma de variantes o conteo de IMEIs
+        if ($producto->tipo_inventario === 'serie') {
+            if ($producto->variantesActivas->isNotEmpty()) {
+                $stockReal = $producto->variantesActivas->sum('stock_actual');
+            } else {
+                $stockReal = \App\Models\Imei::where('producto_id', $producto->id)
+                    ->where('estado_imei', 'en_stock')
+                    ->count();
+            }
+        } else {
+            $stockReal = $producto->variantesActivas->isNotEmpty()
+                ? $producto->variantesActivas->sum('stock_actual')
+                : $producto->stock_actual;
+        }
+
+        return view('inventario.productos.show', compact('producto', 'stockReal'));
     }
 
     /**

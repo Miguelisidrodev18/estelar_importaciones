@@ -34,6 +34,15 @@ class InventarioReportesController extends Controller
             $almacenId = Sucursal::find($sucursalId)?->almacen_id;
         }
 
+        // ── Pre-cargar precios de venta configurados por variante
+        $precioVentaPorVariante = \App\Models\ProductoPrecio::whereNotNull('variante_id')
+            ->where('activo', true)
+            ->where('tipo_precio', 'venta_regular')
+            ->orderByDesc('prioridad')
+            ->get(['variante_id', 'precio'])
+            ->groupBy('variante_id')
+            ->map(fn($prices) => (float) $prices->first()->precio);
+
         // ── Pre-calcular CPP por variante (Costo Promedio Ponderado real desde historial de compras)
         // Una sola query para todos los productos → evita N+1
         $cppPorVariante = DetalleCompra::whereNotNull('variante_id')
@@ -52,7 +61,6 @@ class InventarioReportesController extends Controller
         // ── Pre-cargar stock de IMEIs por variante (para productos tipo 'serie')
         $imeisPorVariante = Imei::where('estado_imei', 'en_stock')
             ->whereNotNull('variante_id')
-            ->when($almacenId, fn($q) => $q->where('almacen_id', $almacenId))
             ->selectRaw('variante_id, COUNT(*) as total')
             ->groupBy('variante_id')
             ->pluck('total', 'variante_id')
@@ -71,17 +79,20 @@ class InventarioReportesController extends Controller
             ->when($marcaId,     fn($q) => $q->where('marca_id', $marcaId))
             ->orderBy('nombre')
             ->get()
-            ->map(function ($p) use ($almacenId, $cppPorVariante, $cppPorProducto, $imeisPorVariante) {
+            ->map(function ($p) use ($almacenId, $cppPorVariante, $cppPorProducto, $imeisPorVariante, $precioVentaPorVariante) {
                 $precioVentaBase = (float) ($p->precios->first()?->precio ?? 0);
+                $cppProducto = (float) ($p->costo_promedio ?: $p->ultimo_costo_compra ?: 0);
 
                 if ($p->variantesActivas->isNotEmpty()) {
                     // ── Producto CON variantes: desglosar por variante ──────────────
                     $variantesData = $p->variantesActivas->map(function ($v) use (
-                        $almacenId, $cppPorVariante, $p, $precioVentaBase, $imeisPorVariante
+                        $almacenId, $cppPorVariante, $p, $precioVentaBase, $imeisPorVariante, $precioVentaPorVariante
                     ) {
                         // Stock por variante
                         if ($p->tipo_inventario === 'serie') {
-                            $stock = (int) ($imeisPorVariante[$v->id] ?? 0);
+                            $stockDesdeImeis = (int) ($imeisPorVariante[$v->id] ?? 0);
+                            // Si no hay IMEIs registrados, usar el stock_actual de la variante.
+                            $stock = max($stockDesdeImeis, $v->stock_actual);
                         } else {
                             // Para productos de cantidad: stock_actual de la variante
                             // (no hay desglose por almacén en stock_almacen para variantes)
@@ -95,7 +106,9 @@ class InventarioReportesController extends Controller
                             ?? (float) ($v->costo_promedio ?: $v->ultimo_costo_compra ?: 0)
                             ?: (float) ($p->costo_promedio ?: $p->ultimo_costo_compra ?: 0);
 
-                        $pv = $precioVentaBase + (float) $v->sobreprecio;
+                        // Precio variante: usar precio configurado en gestión de precios si existe,
+                        // si no, precio base del producto + sobreprecio de la variante
+                        $pv = $precioVentaPorVariante[$v->id] ?? ($precioVentaBase + (float) $v->sobreprecio);
 
                         return [
                             'variante_id'  => $v->id,
@@ -116,6 +129,13 @@ class InventarioReportesController extends Controller
                     $valCompra  = $variantesData->sum('valor_compra');
                     $valVenta   = $variantesData->sum('valor_venta');
                     $utilidad   = $variantesData->sum('utilidad');
+
+                    if ($stockTotal === 0 && $p->tipo_inventario === 'serie' && $p->stock_actual > 0) {
+                        $stockTotal = $p->stock_actual;
+                        $valCompra  = $stockTotal * $cppProducto;
+                        $valVenta   = $stockTotal * $precioVentaBase;
+                        $utilidad   = $stockTotal * ($precioVentaBase - $cppProducto);
+                    }
 
                     return [
                         'id'             => $p->id,
@@ -139,10 +159,13 @@ class InventarioReportesController extends Controller
                 $stock = $almacenId
                     ? $this->stockPorAlmacen($p, $almacenId)
                     : ($p->tipo_inventario === 'serie'
-                        ? Imei::where('producto_id', $p->id)
-                              ->where('estado_imei', 'en_stock')
-                              ->when($almacenId, fn($q) => $q->where('almacen_id', $almacenId))
-                              ->count()
+                        ? max(
+                            Imei::where('producto_id', $p->id)
+                                ->where('estado_imei', 'en_stock')
+                                ->when($almacenId, fn($q) => $q->where('almacen_id', $almacenId))
+                                ->count(),
+                            $p->stock_actual
+                        )
                         : $p->stock_actual);
 
                 $cpp = $cppPorProducto[$p->id]

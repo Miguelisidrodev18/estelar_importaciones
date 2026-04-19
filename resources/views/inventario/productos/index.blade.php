@@ -315,10 +315,10 @@
                                     @endif
 
                                     <!-- Botón Gestionar Variantes -->
-                                    @if($producto->variantesActivas->count() > 0)
+                                    @if($producto->variantesActivas->count() > 0 || $producto->tipo_inventario === 'serie')
                                         <a href="{{ route('inventario.productos.variantes', $producto) }}"
                                            class="text-indigo-600 hover:text-indigo-900"
-                                           title="Gestionar variantes ({{ $producto->variantesActivas->count() }})">
+                                           title="Gestionar variantes{{ $producto->variantesActivas->count() > 0 ? ' (' . $producto->variantesActivas->count() . ')' : '' }}">
                                             <i class="fas fa-layer-group"></i>
                                         </a>
                                     @endif

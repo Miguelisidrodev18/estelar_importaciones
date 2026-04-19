@@ -167,9 +167,8 @@
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div>
                                 <p class="text-xs text-gray-500">Stock Actual</p>
-                                <p class="text-2xl font-bold {{ $producto->estado_stock === 'bajo' ? 'text-yellow-600' : ($producto->estado_stock === 'sin_stock' ? 'text-red-600' : 'text-green-600') }}">
-                                    {{ $producto->stock_actual }}
-                                </p>
+                                @php $colorStock = $stockReal <= 0 ? 'text-red-600' : ($stockReal <= $producto->stock_minimo ? 'text-yellow-600' : 'text-green-600'); @endphp
+                                <p class="text-2xl font-bold {{ $colorStock }}">{{ $stockReal }}</p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500">Stock Mínimo</p>
@@ -187,6 +186,46 @@
                     </div>
                 </div>
 
+                <!-- Vista rápida de variantes (solo si tiene) -->
+                @if($producto->variantesActivas->isNotEmpty())
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-indigo-700 px-6 py-3 flex items-center justify-between">
+                        <h3 class="text-white font-semibold">
+                            <i class="fas fa-layer-group mr-2"></i>
+                            Variantes
+                            <span class="ml-2 bg-white/20 text-white text-xs px-2 py-0.5 rounded-full">{{ $producto->variantesActivas->count() }}</span>
+                        </h3>
+                        @if(in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']))
+                        <a href="{{ route('inventario.productos.variantes', $producto) }}"
+                           class="text-xs text-indigo-200 hover:text-white transition">
+                            Gestionar <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                        @endif
+                    </div>
+                    <div class="divide-y divide-gray-100">
+                        @foreach($producto->variantesActivas as $variante)
+                        <div class="px-6 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                @if($variante->color?->codigo_hex)
+                                    <span class="w-4 h-4 rounded-full border border-gray-300 shrink-0"
+                                          style="background-color: {{ $variante->color->codigo_hex }}"></span>
+                                @else
+                                    <span class="w-4 h-4 rounded-full bg-gray-200 border border-gray-300 shrink-0"></span>
+                                @endif
+                                <div>
+                                    <span class="text-sm font-medium text-gray-800">{{ $variante->nombre_completo }}</span>
+                                    <span class="ml-2 text-xs text-gray-400 font-mono">{{ $variante->sku }}</span>
+                                </div>
+                            </div>
+                            <span class="text-sm font-bold {{ $variante->stock_actual <= $variante->stock_minimo ? 'text-red-600' : 'text-gray-800' }}">
+                                {{ $variante->stock_actual }} <span class="text-xs font-normal text-gray-400">unt</span>
+                            </span>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
                 <!-- Acciones rápidas -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
                     <div class="bg-gray-700 px-6 py-3">
@@ -198,21 +237,29 @@
                     <div class="p-6">
                         <div class="flex flex-wrap gap-3">
                             @if($producto->tipo_inventario === 'serie')
-                                <a href="{{ route('inventario.imeis.index', ['producto_id' => $producto->id]) }}" 
+                                <a href="{{ route('inventario.imeis.index', ['producto_id' => $producto->id]) }}"
                                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
                                     <i class="fas fa-sim-card mr-2"></i>
                                     Gestionar IMEIs
                                 </a>
                             @endif
-                            
-                            <a href="{{ route('inventario.productos.codigos-barras', $producto) }}" 
-                               class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+
+                            @if($producto->tipo_inventario === 'serie' || $producto->variantesActivas->isNotEmpty())
+                                <a href="{{ route('inventario.productos.variantes', $producto) }}"
+                                   class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                                    <i class="fas fa-layer-group mr-2"></i>
+                                    Gestionar Variantes
+                                </a>
+                            @endif
+
+                            <a href="{{ route('inventario.productos.codigos-barras', $producto) }}"
+                               class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
                                 <i class="fas fa-barcode mr-2"></i>
                                 Códigos de Barras
                             </a>
-                            
+
                             @if($producto->tipo_inventario === 'cantidad')
-                                <a href="{{ route('inventario.movimientos.create', ['producto_id' => $producto->id]) }}" 
+                                <a href="{{ route('inventario.movimientos.create', ['producto_id' => $producto->id]) }}"
                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                                     <i class="fas fa-exchange-alt mr-2"></i>
                                     Movimiento de Stock

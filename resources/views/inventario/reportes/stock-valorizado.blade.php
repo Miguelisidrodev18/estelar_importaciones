@@ -180,22 +180,11 @@
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($p['stock']) }}</td>
-                                        <td class="px-4 py-3 text-right">
-                                            <span class="text-gray-400 text-xs italic">promedio</span>
-                                            <span class="font-mono text-gray-600 block text-xs">
-                                                {{ $p['precio_compra'] > 0 ? 'S/ '.number_format($p['precio_compra'], 2) : '—' }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 text-right text-gray-600 font-mono text-xs">
-                                            {{ $p['precio_venta'] > 0 ? 'S/ '.number_format($p['precio_venta'], 2) : '—' }}
-                                        </td>
+                                        <td class="px-4 py-3"></td>
+                                        <td class="px-4 py-3"></td>
                                         <td class="px-4 py-3 text-right font-semibold text-orange-700">S/ {{ number_format($p['valor_compra'], 2) }}</td>
                                         <td class="px-4 py-3 text-right font-semibold text-green-700">S/ {{ number_format($p['valor_venta'], 2) }}</td>
-                                        <td class="px-4 py-3 text-right">
-                                            <span class="font-semibold {{ $p['margen_pct'] >= 20 ? 'text-green-600' : ($p['margen_pct'] >= 10 ? 'text-amber-600' : 'text-red-600') }}">
-                                                {{ $p['margen_pct'] }}%
-                                            </span>
-                                        </td>
+                                        <td class="px-4 py-3"></td>
                                         <td class="px-4 py-3 text-right font-semibold {{ $p['utilidad'] > 0 ? 'text-purple-700' : 'text-red-600' }}">
                                             S/ {{ number_format($p['utilidad'], 2) }}
                                         </td>
