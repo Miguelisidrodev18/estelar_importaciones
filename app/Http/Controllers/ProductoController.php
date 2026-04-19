@@ -627,6 +627,39 @@ public function storeVariante(Request $request, Producto $producto, VarianteServ
 }
 
 /**
+ * PUT /inventario/productos/variantes/{variante}
+ * Editar variante existente
+ */
+public function updateVariante(Request $request, ProductoVariante $variante)
+{
+    $validated = $request->validate([
+        'color_id'    => 'nullable|exists:colores,id',
+        'capacidad'   => 'nullable|string|max:50',
+        'stock_minimo'=> 'nullable|integer|min:0',
+    ]);
+
+    // Regenerar SKU si cambió color o capacidad
+    $colorCambio = ($validated['color_id']  ?? null) != $variante->color_id;
+    $capCambio   = ($validated['capacidad'] ?? null) != $variante->capacidad;
+
+    $variante->update([
+        'color_id'    => $validated['color_id']  ?? null,
+        'capacidad'   => $validated['capacidad'] ?? null,
+        'stock_minimo'=> $validated['stock_minimo'] ?? $variante->stock_minimo,
+    ]);
+
+    if ($colorCambio || $capCambio) {
+        $color = $variante->color_id ? Color::find($variante->color_id) : null;
+        $nuevoSku = \App\Models\ProductoVariante::generarSku($variante->producto, $color, $variante->capacidad);
+        $variante->update(['sku' => $nuevoSku]);
+    }
+
+    return redirect()
+        ->route('inventario.productos.variantes', $variante->producto_id)
+        ->with('success', 'Variante actualizada: ' . $variante->fresh()->sku);
+}
+
+/**
  * DELETE /inventario/productos/variantes/{variante}
  * Desactivar variante
  */

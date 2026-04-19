@@ -10,8 +10,67 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50" x-data="editModal()">
     <x-sidebar :role="auth()->user()->role->nombre" />
+
+    {{-- Modal Editar Variante --}}
+    <div x-show="open" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div @click.outside="open = false"
+             class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="bg-gradient-to-r from-indigo-700 to-indigo-600 px-5 py-4 rounded-t-2xl flex items-center justify-between">
+                <h3 class="text-white font-bold flex items-center gap-2">
+                    <i class="fas fa-pencil-alt"></i> Editar Variante
+                </h3>
+                <button @click="open = false" class="text-white/70 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form :action="formAction" method="POST" class="p-5 space-y-4">
+                @csrf
+                @method('PUT')
+
+                {{-- Color --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                    <select name="color_id" x-model="form.color_id"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Sin color específico</option>
+                        @foreach($colores as $color)
+                            <option value="{{ $color->id }}">{{ $color->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Capacidad --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Capacidad / Almacenamiento</label>
+                    <input type="text" name="capacidad" x-model="form.capacidad"
+                           placeholder="Ej: 64GB, 128GB, 256GB"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                {{-- Stock Mínimo --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo</label>
+                    <input type="number" name="stock_minimo" x-model="form.stock_minimo"
+                           min="0"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="flex gap-3 pt-1">
+                    <button type="button" @click="open = false"
+                            class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm">
+                        <i class="fas fa-save mr-1"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div class="md:ml-64 p-4 md:p-8">
         {{-- Breadcrumb --}}
@@ -225,6 +284,20 @@
 
                                         {{-- Acciones --}}
                                         @if($variante->estado === 'activo')
+                                            {{-- Editar --}}
+                                            <button type="button"
+                                                    @click="openEdit({
+                                                        id: {{ $variante->id }},
+                                                        color_id: '{{ $variante->color_id ?? '' }}',
+                                                        capacidad: '{{ $variante->capacidad ?? '' }}',
+                                                        stock_minimo: '{{ $variante->stock_minimo }}'
+                                                    })"
+                                                    class="text-indigo-400 hover:text-indigo-600 p-2 rounded-lg hover:bg-indigo-50 transition"
+                                                    title="Editar">
+                                                <i class="fas fa-pencil-alt text-sm"></i>
+                                            </button>
+
+                                            {{-- Desactivar --}}
                                             <form action="{{ route('inventario.productos.variantes.destroy', $variante) }}"
                                                   method="POST"
                                                   onsubmit="return confirm('¿Desactivar esta variante?')">
@@ -246,5 +319,21 @@
             </div>
         </div>
     </div>
+<script>
+function editModal() {
+    return {
+        open: false,
+        formAction: '',
+        form: { color_id: '', capacidad: '', stock_minimo: 0 },
+        openEdit(variante) {
+            this.formAction = '{{ url("inventario/productos/variantes") }}/' + variante.id;
+            this.form.color_id     = variante.color_id;
+            this.form.capacidad    = variante.capacidad;
+            this.form.stock_minimo = variante.stock_minimo;
+            this.open = true;
+        }
+    }
+}
+</script>
 </body>
 </html>

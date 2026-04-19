@@ -243,6 +243,7 @@ Route::middleware('auth')->group(function () {
         Route::middleware('role:Administrador,Almacenero')->group(function () {
             Route::get('/productos/{producto}/variantes', [ProductoController::class, 'variantes'])->name('productos.variantes');
             Route::post('/productos/{producto}/variantes', [ProductoController::class, 'storeVariante'])->name('productos.variantes.store');
+            Route::put('/productos/variantes/{variante}', [ProductoController::class, 'updateVariante'])->name('productos.variantes.update');
             Route::delete('/productos/variantes/{variante}', [ProductoController::class, 'destroyVariante'])->name('productos.variantes.destroy');
         });
 

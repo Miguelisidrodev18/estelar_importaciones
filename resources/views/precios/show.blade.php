@@ -131,21 +131,18 @@
 
                      if (this.modoCalculo === 'margen') {
                          const margen = parseFloat(this.margen) || 0;
-                         let venta = compra * (1 + margen / 100);
-                         if (this.incluyeIgv) venta = venta * 1.18;
-                         this.precioVenta = Math.round(venta * 100) / 100;
+                         this.precioVenta = Math.round(compra * (1 + margen / 100) * 100) / 100;
                      } else {
                          const venta = parseFloat(this.precioVenta) || 0;
                          if (!venta) return;
-                         const base = this.incluyeIgv ? (venta / 1.18) : venta;
-                         this.margen = Math.round(((base - compra) / compra * 100) * 10) / 10;
+                         // Margen siempre sobre precio base sin IGV
+                         this.margen = Math.round(((venta - compra) / compra * 100) * 10) / 10;
                      }
 
-                     const margenActual = parseFloat(this.margen) || 0;
-                     const precioBase   = Math.round(compra * (1 + margenActual / 100) * 100) / 100;
+                     const precioFinal = parseFloat(this.precioVenta) || 0;
                      this.resultado = {
-                         precio_base:  precioBase,
-                         precio_final: parseFloat(this.precioVenta) || 0,
+                         precio_final:    precioFinal,
+                         precio_con_igv:  Math.round(precioFinal * 1.18 * 100) / 100,
                      };
                  }
              }">
@@ -191,20 +188,22 @@
                 <form method="POST" action="{{ route('precios.store', $producto) }}" class="p-5 space-y-4">
                     @csrf
 
-                    {{-- Variante (si el producto tiene variantes) --}}
+                    {{-- Variante agrupada por capacidad --}}
                     @if($producto->variantesActivas->isNotEmpty())
+                    @php
+                        $porCapacidad = $producto->variantesActivas->groupBy(fn($v) => $v->capacidad ?? '');
+                    @endphp
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                            Variante <span class="text-gray-400 normal-case font-normal">(opcional — vacío = todas)</span>
+                            Capacidad <span class="text-gray-400 normal-case font-normal">(el precio aplica a todos los colores de esa capacidad)</span>
                         </label>
                         <select name="variante_id" x-model="varianteId"
                                 @change="cambiarVariante()"
                                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
                             <option value="">— Precio base del producto —</option>
-                            @foreach($producto->variantesActivas as $v)
-                                <option value="{{ $v->id }}">
-                                    {{ $v->nombre_completo }}
-                                    @if($v->sobreprecio > 0) (+S/ {{ number_format($v->sobreprecio,2) }}) @endif
+                            @foreach($porCapacidad as $capacidad => $variantes)
+                                <option value="{{ $variantes->first()->id }}">
+                                    {{ $capacidad ?: 'Sin capacidad específica' }}
                                 </option>
                             @endforeach
                         </select>
@@ -315,16 +314,15 @@
                         <p x-show="modoCalculo==='precio'" class="text-xs text-gray-400 mt-1">Ingresa el precio que quieres cobrar</p>
                     </div>
 
-                    {{-- IGV --}}
+                    {{-- IGV (solo referencial) --}}
                     <input type="hidden" name="incluye_igv" value="0">
                     <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
                         <input type="checkbox" name="incluye_igv" value="1"
                                x-model="incluyeIgv"
-                               @change="calcular()"
                                class="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500">
                         <div>
-                            <p class="text-sm font-semibold text-gray-700">El precio de venta incluye IGV (18%)</p>
-                            <p class="text-xs text-gray-400 mt-0.5">El margen se calcula sobre el precio base sin impuesto</p>
+                            <p class="text-sm font-semibold text-gray-700">Mostrar precio referencial con IGV (18%)</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Solo informativo — no modifica el precio ni el margen</p>
                         </div>
                     </label>
 
@@ -342,17 +340,14 @@
                                 <span class="text-gray-600">Margen de ganancia</span>
                                 <span class="font-semibold text-emerald-700" x-text="(parseFloat(margen)||0).toFixed(1) + '%'"></span>
                             </div>
-                            <div class="flex justify-between text-sm" x-show="incluyeIgv">
-                                <span class="text-gray-600">Precio sin IGV</span>
-                                <span class="font-medium" x-text="'S/ ' + resultado.precio_base.toFixed(2)"></span>
-                            </div>
                             <div class="flex justify-between text-sm border-t border-emerald-200 pt-2">
                                 <span class="font-semibold text-gray-700">Precio de venta</span>
                                 <span class="font-bold text-emerald-700 text-lg" x-text="'S/ ' + resultado.precio_final.toFixed(2)"></span>
                             </div>
-                            <p x-show="incluyeIgv" class="text-xs text-center text-gray-500">
-                                <i class="fas fa-info-circle mr-1"></i>Precio incluye IGV 18%
-                            </p>
+                            <div class="flex justify-between text-sm" x-show="incluyeIgv">
+                                <span class="text-gray-500 text-xs">Ref. con IGV 18%</span>
+                                <span class="text-xs text-gray-500" x-text="'S/ ' + resultado.precio_con_igv.toFixed(2)"></span>
+                            </div>
                         </div>
                     </template>
 

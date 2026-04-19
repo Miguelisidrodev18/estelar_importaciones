@@ -161,9 +161,7 @@
                          const compra = parseFloat(this.precioCompra) || 0;
                          const margen = parseFloat(this.margen) || 0;
                          if (compra > 0 && margen >= 0) {
-                             let venta = compra * (1 + margen / 100);
-                             if (this.incluyeIgv) venta = venta * 1.18;
-                             this.precioVenta = Math.round(venta * 100) / 100;
+                             this.precioVenta = Math.round(compra * (1 + margen / 100) * 100) / 100;
                          }
                      },
 
@@ -171,8 +169,8 @@
                          const compra = parseFloat(this.precioCompra) || 0;
                          const venta  = parseFloat(this.precioVenta)  || 0;
                          if (compra > 0 && venta > 0) {
-                             const base = this.incluyeIgv ? (venta / 1.18) : venta;
-                             this.margen = Math.round(((base - compra) / compra * 100) * 10) / 10;
+                             // Margen siempre sobre precio base, IGV es solo referencial
+                             this.margen = Math.round(((venta - compra) / compra * 100) * 10) / 10;
                          }
                      },
 
@@ -392,21 +390,22 @@
                                 <p x-show="modoCalculo==='precio'" class="text-xs text-gray-400 mt-1">Ingresa el precio que quieres cobrar</p>
                             </div>
 
-                            {{-- IGV --}}
+                            {{-- IGV (solo referencial) --}}
                             <div class="md:col-span-2">
                                 <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
                                     <input type="hidden" name="incluye_igv" value="0">
                                     <input type="checkbox" name="incluye_igv" value="1"
                                            x-model="incluyeIgv"
-                                           @change="modoCalculo==='margen' ? calcularPrecioVenta() : calcularMargen()"
                                            class="w-4 h-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-400">
                                     <div>
-                                        <p class="text-sm font-semibold text-gray-700">El precio de venta incluye IGV (18%)</p>
-                                        <p class="text-xs text-gray-400 mt-0.5">
-                                            El margen se calcula sobre el precio sin IGV
-                                        </p>
+                                        <p class="text-sm font-semibold text-gray-700">Mostrar precio referencial con IGV (18%)</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">Solo informativo — no modifica el precio ni el margen</p>
                                     </div>
                                 </label>
+                                <div x-show="incluyeIgv" class="mt-2 flex justify-between items-center px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
+                                    <span>Ref. precio con IGV 18%</span>
+                                    <span class="font-medium" x-text="'S/ ' + (Math.round(parseFloat(precioVenta || 0) * 1.18 * 100) / 100).toFixed(2)"></span>
+                                </div>
                             </div>
 
                             {{-- Precio mayorista --}}

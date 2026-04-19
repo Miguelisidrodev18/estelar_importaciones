@@ -210,19 +210,39 @@ class PrecioController extends Controller
             if (empty($validated['variante_id'])) {
                 $producto->update(['precio_venta' => $validated['precio_venta']]);
             } else {
-                // Si tiene variante, calcular el sobreprecio y actualizar en producto_variantes
-                $sobreprecio = max(0, $validated['precio_venta'] - $producto->precio_venta);
-                \App\Models\ProductoVariante::where('id', $validated['variante_id'])
-                    ->update(['sobreprecio' => $sobreprecio]);
+                // Replicar el precio a todas las variantes con la misma capacidad
+                $variantePrincipal = \App\Models\ProductoVariante::find($validated['variante_id']);
+                if ($variantePrincipal) {
+                    $mismaCapacidad = $producto->variantesActivas()
+                        ->where('capacidad', $variantePrincipal->capacidad)
+                        ->where('id', '!=', $validated['variante_id'])
+                        ->get();
 
-                // Propagar incluye_igv al precio base del producto (variante_id=null)
-                // para que el módulo de ventas lo detecte correctamente
-                ProductoPrecio::where('producto_id', $producto->id)
-                    ->whereNull('variante_id')
-                    ->whereNull('almacen_id')
-                    ->where('tipo_precio', 'venta_regular')
-                    ->where('activo', true)
-                    ->update(['incluye_igv' => !empty($validated['incluye_igv'])]);
+                    foreach ($mismaCapacidad as $otraVariante) {
+                        ProductoPrecio::where('producto_id', $producto->id)
+                            ->where('variante_id', $otraVariante->id)
+                            ->whereNull('almacen_id')
+                            ->where('tipo_precio', 'venta_regular')
+                            ->where('activo', true)
+                            ->update(['activo' => false]);
+
+                        ProductoPrecio::create([
+                            'producto_id'      => $producto->id,
+                            'variante_id'      => $otraVariante->id,
+                            'almacen_id'       => null,
+                            'tipo_precio'      => 'venta_regular',
+                            'precio'           => $validated['precio_venta'],
+                            'precio_compra'    => $validated['precio_compra'],
+                            'precio_mayorista' => $validated['precio_mayorista'] ?? null,
+                            'margen'           => $validated['margen'],
+                            'incluye_igv'      => !empty($validated['incluye_igv']),
+                            'observaciones'    => $validated['observaciones'] ?? null,
+                            'proveedor_id'     => $validated['proveedor_id'] ?? null,
+                            'activo'           => true,
+                            'creado_por'       => auth()->id(),
+                        ]);
+                    }
+                }
             }
 
             // Replicar a todas las tiendas activas
