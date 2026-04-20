@@ -25,10 +25,41 @@
     </nav>
 
     {{-- Header --}}
+    @php
+        $varianteEditando = $precio->variante;
+        $capacidadEditando = $varianteEditando
+            ? ($varianteEditando->capacidad ?: 'Sin capacidad específica')
+            : null;
+        // Count how many colors share this capacity
+        $coloresCapacidad = $varianteEditando
+            ? $producto->variantesActivas->where('capacidad', $varianteEditando->capacidad)->count()
+            : 0;
+        $tiendaEditando = $precio->almacen;
+    @endphp
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Editar Precio</h1>
             <p class="text-sm text-gray-500 mt-0.5">{{ $producto->nombre }}</p>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+                @if($capacidadEditando)
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full border border-blue-200">
+                        <i class="fas fa-microchip text-[10px]"></i>
+                        Capacidad: {{ $capacidadEditando }}
+                        @if($coloresCapacidad > 1)
+                            <span class="text-blue-500">({{ $coloresCapacidad }} colores)</span>
+                        @endif
+                    </span>
+                @endif
+                @if($tiendaEditando)
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-semibold rounded-full border border-indigo-200">
+                        <i class="fas fa-store text-[10px]"></i> {{ $tiendaEditando->nombre }}
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full border border-gray-200">
+                        <i class="fas fa-globe text-[10px]"></i> Precio global
+                    </span>
+                @endif
+            </div>
         </div>
         <a href="{{ route('precios.show', $producto) }}"
            class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
@@ -87,6 +118,20 @@
                     </h2>
                 </div>
                 <div class="p-5 space-y-3">
+                    @if($capacidadEditando)
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Capacidad</span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-semibold">
+                            <i class="fas fa-microchip text-[9px]"></i> {{ $capacidadEditando }}
+                        </span>
+                    </div>
+                    @endif
+                    @if($tiendaEditando)
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Tienda</span>
+                        <span class="font-medium text-gray-800">{{ $tiendaEditando->nombre }}</span>
+                    </div>
+                    @endif
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-gray-500">Precio compra</span>
                         <span class="font-semibold text-gray-800">S/ {{ number_format($precio->precio_compra, 2) }}</span>
@@ -223,10 +268,30 @@
                  }"
                  x-init="init()">
 
-                <div class="bg-gradient-to-r from-yellow-600 to-yellow-500 px-5 py-4">
+                <div class="bg-gradient-to-r from-yellow-600 to-yellow-500 px-5 py-4 flex items-center justify-between gap-3">
                     <h2 class="text-sm font-semibold text-white flex items-center gap-2">
                         <i class="fas fa-edit"></i> Actualizar Precio
                     </h2>
+                    <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                        @if($capacidadEditando)
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-400/40 text-white text-xs font-semibold rounded-full border border-yellow-300/50">
+                                <i class="fas fa-microchip text-[9px]"></i> {{ $capacidadEditando }}
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-400/40 text-white text-xs font-medium rounded-full border border-yellow-300/50">
+                                <i class="fas fa-box text-[9px]"></i> Precio base
+                            </span>
+                        @endif
+                        @if($tiendaEditando)
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-400/40 text-white text-xs font-medium rounded-full border border-yellow-300/50">
+                                <i class="fas fa-store text-[9px]"></i> {{ $tiendaEditando->nombre }}
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-400/40 text-white text-xs font-medium rounded-full border border-yellow-300/50">
+                                <i class="fas fa-globe text-[9px]"></i> Global
+                            </span>
+                        @endif
+                    </div>
                 </div>
 
                 <div class="p-6">

@@ -58,6 +58,7 @@
 
         {{-- ====== COLUMNA IZQUIERDA: info + calculadora + formulario ====== --}}
         <div class="space-y-5"
+             @precarga-precio.window="precargarPrecio($event.detail.varianteId, $event.detail.precioCompra, $event.detail.precioVenta, $event.detail.margen)"
              x-data="{
                  proveedorId: '',
                  precioCompra: '',
@@ -72,7 +73,7 @@
                  buscandoProv: false,
                  ultimaCompra: null,
                  cargandoCompra: false,
-                 varianteId: '',
+                 varianteId: '{{ request('variante_id', '') }}',
                  replicar: true,
 
                  async buscarProveedor() {
@@ -113,6 +114,19 @@
                  async cambiarVariante() {
                      this.resultado = null;
                      await this.fetchUltimaCompra();
+                 },
+
+                 precargarPrecio(varianteId, precioCompra, precioVenta, margen) {
+                     this.varianteId   = varianteId ? String(varianteId) : '';
+                     this.precioCompra = precioCompra;
+                     this.precioVenta  = precioVenta;
+                     this.margen       = margen;
+                     this.modoCalculo  = 'margen';
+                     this.resultado    = {
+                         precio_final:   parseFloat(precioVenta),
+                         precio_con_igv: Math.round(parseFloat(precioVenta) * 1.18 * 100) / 100,
+                     };
+                     window.scrollTo({ top: 0, behavior: 'smooth' });
                  },
 
                  limpiarProveedor() {
@@ -189,9 +203,9 @@
                     @csrf
 
                     {{-- Variante agrupada por capacidad --}}
-                    @if($producto->variantesActivas->isNotEmpty())
+                    @if($producto->variantes->isNotEmpty())
                     @php
-                        $porCapacidad = $producto->variantesActivas->groupBy(fn($v) => $v->capacidad ?? '');
+                        $porCapacidad = $producto->variantes->groupBy(fn($v) => $v->capacidad ?? '');
                     @endphp
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
@@ -204,6 +218,7 @@
                             @foreach($porCapacidad as $capacidad => $variantes)
                                 <option value="{{ $variantes->first()->id }}">
                                     {{ $capacidad ?: 'Sin capacidad específica' }}
+                                    ({{ $variantes->count() }} {{ $variantes->count() === 1 ? 'color' : 'colores' }})
                                 </option>
                             @endforeach
                         </select>
@@ -403,192 +418,599 @@
 
             {{-- KPI cards --}}
             @php
-                $precioGlobal = $preciosGlobales->where('activo', true)->first();
-                $totalRegistros = $producto->precios->count();
+                $precioGlobal        = $preciosGlobales->where('activo', true)->first();
+                $porCapacidadGlobal  = $producto->variantes->isNotEmpty()
+                    ? $producto->variantes->groupBy(fn($v) => $v->capacidad ?? '')
+                    : collect();
+                $conPrecioCount      = $porCapacidadGlobal->filter(
+                    fn($vars) => isset($preciosGlobalesActivos[$vars->first()->id])
+                )->count();
+                $totalCapCount       = $porCapacidadGlobal->count();
+                $varianteActual      = request('variante_id')
+                    ? $producto->variantes->firstWhere('id', (int) request('variante_id'))
+                    : null;
             @endphp
-            <div class="grid grid-cols-3 gap-4">
-                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Venta Global</p>
-                    <p class="text-xl font-bold text-blue-700">
-                        {{ $precioGlobal ? 'S/ ' . number_format($precioGlobal->precio, 2) : '—' }}
-                    </p>
+
+            @if($porCapacidadGlobal->isNotEmpty())
+                {{-- Producto con variantes: tarjeta por capacidad --}}
+                <div class="grid grid-cols-1 sm:grid-cols-2 {{ $porCapacidadGlobal->count() >= 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-2' }} gap-3">
+                    @foreach($porCapacidadGlobal as $cap => $vars)
+                        @php
+                            $varRep     = $vars->first();
+                            $pCap       = $preciosGlobalesActivos[$varRep->id] ?? null;
+                            $esActual   = $varianteActual && $vars->contains('id', $varianteActual->id);
+                        @endphp
+                        <div class="bg-white rounded-xl border {{ $esActual ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-100' }} shadow-sm p-4 cursor-pointer hover:border-blue-300 transition-all"
+                             onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: {{ $varRep->id }}, precioCompra: {{ $pCap?->precio_compra ?? 0 }}, precioVenta: {{ $pCap?->precio ?? 0 }}, margen: {{ $pCap?->margen ?? 0 }} } }))">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+                                    <i class="fas fa-microchip text-blue-500 text-xs"></i>
+                                    {{ $cap ?: 'Sin capacidad' }}
+                                </span>
+                                <span class="text-xs text-gray-400">{{ $vars->count() }} color{{ $vars->count() > 1 ? 'es' : '' }}</span>
+                            </div>
+                            @if($pCap)
+                                <div class="space-y-1.5">
+                                    <div class="flex justify-between text-xs">
+                                        <span class="text-gray-500">Compra</span>
+                                        <span class="font-medium text-gray-700">{{ $pCap->precio_compra ? 'S/ ' . number_format($pCap->precio_compra, 2) : '—' }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-500">Venta</span>
+                                        <span class="text-base font-bold text-blue-700">S/ {{ number_format($pCap->precio, 2) }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-xs">
+                                        <span class="text-gray-500">c/IGV</span>
+                                        <span class="text-emerald-600 font-medium">S/ {{ number_format($pCap->precio * 1.18, 2) }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-xs border-t border-gray-100 pt-1.5 mt-1.5">
+                                        <span class="text-gray-500">Margen</span>
+                                        <span class="font-bold {{ ($pCap->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-600' }}">
+                                            {{ $pCap->margen ? $pCap->margen . '%' : '—' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-center py-3">
+                                    <span class="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
+                                        <i class="fas fa-exclamation-circle"></i> Sin precio — clic para registrar
+                                    </span>
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
                 </div>
-                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Compra</p>
-                    <p class="text-xl font-bold text-gray-700">
-                        {{ $precioGlobal ? 'S/ ' . number_format($precioGlobal->precio_compra, 2) : '—' }}
-                    </p>
+            @else
+                {{-- Producto sin variantes: 3 KPIs clásicos --}}
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Venta Global</p>
+                        <p class="text-xl font-bold text-blue-700">
+                            {{ $precioGlobal ? 'S/ ' . number_format($precioGlobal->precio, 2) : '—' }}
+                        </p>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Compra</p>
+                        <p class="text-xl font-bold text-gray-700">
+                            {{ $precioGlobal ? 'S/ ' . number_format($precioGlobal->precio_compra, 2) : '—' }}
+                        </p>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Margen</p>
+                        <p class="text-xl font-bold {{ ($precioGlobal?->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-600' }}">
+                            {{ $precioGlobal ? $precioGlobal->margen . '%' : '—' }}
+                        </p>
+                    </div>
                 </div>
-                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Margen</p>
-                    <p class="text-xl font-bold {{ ($precioGlobal?->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-600' }}">
-                        {{ $precioGlobal ? $precioGlobal->margen . '%' : '—' }}
-                    </p>
-                </div>
-            </div>
+            @endif
 
             {{-- PRECIOS GLOBALES (sin tienda) --}}
+            {{-- $porCapacidadGlobal, $conPrecioCount, $totalCapCount already defined in KPI block above --}}
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div class="bg-gradient-to-r from-blue-900 to-blue-700 px-5 py-4 flex items-center justify-between">
                     <h2 class="text-sm font-semibold text-white flex items-center gap-2">
                         <i class="fas fa-globe"></i> Precio Global (todas las tiendas)
                     </h2>
-                    <span class="text-xs text-blue-200">{{ $preciosGlobales->count() }} registro(s)</span>
+                    @if($producto->variantes->isNotEmpty())
+                        <span class="text-xs text-blue-200">{{ $conPrecioCount }}/{{ $totalCapCount }} capacidades con precio</span>
+                    @else
+                        <span class="text-xs text-blue-200">{{ $preciosGlobales->count() }} registro(s)</span>
+                    @endif
                 </div>
 
-                @if($preciosGlobales->count())
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-100">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Variante</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                                    {{ $producto->variantes->isNotEmpty() ? 'Capacidad' : 'Variante' }}
+                                </th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Proveedor</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">P. Compra</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">P. Venta</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">P. Mayor.</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Margen</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Acción</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            @foreach($preciosGlobales as $precio)
-                            <tr class="hover:bg-blue-50/30 transition-colors {{ $precio->activo ? '' : 'opacity-50' }}">
-                                <td class="px-4 py-3 text-sm text-gray-700">
-                                    @if($precio->variante)
-                                        <div class="flex items-center gap-1.5">
-                                            @if($precio->variante->color)
-                                                <div class="w-3 h-3 rounded-full border border-gray-300"
-                                                     style="background:{{ $precio->variante->color->codigo_hex ?? '#999' }}"></div>
+
+                            @if($producto->variantes->isNotEmpty())
+                                {{-- Producto con variantes: una fila por capacidad --}}
+                                @foreach($porCapacidadGlobal as $capacidad => $variantes)
+                                    @php
+                                        $varRep  = $variantes->first();
+                                        $precio  = $preciosGlobalesActivos[$varRep->id] ?? null;
+                                    @endphp
+                                    <tr class="hover:bg-blue-50/30 transition-colors {{ $precio ? '' : 'bg-amber-50/30' }}">
+                                        <td class="px-4 py-3 text-sm">
+                                            <div class="font-medium text-gray-900">{{ $capacidad ?: 'Sin capacidad' }}</div>
+                                            <div class="text-xs text-gray-400 mt-0.5">
+                                                {{ $variantes->count() }} {{ $variantes->count() === 1 ? 'color' : 'colores' }}
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-600">
+                                            {{ $precio?->proveedor?->razon_social ?? '—' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-700">
+                                            {{ $precio?->precio_compra ? 'S/ ' . number_format($precio->precio_compra, 2) : '—' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            @if($precio)
+                                                <span class="text-sm font-bold text-blue-700">S/ {{ number_format($precio->precio, 2) }}</span>
+                                            @else
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                                    <i class="fas fa-exclamation-circle text-[9px]"></i> Sin precio
+                                                </span>
                                             @endif
-                                            <span class="font-medium">{{ $precio->variante->nombre_completo }}</span>
-                                        </div>
-                                    @else
-                                        <span class="text-gray-400 italic text-xs">Base</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-600">{{ $precio->proveedor?->razon_social ?? '—' }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-gray-700">
-                                    {{ $precio->precio_compra ? 'S/ ' . number_format($precio->precio_compra, 2) : '—' }}
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <span class="text-sm font-bold text-blue-700">S/ {{ number_format($precio->precio, 2) }}</span>
-                                </td>
-                                <td class="px-4 py-3 text-sm text-right text-gray-600">
-                                    {{ $precio->precio_mayorista ? 'S/ ' . number_format($precio->precio_mayorista, 2) : '—' }}
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <span class="text-sm font-semibold {{ ($precio->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-700' }}">
-                                        {{ $precio->margen ? $precio->margen . '%' : '—' }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    @if($precio->activo)
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                                            <i class="fas fa-circle text-[6px]"></i> Activo
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
-                                            <i class="fas fa-circle text-[6px]"></i> Inactivo
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    <a href="{{ route('precios.edit', ['producto' => $producto->id, 'precio' => $precio->id]) }}"
-                                       class="inline-flex items-center gap-1 px-3 py-1 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg text-xs font-medium hover:bg-yellow-100 transition-colors">
-                                        <i class="fas fa-edit"></i> Editar
-                                    </a>
-                                </td>
-                            </tr>
-                            @endforeach
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            @if($precio?->margen)
+                                                <span class="text-sm font-semibold {{ ($precio->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-700' }}">
+                                                    {{ $precio->margen }}%
+                                                </span>
+                                            @else
+                                                <span class="text-gray-400 text-sm">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            @if($precio)
+                                                @if($precio->activo)
+                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                                        <i class="fas fa-circle text-[6px]"></i> Activo
+                                                    </span>
+                                                @else
+                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                                                        <i class="fas fa-circle text-[6px]"></i> Inactivo
+                                                    </span>
+                                                @endif
+                                            @else
+                                                <span class="text-gray-400 text-xs">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                                                @if($precio)
+                                                    <button type="button"
+                                                            onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: {{ $varRep->id }}, precioCompra: {{ $precio->precio_compra ?? 0 }}, precioVenta: {{ $precio->precio }}, margen: {{ $precio->margen ?? 0 }} } }))"
+                                                            class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-100 transition-colors">
+                                                        <i class="fas fa-sync-alt"></i> Actualizar
+                                                    </button>
+                                                    <a href="{{ route('precios.edit', ['producto' => $producto->id, 'precio' => $precio->id]) }}"
+                                                       class="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg text-xs font-medium hover:bg-yellow-100 transition-colors">
+                                                        <i class="fas fa-edit"></i> Editar
+                                                    </a>
+                                                @else
+                                                    <span class="text-xs text-gray-400 italic">Registra desde el formulario</span>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+
+                            @else
+                                {{-- Producto sin variantes: precio base --}}
+                                @php $precioBase = $preciosGlobalesActivos->first(); @endphp
+                                @if($precioBase)
+                                    <tr class="hover:bg-blue-50/30 transition-colors">
+                                        <td class="px-4 py-3 text-sm text-gray-400 italic">Base</td>
+                                        <td class="px-4 py-3 text-sm text-gray-600">{{ $precioBase->proveedor?->razon_social ?? '—' }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-700">
+                                            {{ $precioBase->precio_compra ? 'S/ ' . number_format($precioBase->precio_compra, 2) : '—' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="text-sm font-bold text-blue-700">S/ {{ number_format($precioBase->precio, 2) }}</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="text-sm font-semibold {{ ($precioBase->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-700' }}">
+                                                {{ $precioBase->margen ? $precioBase->margen . '%' : '—' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                                <i class="fas fa-circle text-[6px]"></i> Activo
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            <div class="flex items-center justify-center gap-1.5">
+                                                <button type="button"
+                                                        onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: null, precioCompra: {{ $precioBase->precio_compra ?? 0 }}, precioVenta: {{ $precioBase->precio }}, margen: {{ $precioBase->margen ?? 0 }} } }))"
+                                                        class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-100 transition-colors">
+                                                    <i class="fas fa-sync-alt"></i> Actualizar
+                                                </button>
+                                                <a href="{{ route('precios.edit', ['producto' => $producto->id, 'precio' => $precioBase->id]) }}"
+                                                   class="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg text-xs font-medium hover:bg-yellow-100 transition-colors">
+                                                    <i class="fas fa-edit"></i> Editar
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @else
+                                    <tr>
+                                        <td colspan="7" class="py-12 text-center">
+                                            <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                <i class="fas fa-globe text-2xl text-gray-400"></i>
+                                            </div>
+                                            <p class="text-gray-500 font-medium text-sm">Sin precio global registrado</p>
+                                            <p class="text-gray-400 text-xs mt-1">Usa el formulario de la izquierda para registrar el primer precio.</p>
+                                        </td>
+                                    </tr>
+                                @endif
+                            @endif
+
                         </tbody>
                     </table>
                 </div>
-                @else
-                <div class="py-12 text-center">
-                    <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <i class="fas fa-globe text-2xl text-gray-400"></i>
-                    </div>
-                    <p class="text-gray-500 font-medium text-sm">Sin precio global registrado</p>
-                    <p class="text-gray-400 text-xs mt-1">Usa el formulario de la izquierda para registrar el primer precio.</p>
-                </div>
-                @endif
             </div>
 
             {{-- PRECIOS POR TIENDA --}}
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div class="bg-gradient-to-r from-indigo-700 to-indigo-500 px-5 py-4 flex items-center justify-between">
-                    <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-                        <i class="fas fa-store"></i> Precio por Tienda / Sucursal
-                    </h2>
-                    <span class="text-xs text-indigo-200">{{ $preciosPorTienda->count() }} registro(s)</span>
-                </div>
+            {{-- PRECIOS POR TIENDA --}}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+     x-data="{
+        expandedStores: {},
+        selectedPrices: [],
 
-                @if($preciosPorTienda->count())
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-100">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tienda</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Variante</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">P. Venta</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Margen</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @foreach($preciosPorTienda->sortBy(fn($p) => $p->almacen?->nombre) as $precio)
-                            <tr class="hover:bg-indigo-50/20 transition-colors {{ $precio->activo ? '' : 'opacity-50' }}">
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                            <i class="fas fa-store text-indigo-600 text-xs"></i>
+        /* ── Modal de confirmación ── */
+        modal: { show: false, type: 'confirm', title: '', body: '', icon: '', iconColor: '', confirmLabel: 'Confirmar', confirmColor: 'bg-blue-600 hover:bg-blue-700', onConfirm: null },
+        /* ── Modal de input ── */
+        inputModal: { show: false, label: '', placeholder: '', value: '', onConfirm: null },
+        /* ── Toast de resultado ── */
+        toast: { show: false, success: true, message: '' },
+
+        showToast(success, message) {
+            this.toast = { show: true, success, message };
+            setTimeout(() => this.toast.show = false, 3500);
+        },
+
+        openConfirm(title, body, icon, iconColor, confirmLabel, confirmColor, callback) {
+            this.modal = { show: true, type: 'confirm', title, body, icon, iconColor, confirmLabel, confirmColor, onConfirm: callback };
+        },
+
+        openInput(label, placeholder, callback) {
+            this.inputModal = { show: true, label, placeholder, value: '', onConfirm: callback };
+        },
+
+        toggleStore(storeId) {
+            this.expandedStores[storeId] = !this.expandedStores[storeId];
+        },
+
+        toggleAllInStore(key, priceIds) {
+            const allSelected = priceIds.every(id => this.selectedPrices.includes(id));
+            if (allSelected) {
+                this.selectedPrices = this.selectedPrices.filter(id => !priceIds.includes(id));
+            } else {
+                priceIds.forEach(id => { if (!this.selectedPrices.includes(id)) this.selectedPrices.push(id); });
+            }
+        },
+
+        async applyToSelected(action, value = null, overrideIds = null) {
+            const ids = overrideIds ?? this.selectedPrices;
+            if (ids.length === 0) {
+                this.openConfirm('Sin selección', 'Debes seleccionar al menos un precio para continuar.', 'fa-info-circle', 'text-blue-500', 'Entendido', 'bg-blue-600 hover:bg-blue-700', null);
+                return;
+            }
+            try {
+                const res  = await fetch('{{ route("precios.bulk-action", $producto) }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ action, price_ids: ids, value })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.showToast(true, data.message ?? 'Acción aplicada correctamente');
+                    setTimeout(() => window.location.reload(), 1200);
+                } else {
+                    this.showToast(false, data.message ?? 'Ocurrió un error al procesar la acción');
+                }
+            } catch {
+                this.showToast(false, 'No se pudo conectar con el servidor. Intenta nuevamente.');
+            }
+        },
+
+        bulkUpdatePrice() {
+            this.openInput('Nuevo precio de venta (S/)', 'Ej: 950.00', (val) => {
+                const v = parseFloat(val);
+                if (!isNaN(v) && v > 0) this.applyToSelected('update_price', v);
+                else this.showToast(false, 'Ingresa un precio válido mayor a 0');
+            });
+        },
+
+        bulkActivate() {
+            this.openConfirm('Activar precios', '¿Activar todos los precios seleccionados?', 'fa-check-circle', 'text-green-500', 'Sí, activar', 'bg-green-600 hover:bg-green-700',
+                () => this.applyToSelected('activate'));
+        },
+
+        bulkDeactivate() {
+            this.openConfirm('Desactivar precios', '¿Desactivar los precios seleccionados? Quedarán inactivos.', 'fa-ban', 'text-red-500', 'Sí, desactivar', 'bg-red-600 hover:bg-red-700',
+                () => this.applyToSelected('deactivate'));
+        },
+
+        bulkRestoreGlobal() {
+            this.openConfirm('Restaurar precio global', 'Se reemplazarán los precios personalizados seleccionados con el precio global actual. ¿Continuar?', 'fa-undo-alt', 'text-purple-500', 'Sí, restaurar', 'bg-purple-600 hover:bg-purple-700',
+                () => this.applyToSelected('restore_global'));
+        }
+     }">
+
+    {{-- ══ Modal de confirmación ══ --}}
+    <div x-show="modal.show" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="modal.show = false"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+            <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <i :class="'fas ' + modal.icon + ' text-lg ' + modal.iconColor"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-gray-900" x-text="modal.title"></h3>
+                    <p class="text-sm text-gray-500 mt-1" x-text="modal.body"></p>
+                </div>
+            </div>
+            <div class="flex gap-2 justify-end pt-1">
+                <button type="button" @click="modal.show = false"
+                        class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+                    Cancelar
+                </button>
+                <button type="button"
+                        @click="modal.show = false; if (modal.onConfirm) modal.onConfirm()"
+                        :class="modal.confirmColor"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
+                        x-text="modal.confirmLabel">
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- ══ Modal de input (cambiar precio) ══ --}}
+    <div x-show="inputModal.show" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="inputModal.show = false"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                    <i class="fas fa-dollar-sign text-blue-600"></i>
+                </div>
+                <h3 class="text-base font-bold text-gray-900" x-text="inputModal.label"></h3>
+            </div>
+            <input type="number" x-model="inputModal.value" :placeholder="inputModal.placeholder"
+                   step="0.01" min="0.01"
+                   @keydown.enter="inputModal.show = false; inputModal.onConfirm && inputModal.onConfirm(inputModal.value)"
+                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autofocus>
+            <div class="flex gap-2 justify-end">
+                <button type="button" @click="inputModal.show = false"
+                        class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+                    Cancelar
+                </button>
+                <button type="button"
+                        @click="inputModal.show = false; inputModal.onConfirm && inputModal.onConfirm(inputModal.value)"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                    Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- ══ Toast de resultado ══ --}}
+    <div x-show="toast.show" x-cloak
+         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         :class="toast.success ? 'bg-green-600' : 'bg-red-600'"
+         class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium max-w-xs">
+        <i :class="toast.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
+        <span x-text="toast.message"></span>
+    </div>
+    
+    <div class="bg-gradient-to-r from-indigo-700 to-indigo-500 px-5 py-4 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i class="fas fa-store"></i> Precio por Tienda / Sucursal
+        </h2>
+        <div class="flex gap-2">
+            <span class="text-xs text-indigo-200">{{ $preciosPorTienda->count() }} registro(s)</span>
+        </div>
+    </div>
+
+    @if($preciosPorTienda->count())
+        {{-- Barra de acciones masivas --}}
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-2">
+            <span class="text-xs text-gray-500 mr-2">
+                <i class="fas fa-check-square"></i> Acciones masivas:
+            </span>
+            <button type="button" @click="bulkUpdatePrice()"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg hover:bg-blue-100 transition-colors">
+                <i class="fas fa-dollar-sign"></i> Cambiar Precio
+            </button>
+            <button type="button" @click="bulkActivate()"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium rounded-lg hover:bg-green-100 transition-colors">
+                <i class="fas fa-check-circle"></i> Activar
+            </button>
+            <button type="button" @click="bulkDeactivate()"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded-lg hover:bg-red-100 transition-colors">
+                <i class="fas fa-ban"></i> Desactivar
+            </button>
+            <button type="button" @click="bulkRestoreGlobal()"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-100 transition-colors">
+                <i class="fas fa-undo-alt"></i> Restaurar Global
+            </button>
+            <span x-show="selectedPrices.length > 0" class="text-xs text-emerald-600 ml-auto" x-text="selectedPrices.length + ' seleccionado(s)'"></span>
+        </div>
+
+        {{-- Vista agrupada por tienda → capacidad --}}
+                <div class="divide-y divide-gray-100">
+                    @php
+                        $preciosPorTiendaAgrupados = $preciosPorTienda->groupBy(fn($p) => $p->almacen?->nombre ?? 'Sin tienda');
+                    @endphp
+
+                    @foreach($preciosPorTiendaAgrupados as $nombreTienda => $preciosTienda)
+                        @php
+                            $storeKey  = Str::slug($nombreTienda);
+                            $priceIds  = $preciosTienda->pluck('id')->toArray();
+                            // Group this store's prices by capacity
+                            $capsTienda = $preciosTienda->groupBy(fn($p) => $p->variante?->capacidad ?? '');
+                        @endphp
+
+                        <div class="store-group">
+                            {{-- Header de tienda --}}
+                            <div class="bg-gray-50/50 hover:bg-gray-100/50 transition-colors cursor-pointer"
+                                 @click="toggleStore('{{ $storeKey }}')">
+                                <div class="px-5 py-3 flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox"
+                                            @click.stop
+                                            @change="toggleAllInStore('{{ $storeKey }}', {{ json_encode($priceIds) }})"
+                                            :checked="selectedPrices.length > 0 && {{ json_encode($priceIds) }}.every(id => selectedPrices.includes(id))"
+                                            class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                        <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                                            <i class="fas fa-store text-indigo-600 text-sm"></i>
                                         </div>
                                         <div>
-                                            <p class="text-sm font-semibold text-gray-800">{{ $precio->almacen?->nombre ?? '—' }}</p>
-                                            <p class="text-xs text-gray-400">{{ $precio->almacen?->tipo ?? '' }}</p>
+                                            <p class="text-sm font-semibold text-gray-800">{{ $nombreTienda }}</p>
+                                            @php
+                                                $capsReales      = $porCapacidadGlobal->count() ?: $capsTienda->count();
+                                                $variantesReales = $porCapacidadGlobal->sum(fn($v) => $v->count()) ?: $preciosTienda->count();
+                                            @endphp
+                                            <p class="text-xs text-gray-400">
+                                                {{ $capsReales }} {{ $capsReales === 1 ? 'capacidad' : 'capacidades' }}
+                                                · {{ $variantesReales }} {{ $variantesReales === 1 ? 'variante' : 'variantes' }}
+                                            </p>
                                         </div>
                                     </div>
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-700">
-                                    @if($precio->variante)
-                                        <span class="font-medium">{{ $precio->variante->nombre_completo }}</span>
-                                    @else
-                                        <span class="text-gray-400 italic text-xs">Base</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <span class="text-sm font-bold text-indigo-700">S/ {{ number_format($precio->precio, 2) }}</span>
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <span class="text-sm font-semibold {{ ($precio->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-700' }}">
-                                        {{ $precio->margen ? $precio->margen . '%' : '—' }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    @if($precio->activo)
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                                            <i class="fas fa-circle text-[6px]"></i> Activo
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
-                                            <i class="fas fa-circle text-[6px]"></i> Inactivo
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    <a href="{{ route('precios.edit', ['producto' => $producto->id, 'precio' => $precio->id]) }}"
-                                       class="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors">
-                                        <i class="fas fa-edit"></i> Editar
-                                    </a>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                                    <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform"
+                                       :class="{'rotate-180': expandedStores['{{ $storeKey }}']}"></i>
+                                </div>
+                            </div>
+
+                            {{-- Detalle agrupado por capacidad --}}
+                            <div x-show="expandedStores['{{ $storeKey }}']" x-cloak>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full">
+                                        <thead>
+                                            <tr class="border-b border-gray-100 bg-indigo-50/30">
+                                                <th class="pl-14 pr-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Capacidad</th>
+                                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Proveedor</th>
+                                                <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">P. Compra</th>
+                                                <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">P. Venta</th>
+                                                <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">c/IGV</th>
+                                                <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">Margen</th>
+                                                <th class="px-4 py-2 text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">Estado</th>
+                                                <th class="px-4 py-2 text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-50">
+                                            @foreach($capsTienda as $cap => $preciosCap)
+                                                @php
+                                                    $pRep    = $preciosCap->first();
+                                                    $capIds  = $preciosCap->pluck('id')->toArray();
+                                                @endphp
+                                                <tr class="hover:bg-indigo-50/30 transition-colors {{ $pRep->activo ? '' : 'opacity-60' }}">
+                                                    <td class="pl-14 pr-4 py-2.5">
+                                                        <div class="flex items-center gap-2">
+                                                            <input type="checkbox"
+                                                                @click.stop
+                                                                @change="toggleAllInStore('{{ $storeKey }}_cap', {{ json_encode($capIds) }})"
+                                                                :checked="{{ json_encode($capIds) }}.every(id => selectedPrices.includes(id))"
+                                                                class="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                            <i class="fas fa-microchip text-indigo-400 text-xs"></i>
+                                                            <span class="text-sm font-medium text-gray-800">{{ $cap ?: 'Sin capacidad' }}</span>
+                                                            @php $coloresReales = $porCapacidadGlobal->get($cap)?->count() ?? $preciosCap->count(); @endphp
+                                                            <span class="text-xs text-gray-400">({{ $coloresReales }} {{ $coloresReales === 1 ? 'color' : 'colores' }})</span>
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-4 py-2.5 text-sm text-gray-500">
+                                                        {{ $pRep->proveedor?->razon_social ?? '—' }}
+                                                    </td>
+                                                    <td class="px-4 py-2.5 text-sm text-right text-gray-600">
+                                                        {{ $pRep->precio_compra ? 'S/ ' . number_format($pRep->precio_compra, 2) : '—' }}
+                                                    </td>
+                                                    <td class="px-4 py-2.5 text-right">
+                                                        <span class="text-sm font-bold text-indigo-700">S/ {{ number_format($pRep->precio, 2) }}</span>
+                                                    </td>
+                                                    <td class="px-4 py-2.5 text-right">
+                                                        <span class="text-xs font-medium text-emerald-700">S/ {{ number_format($pRep->precio * 1.18, 2) }}</span>
+                                                    </td>
+                                                    <td class="px-4 py-2.5 text-right">
+                                                        @if($pRep->margen !== null)
+                                                            <span class="text-sm font-semibold {{ ($pRep->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-700' }}">
+                                                                {{ $pRep->margen }}%
+                                                            </span>
+                                                        @else
+                                                            <span class="text-gray-400">—</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="px-4 py-2.5 text-center">
+                                                        @if($pRep->activo)
+                                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                                                <i class="fas fa-circle text-[6px]"></i> Activo
+                                                            </span>
+                                                        @else
+                                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                                                                <i class="fas fa-circle text-[6px]"></i> Inactivo
+                                                            </span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="px-4 py-2.5 text-center">
+                                                        <div class="flex items-center justify-center gap-1.5">
+                                                            <a href="{{ route('precios.edit', ['producto' => $producto->id, 'precio' => $pRep->id]) }}"
+                                                               class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors">
+                                                                <i class="fas fa-edit"></i> Editar
+                                                            </a>
+                                                            @php
+                                                                // Find matching global price for this capacity
+                                                                $globalCap = $preciosGlobalesActivos[$pRep->variante_id] ?? null;
+                                                            @endphp
+                                                            @if($globalCap)
+                                                                <button type="button"
+                                                                        @click="openConfirm(
+                                                                            'Restaurar precio global',
+                                                                            'Se aplicará S/ {{ number_format($globalCap->precio, 2) }} ({{ $cap ?: 'base' }}) en {{ $nombreTienda }}. ¿Continuar?',
+                                                                            'fa-undo-alt', 'text-purple-500',
+                                                                            'Sí, restaurar', 'bg-purple-600 hover:bg-purple-700',
+                                                                            () => applyToSelected('restore_global', null, {{ json_encode($capIds) }})
+                                                                        )"
+                                                                        class="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors"
+                                                                        title="Restaurar precio global">
+                                                                    <i class="fas fa-undo-alt"></i>
+                                                                </button>
+                                                            @endif
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
-                @else
+
+                <div class="px-5 py-3 border-t border-gray-100 bg-gray-50">
+                    <span class="text-xs text-gray-500">Mostrando {{ $preciosPorTienda->count() }} registro(s)</span>
+                </div>
+            @else
                 <div class="py-10 text-center">
                     <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                         <i class="fas fa-store text-2xl text-gray-400"></i>
@@ -598,8 +1020,8 @@
                         Activa "Replicar a todas las tiendas" al guardar un precio global para crear precios individuales por sucursal.
                     </p>
                 </div>
-                @endif
-            </div>
+            @endif
+        </div>
 
         </div>
     </div>

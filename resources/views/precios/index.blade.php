@@ -155,31 +155,60 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-100">
+            <table class="min-w-full">
                 <thead>
-                    <tr class="bg-gray-50/70">
+                    <tr class="bg-gray-50/70 border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Producto</th>
                         <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Compra</th>
                         <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Venta</th>
+                        <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Venta c/IGV</th>
                         <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Margen</th>
                         <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
                         <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($productos as $producto)
-                    @php
-                        $precio = $producto->precios->first();
-                        $tienePrecio = $precio && (float)$precio->precio > 0;
-                    @endphp
-                    <tr class="hover:bg-blue-50/20 transition-colors group">
+
+                @forelse($productos as $producto)
+                @php
+                    $tieneVariantes  = $producto->variantes->isNotEmpty();
+                    $preciosActivos  = $producto->precios;           // active global venta_regular
+
+                    if ($tieneVariantes) {
+                        // Group loaded prices by capacity of their variant
+                        $porCapacidad = $preciosActivos->groupBy(
+                            fn($p) => $p->variante?->capacidad ?? ''
+                        );
+                        $tienePrecio = $preciosActivos->isNotEmpty();
+                        // For summary: all capacity groups (even without a price yet)
+                        $capacidades = $producto->variantes->groupBy(fn($v) => $v->capacidad ?? '');
+                    } else {
+                        $precio       = $preciosActivos->first();
+                        $tienePrecio  = $precio && (float)$precio->precio > 0;
+                        $porCapacidad = collect();
+                        $capacidades  = collect();
+                    }
+                @endphp
+
+                {{-- Use <tbody> per product so x-data scopes correctly --}}
+                <tbody x-data="{ open: false }">
+
+                    {{-- ── Main row ── --}}
+                    <tr class="border-b border-gray-100 hover:bg-blue-50/20 transition-colors">
 
                         {{-- Producto --}}
                         <td class="px-5 py-3.5">
                             <div class="flex items-center gap-3">
+                                @if($tieneVariantes)
+                                {{-- Expand toggle --}}
+                                <button type="button" @click="open = !open"
+                                        class="w-6 h-6 flex items-center justify-center rounded-md bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors shrink-0">
+                                    <i class="fas fa-chevron-down text-[10px] transition-transform" :class="open ? 'rotate-180' : ''"></i>
+                                </button>
+                                @else
                                 <div class="w-9 h-9 rounded-xl {{ $tienePrecio ? 'bg-blue-100' : 'bg-red-50' }} flex items-center justify-center shrink-0">
                                     <i class="fas fa-box {{ $tienePrecio ? 'text-blue-600' : 'text-red-400' }} text-sm"></i>
                                 </div>
+                                @endif
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold text-gray-900 truncate max-w-xs">{{ $producto->nombre }}</p>
                                     <div class="flex items-center gap-2 mt-0.5">
@@ -189,72 +218,129 @@
                                             {{ $producto->categoria->nombre }}
                                         </span>
                                         @endif
+                                        @if($tieneVariantes)
+                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-600">
+                                            <i class="fas fa-microchip text-[9px]"></i>
+                                            {{ $capacidades->count() }} cap.
+                                        </span>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
                         </td>
 
-                        {{-- Precio compra --}}
-                        <td class="px-5 py-3.5 text-sm text-right text-gray-600">
-                            @if($tienePrecio && $precio->precio_compra)
-                                S/ {{ number_format($precio->precio_compra, 2) }}
-                            @else
-                                <span class="text-gray-300">—</span>
-                            @endif
-                        </td>
-
-                        {{-- Precio venta --}}
-                        <td class="px-5 py-3.5 text-right">
-                            @if($tienePrecio)
-                                <span class="text-sm font-bold text-blue-700">S/ {{ number_format($precio->precio, 2) }}</span>
-                                @if($precio->incluye_igv)
-                                <br><span class="text-xs text-emerald-600 font-medium">c/IGV</span>
+                        @if($tieneVariantes)
+                            @php
+                                $pvMin = $preciosActivos->min('precio');
+                                $pvMax = $preciosActivos->max('precio');
+                                $conPrecioCount = $porCapacidad->count();
+                            @endphp
+                            {{-- P. Compra --}}
+                            <td class="px-5 py-3.5 text-right">
+                                <span class="text-xs text-gray-400 italic">múltiple</span>
+                            </td>
+                            {{-- P. Venta --}}
+                            <td class="px-5 py-3.5 text-right">
+                                @if($tienePrecio)
+                                    <span class="text-sm font-bold text-blue-700">
+                                        S/ {{ number_format($pvMin, 2) }}
+                                        @if($pvMin != $pvMax)<br><span class="text-xs font-normal text-blue-400">— S/ {{ number_format($pvMax, 2) }}</span>@endif
+                                    </span>
+                                @else
+                                    <span class="text-gray-300 text-sm">—</span>
                                 @endif
-                            @else
-                                <span class="text-gray-300 text-sm">—</span>
-                            @endif
-                        </td>
-
-                        {{-- Margen --}}
-                        <td class="px-5 py-3.5 text-right">
-                            @if($tienePrecio && $precio->margen !== null)
-                                @php
-                                    $m = (float)$precio->margen;
-                                    $color = $m >= 30 ? 'text-emerald-700 bg-emerald-50' : ($m >= 15 ? 'text-yellow-700 bg-yellow-50' : 'text-red-600 bg-red-50');
-                                @endphp
-                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold {{ $color }}">
-                                    <i class="fas fa-arrow-{{ $m >= 15 ? 'up' : 'down' }} text-[10px]"></i>
-                                    {{ number_format($m, 1) }}%
-                                </span>
-                            @else
-                                <span class="text-gray-300 text-sm">—</span>
-                            @endif
-                        </td>
-
-                        {{-- Estado --}}
-                        <td class="px-5 py-3.5 text-center">
-                            @if(!$tienePrecio)
-                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                                    <i class="fas fa-times-circle text-xs"></i> Sin precio
-                                </span>
-                            @elseif($precio->fecha_fin && $precio->fecha_fin->isPast())
-                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
-                                    <i class="fas fa-clock text-xs"></i> Vencido
-                                </span>
-                            @else
-                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    <i class="fas fa-check-circle text-xs"></i> Vigente
-                                </span>
-                            @endif
-                        </td>
+                            </td>
+                            {{-- P. Venta c/IGV --}}
+                            <td class="px-5 py-3.5 text-right">
+                                @if($tienePrecio)
+                                    <span class="text-xs font-medium text-emerald-700">
+                                        S/ {{ number_format($pvMin * 1.18, 2) }}
+                                        @if($pvMin != $pvMax)<br><span class="text-gray-400">— S/ {{ number_format($pvMax * 1.18, 2) }}</span>@endif
+                                    </span>
+                                @else
+                                    <span class="text-gray-300 text-sm">—</span>
+                                @endif
+                            </td>
+                            {{-- Margen --}}
+                            <td class="px-5 py-3.5 text-right">
+                                <span class="text-xs text-gray-400 italic">múltiple</span>
+                            </td>
+                            {{-- Estado --}}
+                            <td class="px-5 py-3.5 text-center">
+                                @if(!$tienePrecio)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                                        <i class="fas fa-times-circle text-xs"></i> Sin precio
+                                    </span>
+                                @elseif($conPrecioCount < $capacidades->count())
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                        <i class="fas fa-exclamation-circle text-xs"></i> Parcial
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <i class="fas fa-check-circle text-xs"></i> Vigente
+                                    </span>
+                                @endif
+                            </td>
+                        @else
+                            {{-- Single-price product cells --}}
+                            <td class="px-5 py-3.5 text-sm text-right text-gray-600">
+                                @if($tienePrecio && $precio->precio_compra)
+                                    S/ {{ number_format($precio->precio_compra, 2) }}
+                                @else
+                                    <span class="text-gray-300">—</span>
+                                @endif
+                            </td>
+                            <td class="px-5 py-3.5 text-right">
+                                @if($tienePrecio)
+                                    <span class="text-sm font-bold text-blue-700">S/ {{ number_format($precio->precio, 2) }}</span>
+                                @else
+                                    <span class="text-gray-300 text-sm">—</span>
+                                @endif
+                            </td>
+                            <td class="px-5 py-3.5 text-right">
+                                @if($tienePrecio)
+                                    <span class="text-xs font-medium text-emerald-700">
+                                        S/ {{ number_format($precio->precio * 1.18, 2) }}
+                                    </span>
+                                @else
+                                    <span class="text-gray-300 text-sm">—</span>
+                                @endif
+                            </td>
+                            <td class="px-5 py-3.5 text-right">
+                                @if($tienePrecio && $precio->margen !== null)
+                                    @php $m = (float)$precio->margen; @endphp
+                                    @php $color = $m >= 30 ? 'text-emerald-700 bg-emerald-50' : ($m >= 15 ? 'text-yellow-700 bg-yellow-50' : 'text-red-600 bg-red-50'); @endphp
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold {{ $color }}">
+                                        <i class="fas fa-arrow-{{ $m >= 15 ? 'up' : 'down' }} text-[10px]"></i>
+                                        {{ number_format($m, 1) }}%
+                                    </span>
+                                @else
+                                    <span class="text-gray-300 text-sm">—</span>
+                                @endif
+                            </td>
+                            <td class="px-5 py-3.5 text-center">
+                                @if(!$tienePrecio)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                                        <i class="fas fa-times-circle text-xs"></i> Sin precio
+                                    </span>
+                                @elseif($precio->fecha_fin && $precio->fecha_fin->isPast())
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
+                                        <i class="fas fa-clock text-xs"></i> Vencido
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <i class="fas fa-check-circle text-xs"></i> Vigente
+                                    </span>
+                                @endif
+                            </td>
+                        @endif
 
                         {{-- Acciones --}}
                         <td class="px-5 py-3.5 text-center">
                             <div class="flex items-center justify-center gap-1.5">
                                 <a href="{{ route('precios.show', $producto) }}"
                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-                                       {{ !$tienePrecio ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100' }}"
-                                   title="{{ !$tienePrecio ? 'Asignar precio' : 'Gestionar precio' }}">
+                                       {{ !$tienePrecio ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100' }}">
                                     <i class="fas fa-{{ !$tienePrecio ? 'plus' : 'tags' }} text-xs"></i>
                                     {{ !$tienePrecio ? 'Asignar' : 'Gestionar' }}
                                 </a>
@@ -268,9 +354,90 @@
                             </div>
                         </td>
                     </tr>
-                    @empty
+
+                    {{-- ── Variant sub-rows (expandable) ── --}}
+                    @if($tieneVariantes)
+                        @foreach($capacidades as $cap => $vars)
+                            @php
+                                $preciosCap = $porCapacidad->get($cap) ?? collect();
+                                $pCap = $preciosCap->first();
+                                $hayPrecio = $pCap && (float)$pCap->precio > 0;
+                            @endphp
+                            <tr x-show="open" x-cloak
+                                class="border-b border-blue-100 bg-blue-50/40 transition-colors hover:bg-blue-50/70">
+                                <td class="pl-14 pr-5 py-2.5 text-sm">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fas fa-microchip text-blue-400 text-xs"></i>
+                                        <span class="font-medium text-gray-700">{{ $cap ?: 'Sin capacidad' }}</span>
+                                        <span class="text-xs text-gray-400">
+                                            ({{ $vars->count() }} {{ $vars->count() === 1 ? 'color' : 'colores' }})
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-2.5 text-sm text-right text-gray-600">
+                                    @if($hayPrecio && $pCap->precio_compra)
+                                        S/ {{ number_format($pCap->precio_compra, 2) }}
+                                    @else
+                                        <span class="text-gray-300">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-2.5 text-right">
+                                    @if($hayPrecio)
+                                        <span class="text-sm font-bold text-blue-700">S/ {{ number_format($pCap->precio, 2) }}</span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                            <i class="fas fa-exclamation-circle text-[9px]"></i> Sin precio
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-2.5 text-right">
+                                    @if($hayPrecio)
+                                        <span class="text-xs font-medium text-emerald-700">
+                                            S/ {{ number_format($pCap->precio * 1.18, 2) }}
+                                        </span>
+                                    @else
+                                        <span class="text-gray-300">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-2.5 text-right">
+                                    @if($hayPrecio && $pCap->margen !== null)
+                                        @php $m = (float)$pCap->margen; @endphp
+                                        @php $color = $m >= 30 ? 'text-emerald-700 bg-emerald-50' : ($m >= 15 ? 'text-yellow-700 bg-yellow-50' : 'text-red-600 bg-red-50'); @endphp
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold {{ $color }}">
+                                            <i class="fas fa-arrow-{{ $m >= 15 ? 'up' : 'down' }} text-[10px]"></i>
+                                            {{ number_format($m, 1) }}%
+                                        </span>
+                                    @else
+                                        <span class="text-gray-300">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-2.5 text-center">
+                                    @if($hayPrecio)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <i class="fas fa-circle text-[6px]"></i> Vigente
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                            <i class="fas fa-circle text-[6px]"></i> Pendiente
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-2.5 text-center">
+                                    <a href="{{ route('precios.show', $producto) }}?variante_id={{ $vars->first()->id }}"
+                                       class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors">
+                                        <i class="fas fa-tags text-xs"></i> Gestionar
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    @endif
+
+                </tbody>
+
+                @empty
+                <tbody>
                     <tr>
-                        <td colspan="6" class="px-5 py-20 text-center">
+                        <td colspan="7" class="px-5 py-20 text-center">
                             <div class="flex flex-col items-center gap-3">
                                 @if(request('tab') === 'sin_precio')
                                     <div class="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center">
@@ -289,8 +456,9 @@
                             </div>
                         </td>
                     </tr>
-                    @endforelse
                 </tbody>
+                @endforelse
+
             </table>
         </div>
 

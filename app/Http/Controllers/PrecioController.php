@@ -37,12 +37,19 @@ class PrecioController extends Controller
         $margenPromedio = ProductoPrecio::where('activo', true)->where('precio', '>', 0)->whereNotNull('margen')->avg('margen');
 
         $query = Producto::where('estado', 'activo')
-            ->with(['categoria', 'precios' => function($q) {
-                $q->where('activo', true)
-                  ->whereNull('almacen_id')
-                  ->where('tipo_precio', 'venta_regular')
-                  ->latest();
-            }]);
+            ->with([
+                'categoria',
+                'variantes' => function($q) {
+                    $q->where('estado', 'activo');
+                },
+                'precios' => function($q) {
+                    $q->with('variante')
+                      ->where('activo', true)
+                      ->whereNull('almacen_id')
+                      ->where('tipo_precio', 'venta_regular')
+                      ->latest();
+                },
+            ]);
 
         // Tab: sin precio (incluye productos sin registro de precio o con precio = 0)
         if ($request->get('tab') === 'sin_precio') {
@@ -75,9 +82,14 @@ class PrecioController extends Controller
     */
     public function edit(Producto $producto, $precioId)
     {
-        $precio = ProductoPrecio::findOrFail($precioId);
-        
-        $producto->load(['categoria', 'marca', 'modelo']);
+        $precio = ProductoPrecio::with(['variante.color', 'proveedor', 'almacen'])->findOrFail($precioId);
+
+        $producto->load([
+            'categoria', 'marca', 'modelo', 
+            'variantes' => function($q) {
+                $q->where('estado', 'activo');
+            }
+        ]);
         $proveedores = Proveedor::where('estado', 'activo')->orderBy('razon_social')->get();
 
         return view('precios.edit', compact('producto', 'precio', 'proveedores'));
@@ -87,20 +99,33 @@ class PrecioController extends Controller
      */
     public function show(Producto $producto)
     {
-        $producto->load(['categoria', 'marca', 'modelo', 'variantesActivas', 'precios' => function($q) {
-            $q->with('proveedor', 'almacen', 'variante.color')->orderByRaw('almacen_id IS NULL DESC')->latest();
-        }]);
+        $producto->load([
+            'categoria', 'marca', 'modelo', 
+            'variantes' => function($q) {
+                $q->where('estado', 'activo');
+            },
+            'precios' => function($q) {
+                $q->with('proveedor', 'almacen', 'variante.color')->orderByRaw('almacen_id IS NULL DESC')->latest();
+            }
+        ]);
 
         $proveedores = Proveedor::where('estado', 'activo')->orderBy('razon_social')->get();
         $almacenes   = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
 
-        // Agrupar precios: globales primero, luego por tienda
-        $preciosGlobales = $producto->precios->whereNull('almacen_id')->where('tipo_precio', 'venta_regular');
+        // Precios globales activos indexados por variante_id para lookup rápido
+        $preciosGlobalesActivos = $producto->precios
+            ->whereNull('almacen_id')
+            ->where('tipo_precio', 'venta_regular')
+            ->where('activo', true)
+            ->keyBy('variante_id');
+
+        // Para el historial/tabla completa (incluye inactivos)
+        $preciosGlobales  = $producto->precios->whereNull('almacen_id')->where('tipo_precio', 'venta_regular');
         $preciosPorTienda = $producto->precios->whereNotNull('almacen_id')->where('tipo_precio', 'venta_regular');
 
         return view('precios.show', compact(
             'producto', 'proveedores', 'almacenes',
-            'preciosGlobales', 'preciosPorTienda'
+            'preciosGlobales', 'preciosGlobalesActivos', 'preciosPorTienda'
         ));
     }
 
@@ -158,119 +183,90 @@ class PrecioController extends Controller
 
             $precioAnterior = $producto->precio_venta;
 
-            // Desactivar precio global vigente anterior (mismo producto/variante)
-            ProductoPrecio::where('producto_id', $producto->id)
-                ->where('variante_id', $validated['variante_id'] ?? null)
-                ->whereNull('almacen_id')
-                ->where('tipo_precio', 'venta_regular')
-                ->where('activo', true)
-                ->update(['activo' => false]);
+            // Determinar todas las variantes que deben recibir este precio.
+            // Si se seleccionó una capacidad, el precio aplica a TODAS las variantes
+            // con esa misma capacidad (independiente del color).
+            $variantesIds = [];
+            if (!empty($validated['variante_id'])) {
+                $variantePrincipal = \App\Models\ProductoVariante::find($validated['variante_id']);
+                $variantesIds = $producto->variantesActivas()
+                    ->where('capacidad', $variantePrincipal?->capacidad)
+                    ->pluck('id')
+                    ->toArray();
+            }
 
-            // Crear precio global (almacen_id = null)
-            $nuevoPrecio = ProductoPrecio::create([
-                'producto_id'      => $producto->id,
-                'variante_id'      => $validated['variante_id'] ?? null,
-                'almacen_id'       => null,
-                'tipo_precio'      => 'venta_regular',
-                'precio'           => $validated['precio_venta'],
-                'precio_compra'    => $validated['precio_compra'],
-                'precio_mayorista' => $validated['precio_mayorista'] ?? null,
-                'margen'           => $validated['margen'],
-                'incluye_igv'      => !empty($validated['incluye_igv']),
-                'observaciones'    => $validated['observaciones'] ?? null,
-                'proveedor_id'     => $validated['proveedor_id'] ?? null,
-                'activo'           => true,
-                'creado_por'       => auth()->id(),
-            ]);
-
-            // Si tiene precio mayorista, también guardar como registro separado tipo mayorista
-            if (!empty($validated['precio_mayorista'])) {
+            // Helper para crear un registro de precio
+            $crearPrecio = function (int|null $varianteId, int|null $almacenId) use ($validated, $producto) {
                 ProductoPrecio::where('producto_id', $producto->id)
-                    ->where('variante_id', $validated['variante_id'] ?? null)
-                    ->whereNull('almacen_id')
-                    ->where('tipo_precio', 'venta_mayorista')
+                    ->where('variante_id', $varianteId)
+                    ->where('almacen_id', $almacenId)
+                    ->where('tipo_precio', 'venta_regular')
                     ->where('activo', true)
                     ->update(['activo' => false]);
 
-                ProductoPrecio::create([
-                    'producto_id'   => $producto->id,
-                    'variante_id'   => $validated['variante_id'] ?? null,
-                    'almacen_id'    => null,
-                    'tipo_precio'   => 'venta_mayorista',
-                    'precio'        => $validated['precio_mayorista'],
-                    'precio_compra' => $validated['precio_compra'],
-                    'margen'        => $validated['margen'],
-                    'proveedor_id'  => $validated['proveedor_id'] ?? null,
-                    'activo'        => true,
-                    'creado_por'    => auth()->id(),
+                return ProductoPrecio::create([
+                    'producto_id'      => $producto->id,
+                    'variante_id'      => $varianteId,
+                    'almacen_id'       => $almacenId,
+                    'tipo_precio'      => 'venta_regular',
+                    'precio'           => $validated['precio_venta'],
+                    'precio_compra'    => $validated['precio_compra'],
+                    'precio_mayorista' => $validated['precio_mayorista'] ?? null,
+                    'margen'           => $validated['margen'],
+                    'incluye_igv'      => !empty($validated['incluye_igv']),
+                    'observaciones'    => $validated['observaciones'] ?? null,
+                    'proveedor_id'     => $validated['proveedor_id'] ?? null,
+                    'activo'           => true,
+                    'creado_por'       => auth()->id(),
                 ]);
-            }
+            };
 
-            // Si no tiene variante, actualizar precio_venta en la tabla productos
-            if (empty($validated['variante_id'])) {
+            if (empty($variantesIds)) {
+                // Precio base del producto (sin variante)
+                $crearPrecio(null, null);
                 $producto->update(['precio_venta' => $validated['precio_venta']]);
             } else {
-                // Replicar el precio a todas las variantes con la misma capacidad
-                $variantePrincipal = \App\Models\ProductoVariante::find($validated['variante_id']);
-                if ($variantePrincipal) {
-                    $mismaCapacidad = $producto->variantesActivas()
-                        ->where('capacidad', $variantePrincipal->capacidad)
-                        ->where('id', '!=', $validated['variante_id'])
-                        ->get();
-
-                    foreach ($mismaCapacidad as $otraVariante) {
-                        ProductoPrecio::where('producto_id', $producto->id)
-                            ->where('variante_id', $otraVariante->id)
-                            ->whereNull('almacen_id')
-                            ->where('tipo_precio', 'venta_regular')
-                            ->where('activo', true)
-                            ->update(['activo' => false]);
-
-                        ProductoPrecio::create([
-                            'producto_id'      => $producto->id,
-                            'variante_id'      => $otraVariante->id,
-                            'almacen_id'       => null,
-                            'tipo_precio'      => 'venta_regular',
-                            'precio'           => $validated['precio_venta'],
-                            'precio_compra'    => $validated['precio_compra'],
-                            'precio_mayorista' => $validated['precio_mayorista'] ?? null,
-                            'margen'           => $validated['margen'],
-                            'incluye_igv'      => !empty($validated['incluye_igv']),
-                            'observaciones'    => $validated['observaciones'] ?? null,
-                            'proveedor_id'     => $validated['proveedor_id'] ?? null,
-                            'activo'           => true,
-                            'creado_por'       => auth()->id(),
-                        ]);
-                    }
+                // Crear precio global para cada variante de la misma capacidad
+                foreach ($variantesIds as $vid) {
+                    $crearPrecio($vid, null);
                 }
             }
 
-            // Replicar a todas las tiendas activas
-            if (!empty($validated['replicar_tiendas'])) {
-                $almacenes = Almacen::where('estado', 'activo')->get();
-                foreach ($almacenes as $almacen) {
-                    // Desactivar precio anterior de esta tienda
+            // Precio mayorista global
+            if (!empty($validated['precio_mayorista'])) {
+                $mayoristasIds = empty($variantesIds) ? [null] : $variantesIds;
+                foreach ($mayoristasIds as $vid) {
                     ProductoPrecio::where('producto_id', $producto->id)
-                        ->where('variante_id', $validated['variante_id'] ?? null)
-                        ->where('almacen_id', $almacen->id)
-                        ->where('tipo_precio', 'venta_regular')
+                        ->where('variante_id', $vid)
+                        ->whereNull('almacen_id')
+                        ->where('tipo_precio', 'venta_mayorista')
+                        ->where('activo', true)
                         ->update(['activo' => false]);
 
-                    // Crear precio por tienda
                     ProductoPrecio::create([
-                        'producto_id'      => $producto->id,
-                        'variante_id'      => $validated['variante_id'] ?? null,
-                        'almacen_id'       => $almacen->id,
-                        'tipo_precio'      => 'venta_regular',
-                        'precio'           => $validated['precio_venta'],
-                        'precio_compra'    => $validated['precio_compra'],
-                        'precio_mayorista' => $validated['precio_mayorista'] ?? null,
-                        'margen'           => $validated['margen'],
-                        'incluye_igv'      => !empty($validated['incluye_igv']),
-                        'proveedor_id'     => $validated['proveedor_id'] ?? null,
-                        'activo'           => true,
-                        'creado_por'       => auth()->id(),
+                        'producto_id'   => $producto->id,
+                        'variante_id'   => $vid,
+                        'almacen_id'    => null,
+                        'tipo_precio'   => 'venta_mayorista',
+                        'precio'        => $validated['precio_mayorista'],
+                        'precio_compra' => $validated['precio_compra'],
+                        'margen'        => $validated['margen'],
+                        'proveedor_id'  => $validated['proveedor_id'] ?? null,
+                        'activo'        => true,
+                        'creado_por'    => auth()->id(),
                     ]);
+                }
+            }
+
+            // Replicar a todas las tiendas activas (para cada variante de la capacidad)
+            if (!empty($validated['replicar_tiendas'])) {
+                $almacenes   = Almacen::where('estado', 'activo')->get();
+                $replicarIds = empty($variantesIds) ? [null] : $variantesIds;
+
+                foreach ($almacenes as $almacen) {
+                    foreach ($replicarIds as $vid) {
+                        $crearPrecio($vid, $almacen->id);
+                    }
                 }
             }
 
@@ -296,7 +292,69 @@ class PrecioController extends Controller
             return back()->withInput()->with('error', 'Error al registrar precio: ' . $e->getMessage());
         }
     }
+    public function bulkAction(Request $request, Producto $producto)
+{
+    $request->validate([
+        'action'      => 'required|in:update_price,activate,deactivate,restore_global',
+        'price_ids'   => 'required|array',
+        'price_ids.*' => 'exists:producto_precios,id',
+        'value'       => 'nullable|numeric',
+    ]);
 
+    $precios = ProductoPrecio::whereIn('id', $request->price_ids)->get();
+
+    foreach ($precios as $precio) {
+        switch ($request->action) {
+            case 'update_price':
+                $precio->update([
+                    'precio' => $request->value,
+                    'margen' => $precio->precio_compra > 0
+                        ? round((($request->value - $precio->precio_compra) / $precio->precio_compra) * 100, 2)
+                        : 0,
+                ]);
+                break;
+            case 'activate':
+                $precio->update(['activo' => true]);
+                break;
+            case 'deactivate':
+                $precio->update(['activo' => false]);
+                break;
+            case 'restore_global':
+                $global = ProductoPrecio::where('producto_id', $producto->id)
+                    ->whereNull('almacen_id')
+                    ->where('variante_id', $precio->variante_id)
+                    ->where('activo', true)
+                    ->first();
+                if ($global) {
+                    $precio->update([
+                        'precio' => $global->precio,
+                        'margen' => $global->margen,
+                    ]);
+                }
+                break;
+        }
+    }
+
+    return response()->json(['success' => true, 'message' => 'Acción aplicada correctamente']);
+}
+
+public function restoreSingle(Producto $producto, ProductoPrecio $precio)
+{
+    $global = ProductoPrecio::where('producto_id', $producto->id)
+        ->whereNull('almacen_id')
+        ->where('variante_id', $precio->variante_id)
+        ->where('activo', true)
+        ->first();
+
+    if ($global) {
+        $precio->update([
+            'precio' => $global->precio,
+            'margen' => $global->margen,
+        ]);
+    }
+
+    return redirect()->back()->with('success', 'Precio restaurado a valor global');
+}
     /**
      * Actualizar precio existente
      */

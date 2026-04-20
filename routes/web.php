@@ -498,6 +498,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/producto/{producto}', [PrecioController::class, 'show'])->name('show');
         Route::post('/producto/{producto}', [PrecioController::class, 'store'])->name('store');
         Route::post('/producto/{producto}/calcular', [PrecioController::class, 'calcular'])->name('calcular');
+        // Acciones masivas para precios
+        Route::post('/producto/{producto}/bulk-action', [PrecioController::class, 'bulkAction'])->name('bulk-action');
+        Route::post('/producto/{producto}/precio/{precio}/restore', [PrecioController::class, 'restoreSingle'])->name('restore-single');
         Route::get('/producto/{producto}/precio/{precio}/edit', [PrecioController::class, 'edit'])->name('edit');
         Route::put('/producto/{producto}/precio/{precio}', [PrecioController::class, 'update'])->name('update');
         Route::get('/producto/{producto}/historial', [PrecioController::class, 'historial'])->name('historial');
