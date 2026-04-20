@@ -57,23 +57,41 @@
                     @csrf
                     @method('PUT')
 
-                    <!-- Información no editable (solo lectura) -->
-                    <div class="mb-8 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <!-- Información fija del equipo -->
+                    <div class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
                         <h3 class="text-sm font-semibold text-blue-900 mb-3 flex items-center">
                             <i class="fas fa-lock mr-2"></i>
                             Información fija del equipo
                         </h3>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                                <p class="text-xs text-gray-600">Código IMEI</p>
+                                <p class="text-xs text-gray-500">Código IMEI</p>
                                 <p class="font-mono font-bold text-gray-900">{{ $imei->codigo_imei }}</p>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-600">Producto</p>
+                                <p class="text-xs text-gray-500">Producto</p>
                                 <p class="font-semibold text-gray-900">{{ $imei->producto->nombre }}</p>
+                                <p class="text-xs text-gray-400">{{ $imei->producto->codigo }}</p>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-600">Fecha de ingreso</p>
+                                <p class="text-xs text-gray-500">Variante actual</p>
+                                @if($imei->variante)
+                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                        @if($imei->variante->color?->codigo_hex)
+                                            <span class="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                                  style="background:{{ $imei->variante->color->codigo_hex }}"></span>
+                                        @endif
+                                        <span class="font-semibold text-gray-900 text-sm">
+                                            {{ trim(($imei->variante->color?->nombre ?? '') . ($imei->variante->capacidad ? ' / ' . $imei->variante->capacidad : '')) }}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-gray-400 font-mono">{{ $imei->variante->sku }}</p>
+                                @else
+                                    <p class="text-sm text-gray-400 italic">Sin variante asignada</p>
+                                @endif
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Fecha de ingreso</p>
                                 <p class="text-gray-900">{{ $imei->fecha_ingreso ? $imei->fecha_ingreso->format('d/m/Y') : $imei->created_at->format('d/m/Y') }}</p>
                             </div>
                         </div>
@@ -81,63 +99,74 @@
 
                     <!-- Campos editables -->
                     <div class="space-y-6">
-                        <!-- Almacén -->
+
+                        <!-- Selector de variante -->
+                        @php $variantes = $variantesPorProducto[$imei->producto_id] ?? collect(); @endphp
+                        @if($variantes->count() > 0)
                         <div>
-                            <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-warehouse mr-1 text-gray-500"></i>
-                                Almacén <span class="text-red-500">*</span>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-layer-group mr-1 text-indigo-500"></i>
+                                Variante (color + capacidad)
                             </label>
-                            <select name="almacen_id" id="almacen_id" 
-                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                                    required>
-                                <option value="">Seleccione un almacén</option>
-                                @foreach($almacenes as $almacen)
-                                    <option value="{{ $almacen->id }}" 
-                                            {{ old('almacen_id', $imei->almacen_id) == $almacen->id ? 'selected' : '' }}>
-                                        {{ $almacen->nombre }}
-                                        @if($almacen->ubicacion)
-                                            ({{ $almacen->ubicacion }})
-                                        @endif
-                                    </option>
+                            <input type="hidden" name="variante_id" id="variante_id" value="{{ old('variante_id', $imei->variante_id) }}">
+                            <input type="hidden" name="color_id" id="color_id" value="{{ old('color_id', $imei->color_id) }}">
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2" id="variantesGrid">
+                                @foreach($variantes as $v)
+                                    @php $seleccionada = old('variante_id', $imei->variante_id) == $v['id']; @endphp
+                                    <button type="button" data-id="{{ $v['id'] }}" data-color-id="{{ $v['color_id'] }}"
+                                            data-color-nombre="{{ $v['color_nombre'] }}" data-capacidad="{{ $v['capacidad'] }}"
+                                            class="variante-card text-left border-2 rounded-xl p-3 transition
+                                                   {{ $seleccionada ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-indigo-400 hover:bg-indigo-50' }}">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            @if($v['color_hex'])
+                                                <span class="w-4 h-4 rounded-full shrink-0 border border-gray-300"
+                                                      style="background:{{ $v['color_hex'] }}"></span>
+                                            @endif
+                                            <span class="text-sm font-semibold text-gray-800 truncate">{{ $v['nombre'] }}</span>
+                                        </div>
+                                        <span class="text-xs font-mono text-gray-400">{{ $v['sku'] }}</span>
+                                    </button>
                                 @endforeach
-                            </select>
-                            @error('almacen_id')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            </div>
+                            @error('variante_id')
+                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
+                        @else
+                            <input type="hidden" name="variante_id" value="{{ $imei->variante_id }}">
+                            <input type="hidden" name="color_id" value="{{ $imei->color_id }}">
+                        @endif
 
-                        <!-- Color y Serie en grid -->
+                        <!-- Almacén y Serie -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Color -->
                             <div>
-                                <label for="color_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-palette mr-1 text-gray-500"></i>
-                                    Color
+                                <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-warehouse mr-1 text-gray-500"></i>
+                                    Almacén <span class="text-red-500">*</span>
                                 </label>
-                                <select name="color_id" id="color_id" 
-                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                                    <option value="">Sin especificar</option>
-                                    @foreach($colores as $color)
-                                        <option value="{{ $color->id }}" 
-                                                {{ old('color_id', $imei->color_id) == $color->id ? 'selected' : '' }}>
-                                            {{ $color->nombre }}
+                                <select name="almacen_id" id="almacen_id"
+                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                        required>
+                                    <option value="">Seleccione un almacén</option>
+                                    @foreach($almacenes as $almacen)
+                                        <option value="{{ $almacen->id }}"
+                                                {{ old('almacen_id', $imei->almacen_id) == $almacen->id ? 'selected' : '' }}>
+                                            {{ $almacen->nombre }}
+                                            @if($almacen->ubicacion) ({{ $almacen->ubicacion }}) @endif
                                         </option>
                                     @endforeach
                                 </select>
-                                @error('color_id')
+                                @error('almacen_id')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
                             </div>
 
-                            <!-- Número de Serie -->
                             <div>
                                 <label for="serie" class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fas fa-barcode mr-1 text-gray-500"></i>
                                     Número de Serie
                                 </label>
-                                <input type="text" 
-                                       name="serie" 
-                                       id="serie" 
+                                <input type="text" name="serie" id="serie"
                                        value="{{ old('serie', $imei->serie) }}"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                                        placeholder="Número de serie adicional (opcional)">
@@ -281,24 +310,29 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Toggle garantía
             const radios = document.querySelectorAll('input[name="estado_imei"]');
             const garantiaContainer = document.getElementById('fechaGarantiaContainer');
-            
             function toggleGarantiaField() {
-                const selected = document.querySelector('input[name="estado_imei"]:checked');
-                if (selected && (selected.value === 'garantia' || selected.value === 'vendido')) {
-                    garantiaContainer.classList.remove('hidden');
-                } else {
-                    garantiaContainer.classList.add('hidden');
-                }
+                const sel = document.querySelector('input[name="estado_imei"]:checked');
+                garantiaContainer.classList.toggle('hidden', !(sel && ['garantia','vendido'].includes(sel.value)));
             }
-            
-            radios.forEach(radio => {
-                radio.addEventListener('change', toggleGarantiaField);
-            });
-            
-            // Ejecutar al cargar para el estado actual
+            radios.forEach(r => r.addEventListener('change', toggleGarantiaField));
             toggleGarantiaField();
+
+            // Selector de variante
+            document.querySelectorAll('.variante-card').forEach(function(card) {
+                card.addEventListener('click', function() {
+                    document.querySelectorAll('.variante-card').forEach(function(c) {
+                        c.classList.remove('border-indigo-500', 'bg-indigo-50');
+                        c.classList.add('border-gray-200');
+                    });
+                    this.classList.remove('border-gray-200');
+                    this.classList.add('border-indigo-500', 'bg-indigo-50');
+                    document.getElementById('variante_id').value = this.dataset.id;
+                    document.getElementById('color_id').value = this.dataset.colorId || '';
+                });
+            });
         });
     </script>
 </body>

@@ -192,7 +192,8 @@
                             <div class="p-2">
                                 <p class="text-[11px] text-gray-700 dark:text-gray-200 font-medium line-clamp-2 leading-tight mb-1" x-text="producto.nombre"></p>
                                 <div class="flex items-center justify-between gap-1">
-                                    <p class="text-sm font-bold text-blue-600 dark:text-blue-400" x-text="'S/ ' + producto.precio_venta.toFixed(2)"></p>
+                                    <p class="text-sm font-bold text-blue-600 dark:text-blue-400"
+                                       x-text="(producto.tiene_variantes ? 'Desde ' : '') + 'S/ ' + producto.precio_venta.toFixed(2)"></p>
                                     <span x-show="orden.almacenId && producto.tipo_inventario !== 'serie'" x-cloak
                                           class="text-[9px] font-semibold text-gray-400 dark:text-gray-500 shrink-0"
                                           x-text="stockEnAlmacen(producto) + ' u.'"></span>
@@ -964,8 +965,9 @@
                             </template>
                             <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" x-text="v.nombre_completo"></span>
                         </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="font-mono text-gray-400 dark:text-gray-500" x-text="v.sku"></span>
+                        <div class="flex items-center justify-between text-xs mt-1">
+                            <span class="font-semibold text-blue-600 dark:text-blue-400"
+                                  x-text="'S/ ' + (parseFloat(productoActual?.precio_venta || 0) + parseFloat(v.sobreprecio || 0)).toFixed(2)"></span>
                             <span :class="stockVarianteEnAlmacen(v) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'"
                                   x-text="productoActual?.tipo_inventario === 'serie'
                                       ? (orden.almacenId && v.stock_por_almacen?.[orden.almacenId] !== undefined
@@ -975,7 +977,6 @@
                                           ? stockVarianteEnAlmacen(v) + ' en stock'
                                           : 'Sin stock')"></span>
                         </div>
-                        <div x-show="v.sobreprecio > 0" class="text-xs text-indigo-600 dark:text-indigo-400 mt-1 font-semibold" x-text="'+S/ ' + v.sobreprecio.toFixed(2)"></div>
                     </button>
                 </template>
             </div>

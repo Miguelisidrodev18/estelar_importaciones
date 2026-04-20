@@ -337,6 +337,16 @@ class Producto extends Model
         return $this->hasMany(ProductoVariante::class)->where('estado', 'activo');
     }
 
+    public function imeis()
+    {
+        return $this->hasMany(\App\Models\Imei::class);
+    }
+
+    public function imeisEnStock()
+    {
+        return $this->hasMany(\App\Models\Imei::class)->where('estado_imei', 'en_stock');
+    }
+
     /**
      * ¿Este producto tiene variantes definidas?
      */

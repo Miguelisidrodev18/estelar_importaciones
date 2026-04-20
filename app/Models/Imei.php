@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Catalogo\Color;
+use App\Models\ProductoVariante;
 use Illuminate\Support\Facades\Storage;
 
 class Imei extends Model
@@ -17,19 +18,20 @@ class Imei extends Model
         'codigo_imei',
         'serie',
         'producto_id',
+        'variante_id',
         'modelo_id',
         'color_id',
         'almacen_id',
         'compra_id',
         'detalle_compra_id',
         'venta_id',
-        'estado_imei',        // renombrado desde 'estado'
+        'estado_imei',
         'fecha_ingreso',
         'fecha_venta',
-        'fecha_garantia',      // 🔴 NUEVO: Fecha de fin de garantía
+        'fecha_garantia',
         'observaciones',
-        'qr_path',             // 🔴 NUEVO: Ruta del código QR
-        'usuario_registro_id', // 🔴 NUEVO: Usuario que registró
+        'qr_path',
+        'usuario_registro_id',
     ];
 
     protected $casts = [
@@ -60,6 +62,11 @@ class Imei extends Model
     ];
 
     // ─── Relaciones ──────────────────────────────────────────────────────────
+
+    public function variante()
+    {
+        return $this->belongsTo(ProductoVariante::class, 'variante_id');
+    }
 
     public function modelo()
     {

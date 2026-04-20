@@ -240,16 +240,24 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
-                                @if($producto->variantesActivas->count() > 0)
-                                    @php
+                                @php
+                                    $esSerie = $producto->tipo_inventario === 'serie';
+                                    if ($esSerie) {
+                                        // Fuente de verdad: IMEIs reales en_stock
+                                        $stockTotal = $producto->imeis_en_stock_count ?? 0;
+                                    } elseif ($producto->variantesActivas->count() > 0) {
                                         $stockTotal = $producto->variantesActivas->sum('stock_actual');
-                                        $colorClass = $stockTotal == 0 ? 'bg-red-100 text-red-800'
-                                                    : ($stockTotal <= 5 ? 'bg-yellow-100 text-yellow-800'
-                                                    : 'bg-green-100 text-green-800');
-                                    @endphp
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $colorClass }}">
-                                        {{ $stockTotal }} unt
-                                    </span>
+                                    } else {
+                                        $stockTotal = $producto->stock_actual;
+                                    }
+                                    $colorClass = $stockTotal == 0
+                                        ? 'bg-red-100 text-red-800'
+                                        : ($stockTotal <= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800');
+                                @endphp
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $colorClass }}">
+                                    {{ $stockTotal }} unt
+                                </span>
+                                @if(!$esSerie && $producto->variantesActivas->count() > 0)
                                     <div class="flex items-center justify-center gap-1 mt-1 flex-wrap">
                                         @foreach($producto->variantesActivas as $v)
                                             <span title="{{ $v->nombre_completo }}: {{ $v->stock_actual }} unt"
@@ -262,17 +270,6 @@
                                             </span>
                                         @endforeach
                                     </div>
-                                @else
-                                    @php
-                                        $stockClass = $producto->estado_stock == 'sin_stock'
-                                            ? 'bg-red-100 text-red-800'
-                                            : ($producto->estado_stock == 'bajo'
-                                                ? 'bg-yellow-100 text-yellow-800'
-                                                : 'bg-green-100 text-green-800');
-                                    @endphp
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $stockClass }}">
-                                        {{ $producto->stock_actual }} {{ $producto->unidadMedida->abreviatura ?? 'unid' }}
-                                    </span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">

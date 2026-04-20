@@ -117,17 +117,17 @@
         <!-- Filtros -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <form action="{{ route('inventario.imeis.index') }}" method="GET" id="filterForm">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Buscar IMEI/Serie</label>
                         <input type="text" name="buscar" value="{{ request('buscar') }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                placeholder="Código IMEI o serie...">
                     </div>
-
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Producto</label>
-                        <select name="producto_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <select name="producto_id" id="filtroProducto"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             <option value="">Todos los productos</option>
                             @foreach($productos as $producto)
                                 <option value="{{ $producto->id }}" {{ request('producto_id') == $producto->id ? 'selected' : '' }}>
@@ -136,7 +136,23 @@
                             @endforeach
                         </select>
                     </div>
-
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Variante</label>
+                        <select name="variante_id" id="filtroVariante"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todas las variantes</option>
+                            @foreach($productos as $producto)
+                                @foreach($producto->variantesActivas ?? [] as $v)
+                                    <option value="{{ $v->id }}"
+                                            data-producto="{{ $producto->id }}"
+                                            {{ request('variante_id') == $v->id ? 'selected' : '' }}
+                                            class="variante-option-{{ $producto->id }}">
+                                        {{ $producto->nombre }} — {{ trim(($v->color?->nombre ?? '') . ($v->capacidad ? ' / ' . $v->capacidad : '')) }}
+                                    </option>
+                                @endforeach
+                            @endforeach
+                        </select>
+                    </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Almacén</label>
                         <select name="almacen_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
@@ -148,7 +164,6 @@
                             @endforeach
                         </select>
                     </div>
-
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
                         <select name="estado" id="estadoFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
@@ -205,7 +220,7 @@
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">IMEI</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Serie/Color</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Variante</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Almacén</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Fecha Registro</th>
@@ -225,12 +240,30 @@
                                 <p class="text-sm font-medium text-gray-900">{{ $imei->producto->nombre ?? '-' }}</p>
                                 <p class="text-xs text-gray-500">{{ $imei->producto->codigo ?? '-' }}</p>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                @if($imei->serie)
-                                    <p class="text-sm text-gray-900">Serie: {{ $imei->serie }}</p>
+                            <td class="px-6 py-4">
+                                @if($imei->variante)
+                                    <div class="flex items-center gap-1.5">
+                                        @if($imei->variante->color?->codigo_hex)
+                                            <span class="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                                  style="background:{{ $imei->variante->color->codigo_hex }}"></span>
+                                        @endif
+                                        <span class="text-sm font-medium text-gray-900">
+                                            {{ trim(($imei->variante->color?->nombre ?? '') . ($imei->variante->capacidad ? ' / ' . $imei->variante->capacidad : '')) }}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-gray-400 font-mono">{{ $imei->variante->sku }}</p>
+                                @elseif($imei->color)
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                              style="background:{{ $imei->color->codigo_hex ?? '#ccc' }}"></span>
+                                        <span class="text-sm text-gray-700">{{ $imei->color->nombre }}</span>
+                                    </div>
+                                    <p class="text-xs text-orange-400 italic">Sin variante asignada</p>
+                                @else
+                                    <span class="text-xs text-gray-400 italic">—</span>
                                 @endif
-                                @if($imei->color)
-                                    <p class="text-xs text-gray-500">{{ $imei->color->nombre }}</p>
+                                @if($imei->serie)
+                                    <p class="text-xs text-gray-400 mt-0.5">Serie: {{ $imei->serie }}</p>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -531,11 +564,25 @@
         // Cerrar menús al hacer clic fuera
         document.addEventListener('click', function(event) {
             if (!event.target.closest('[id^="estado-menu-"]') && !event.target.closest('button[onclick*="toggleEstadoMenu"]')) {
-                document.querySelectorAll('[id^="estado-menu-"]').forEach(menu => {
-                    menu.classList.add('hidden');
-                });
+                document.querySelectorAll('[id^="estado-menu-"]').forEach(menu => menu.classList.add('hidden'));
             }
         });
+
+        // Filtro dinámico de variantes según producto seleccionado
+        document.getElementById('filtroProducto')?.addEventListener('change', function() {
+            var pid = this.value;
+            var sel = document.getElementById('filtroVariante');
+            sel.querySelectorAll('option').forEach(function(opt) {
+                if (!opt.value) return; // mantener "Todas"
+                opt.style.display = (!pid || opt.dataset.producto === pid) ? '' : 'none';
+            });
+            // Resetear variante si no corresponde al producto
+            if (pid && sel.value && sel.querySelector('option[value="' + sel.value + '"]')?.dataset.producto !== pid) {
+                sel.value = '';
+            }
+        });
+        // Disparar al cargar si viene filtro activo
+        document.getElementById('filtroProducto')?.dispatchEvent(new Event('change'));
     </script>
 </body>
 </html>

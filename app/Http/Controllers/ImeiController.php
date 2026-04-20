@@ -26,27 +26,23 @@ class ImeiController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Imei::with(['producto', 'almacen', 'color']);
-        
-        // Filtro por búsqueda (IMEI o Serie)
+        $query = Imei::with(['producto', 'almacen', 'color', 'variante.color']);
+
         if ($request->filled('buscar')) {
             $query->where(function($q) use ($request) {
                 $q->where('codigo_imei', 'like', '%' . $request->buscar . '%')
-                    ->orWhere('serie', 'like', '%' . $request->buscar . '%');
+                  ->orWhere('serie', 'like', '%' . $request->buscar . '%');
             });
         }
-        
-        // Filtro por producto
         if ($request->filled('producto_id')) {
             $query->where('producto_id', $request->producto_id);
         }
-        
-        // Filtro por almacén
+        if ($request->filled('variante_id')) {
+            $query->where('variante_id', $request->variante_id);
+        }
         if ($request->filled('almacen_id')) {
             $query->where('almacen_id', $request->almacen_id);
         }
-        
-        // Filtro por estado
         if ($request->filled('estado')) {
             $query->where('estado_imei', $request->estado);
         }
@@ -64,9 +60,8 @@ class ImeiController extends Controller
             'reemplazados'=> Imei::where('estado_imei', 'reemplazado')->count(),
         ];
 
-        // Para los filtros
         $productos = Producto::where('tipo_inventario', 'serie')
-                    ->with(['marca', 'modelo', 'color'])
+                    ->with(['marca', 'modelo', 'variantesActivas.color'])
                     ->where('estado', 'activo')
                     ->orderBy('nombre')
                     ->get();
@@ -90,34 +85,37 @@ class ImeiController extends Controller
                                     ->find($request->producto_id);
         }
 
-        // Cargar productos tipo SERIE (celulares) activos
-        $productos = Producto::with(['marca', 'modelo', 'color'])
+        // Cargar productos tipo SERIE (celulares) activos con sus variantes activas
+        $productos = Producto::with(['marca', 'modelo', 'color', 'variantesActivas.color'])
             ->where('tipo_inventario', 'serie')
             ->where('estado', 'activo')
             ->orderBy('nombre')
             ->get()
             ->map(function($producto) {
-                // Enriquecer con nombre formateado
                 $producto->nombre_formateado = trim(
-                    ($producto->marca?->nombre ?? '') . ' ' . 
-                    ($producto->modelo?->nombre ?? '') . ' ' . 
-                    ($producto->color?->nombre ?? '')
-                );
-                if (empty($producto->nombre_formateado)) {
-                    $producto->nombre_formateado = $producto->nombre;
-                }
+                    ($producto->marca?->nombre ?? '') . ' ' .
+                    ($producto->modelo?->nombre ?? '')
+                ) ?: $producto->nombre;
                 return $producto;
             });
 
-        $colores = Color::where('estado', 'activo')
-            ->orderBy('nombre')
-            ->get();
+        // Mapa producto_id → variantes activas para JS
+        $variantesPorProducto = $productos->mapWithKeys(fn($p) => [
+            $p->id => $p->variantesActivas->map(fn($v) => [
+                'id'        => $v->id,
+                'sku'       => $v->sku,
+                'nombre'    => $v->nombre_completo ?? trim(($v->color?->nombre ?? '') . ' ' . ($v->capacidad ?? '')),
+                'color_id'  => $v->color_id,
+                'color_hex' => $v->color?->codigo_hex,
+                'color_nombre' => $v->color?->nombre,
+                'capacidad' => $v->capacidad,
+            ])->values(),
+        ]);
 
-        $almacenes = Almacen::where('estado', 'activo')
-            ->orderBy('nombre')
-            ->get();
+        $colores = Color::where('estado', 'activo')->orderBy('nombre')->get();
+        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
 
-        return view('inventario.imeis.create', compact('productos', 'colores', 'almacenes', 'productoSeleccionado'));
+        return view('inventario.imeis.create', compact('productos', 'colores', 'almacenes', 'productoSeleccionado', 'variantesPorProducto'));
     }
 
     /**
@@ -128,6 +126,7 @@ class ImeiController extends Controller
         $validated = $request->validate([
             'codigo_imei' => 'required|string|size:15|unique:imeis,codigo_imei',
             'producto_id' => 'required|exists:productos,id',
+            'variante_id' => 'nullable|exists:producto_variantes,id',
             'almacen_id'  => 'required|exists:almacenes,id',
             'color_id'    => 'nullable|exists:colores,id',
             'serie'       => 'nullable|string|max:50',
@@ -151,6 +150,7 @@ class ImeiController extends Controller
             $imei = Imei::create([
                 'codigo_imei' => $validated['codigo_imei'],
                 'producto_id' => $validated['producto_id'],
+                'variante_id' => $validated['variante_id'] ?? null,
                 'almacen_id'  => $validated['almacen_id'],
                 'color_id'    => $validated['color_id'] ?? null,
                 'serie'       => $validated['serie'] ?? null,
@@ -159,14 +159,15 @@ class ImeiController extends Controller
                 'usuario_registro_id' => auth()->id(),
             ]);
             
-            // Solo incrementar stock si está en stock
             if ($validated['estado_imei'] === 'en_stock') {
-                // Incrementar stock del producto
                 $producto->increment('stock_actual');
-                
-                // Incrementar stock en almacén
                 \App\Models\StockAlmacen::obtenerOCrear($validated['producto_id'], $validated['almacen_id'])
                     ->incrementar(1);
+                // Incrementar stock en la variante si está asignada
+                if (!empty($validated['variante_id'])) {
+                    \App\Models\ProductoVariante::where('id', $validated['variante_id'])
+                        ->increment('stock_actual');
+                }
             }
             
             // Generar QR para el IMEI (opcional)
@@ -184,19 +185,18 @@ class ImeiController extends Controller
     public function show(Imei $imei)
     {
         $imei->load([
-        'producto.categoria',
-        'producto.marca',
-        'producto.modelo',
-        'producto.color',
-        'almacen',
-        'color',
-        'usuarioRegistro',
-        'movimientos' => function($q) {
-            $q->with('usuario')->latest();
-        }
-    ]);
-    
-    return view('inventario.imeis.show', compact('imei'));
+            'producto.categoria',
+            'producto.marca',
+            'producto.modelo',
+            'producto.color',
+            'variante.color',
+            'almacen',
+            'color',
+            'usuarioRegistro',
+            'movimientos' => fn($q) => $q->with('usuario')->latest(),
+        ]);
+
+        return view('inventario.imeis.show', compact('imei'));
     }
 /**
  * Regenerar QR del IMEI
@@ -283,10 +283,28 @@ class ImeiController extends Controller
      */
     public function edit(Imei $imei)
     {
+        $imei->load(['producto', 'variante.color', 'almacen', 'color']);
+
         $almacenes = Almacen::activos()->orderBy('nombre')->get();
-        $colores = Color::where('estado', 'activo')->orderBy('nombre')->get();
-        
-        return view('inventario.imeis.edit', compact('imei', 'almacenes', 'colores'));
+
+        // Cargar variantes activas del producto para el selector
+        $variantesPorProducto = collect();
+        if ($imei->producto) {
+            $imei->producto->load('variantesActivas.color');
+            $variantesPorProducto = collect([
+                $imei->producto_id => $imei->producto->variantesActivas->map(fn($v) => [
+                    'id'           => $v->id,
+                    'sku'          => $v->sku,
+                    'nombre'       => trim(($v->color?->nombre ?? '') . ($v->capacidad ? ' / ' . $v->capacidad : '')),
+                    'color_id'     => $v->color_id,
+                    'color_hex'    => $v->color?->codigo_hex,
+                    'color_nombre' => $v->color?->nombre,
+                    'capacidad'    => $v->capacidad,
+                ])->values(),
+            ]);
+        }
+
+        return view('inventario.imeis.edit', compact('imei', 'almacenes', 'variantesPorProducto'));
     }
 
     /**
@@ -295,20 +313,28 @@ class ImeiController extends Controller
     public function update(Request $request, Imei $imei)
     {
         $validated = $request->validate([
-            'almacen_id' => 'required|exists:almacenes,id',
-            'color_id' => 'nullable|exists:colores,id',
-            'serie' => 'nullable|string|max:50',
-            'estado_imei' => 'required|in:en_stock,reservado,vendido,garantia,devuelto,reemplazado',
-            'fecha_garantia' => 'nullable|date',
+            'variante_id'   => 'nullable|exists:producto_variantes,id',
+            'almacen_id'    => 'required|exists:almacenes,id',
+            'color_id'      => 'nullable|exists:colores,id',
+            'serie'         => 'nullable|string|max:50',
+            'estado_imei'   => 'required|in:en_stock,reservado,vendido,garantia,devuelto,reemplazado',
+            'fecha_garantia'=> 'nullable|date',
             'observaciones' => 'nullable|string',
         ]);
 
         try {
             DB::transaction(function () use ($validated, $imei) {
-                $oldEstado = $imei->estado_imei;
-                $oldAlmacen = $imei->almacen_id;
-                
-                // Actualizar IMEI
+                $oldEstado   = $imei->estado_imei;
+                $oldAlmacen  = $imei->almacen_id;
+
+                // Si cambió la variante, sincronizar color_id desde la variante
+                if (isset($validated['variante_id']) && $validated['variante_id'] != $imei->variante_id) {
+                    $variante = \App\Models\ProductoVariante::find($validated['variante_id']);
+                    if ($variante) {
+                        $validated['color_id'] = $variante->color_id;
+                    }
+                }
+
                 $imei->update($validated);
                 
                 // Registrar movimiento si cambió el estado
@@ -557,9 +583,8 @@ class ImeiController extends Controller
      */
     public function generarEtiqueta(Imei $imei)
     {
-        $imei->load(['producto.marca', 'producto.modelo', 'producto.color', 'color']);
+        $imei->load(['producto.marca', 'producto.modelo', 'producto.color', 'variante.color', 'color']);
 
-        // Siempre usa el route dinámico para el QR (no depende de archivos guardados)
         $qrUrl = route('inventario.imeis.qr', $imei);
 
         $html = view('inventario.imeis.etiqueta', compact('imei', 'qrUrl'))->render();
@@ -577,7 +602,7 @@ class ImeiController extends Controller
             'imeis.*' => 'exists:imeis,id'
         ]);
 
-        $imeis = Imei::with(['producto.marca', 'producto.modelo', 'producto.color', 'color'])
+        $imeis = Imei::with(['producto.marca', 'producto.modelo', 'producto.color', 'variante.color', 'color'])
             ->whereIn('id', $request->imeis)
             ->get();
 

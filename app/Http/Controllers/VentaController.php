@@ -95,8 +95,8 @@ class VentaController extends Controller
             ->groupBy('producto_id')
             ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
 
-        // Stock por almacén POR VARIANTE (solo serie tienen IMEI con variante_id)
-        $imeisPorVariante = Imei::whereIn('producto_id', $productos->pluck('id'))
+        // IMEIs por variante_id (registros recientes con variante asignada)
+        $imeisPorVarianteId = Imei::whereIn('producto_id', $productos->pluck('id'))
             ->where('estado_imei', 'en_stock')
             ->whereNotNull('variante_id')
             ->selectRaw('variante_id, almacen_id, COUNT(*) as total')
@@ -105,17 +105,17 @@ class VentaController extends Controller
             ->groupBy('variante_id')
             ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
 
-        // IMEIs sin variante asignada (ingresados antes de que existieran variantes)
-        $imeisNoAsignadosPorProducto = Imei::whereIn('producto_id', $productos->pluck('id'))
+        // IMEIs sin variante_id: fallback por color (registros anteriores)
+        $imeisPorColor = Imei::whereIn('producto_id', $productos->pluck('id'))
             ->where('estado_imei', 'en_stock')
             ->whereNull('variante_id')
-            ->selectRaw('producto_id, almacen_id, COUNT(*) as total')
-            ->groupBy('producto_id', 'almacen_id')
+            ->selectRaw('producto_id, color_id, almacen_id, COUNT(*) as total')
+            ->groupBy('producto_id', 'color_id', 'almacen_id')
             ->get()
-            ->groupBy('producto_id')
+            ->groupBy(fn($row) => $row->producto_id . '_' . $row->color_id)
             ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
 
-        $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen, $imeisPorVariante, $imeisNoAsignadosPorProducto) {
+        $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen, $imeisPorVarianteId, $imeisPorColor) {
             // Precio más reciente (cualquier variante) → para incluye_igv
             $precioActivo = $p->precios->first();
             // Precio a nivel de producto (variante_id=null) → para precio_venta base
@@ -131,15 +131,21 @@ class VentaController extends Controller
                 'capacidad'         => $v->capacidad,
                 'sobreprecio'       => (float)$v->sobreprecio,
                 'stock_actual'      => $esSerie
-                    ? (int)($imeisPorVariante[$v->id] ?? collect())->sum()
-                      + (int)($imeisNoAsignadosPorProducto[$p->id] ?? collect())->sum()
+                    ? (function() use ($imeisPorVarianteId, $imeisPorColor, $v, $p) {
+                        $byVariante = $imeisPorVarianteId[$v->id] ?? collect();
+                        return $byVariante->isNotEmpty()
+                            ? (int)$byVariante->sum()
+                            : (int)($imeisPorColor[$p->id . '_' . $v->color_id] ?? collect())->sum();
+                    })()
                     : (int)$v->stock_actual,
                 'stock_por_almacen' => $esSerie
-                    ? collect(($imeisPorVariante[$v->id] ?? collect())->toArray())
-                        ->mergeRecursive(($imeisNoAsignadosPorProducto[$p->id] ?? collect())->toArray())
-                        ->map(fn($val) => is_array($val) ? array_sum($val) : (int)$val)
-                        ->toArray()
-                    : [],   // para no-serie no hay desglose por almacén
+                    ? (function() use ($imeisPorVarianteId, $imeisPorColor, $v, $p) {
+                        $byVariante = $imeisPorVarianteId[$v->id] ?? collect();
+                        return $byVariante->isNotEmpty()
+                            ? $byVariante->toArray()
+                            : ($imeisPorColor[$p->id . '_' . $v->color_id] ?? collect())->toArray();
+                    })()
+                    : [],
                 'nombre_completo'   => $v->nombre_completo,
                 'tiene_stock'       => $v->tieneStock(),
             ]);
@@ -408,16 +414,35 @@ class VentaController extends Controller
         $almacenId  = $request->input('almacen_id');
         $varianteId = $request->input('variante_id');
 
-        $imeis = Imei::where('producto_id', $productoId)
+        $base = Imei::where('producto_id', $productoId)
             ->where('almacen_id', $almacenId)
-            ->where('estado_imei', 'en_stock')
-            ->when($varianteId, fn($q) => $q->where(function ($inner) use ($varianteId) {
-                // Mostrar IMEIs de la variante seleccionada O sin variante asignada (compatibilidad)
-                $inner->where('variante_id', $varianteId)->orWhereNull('variante_id');
-            }))
-            ->get(['id', 'codigo_imei', 'color_id']);
+            ->where('estado_imei', 'en_stock');
 
-        return response()->json($imeis);
+        if ($varianteId) {
+            // Verificar si hay IMEIs con variante_id asignado para esta variante
+            $tieneConVariante = (clone $base)->where('variante_id', $varianteId)->exists();
+
+            if ($tieneConVariante) {
+                // Filtrado estricto por variante_id
+                $base->where('variante_id', $varianteId);
+            } else {
+                // Fallback: filtrar por color_id de la variante (registros sin variante_id aún)
+                $variante = \App\Models\ProductoVariante::find($varianteId);
+                if ($variante?->color_id) {
+                    $base->where(function ($q) use ($varianteId, $variante) {
+                        $q->where('variante_id', $varianteId)
+                          ->orWhere(fn($s) => $s->whereNull('variante_id')->where('color_id', $variante->color_id));
+                    });
+                } else {
+                    // Sin color_id en la variante, filtrar solo por variante_id
+                    $base->where('variante_id', $varianteId);
+                }
+            }
+        }
+
+        return response()->json(
+            $base->get(['id', 'codigo_imei', 'color_id', 'variante_id'])
+        );
     }
     public function editVenta(Venta $venta)
     {

@@ -206,47 +206,37 @@
                                     </div>
                                 </div>
 
-                                <!-- Almacén y Color en grid -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                            <i class="fas fa-warehouse mr-1 text-gray-500"></i>
-                                            Almacén <span class="text-red-500">*</span>
-                                        </label>
-                                        <select name="almacen_id" id="almacen_id"
-                                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                                                required>
-                                            <option value="">Seleccionar ubicación</option>
-                                            @foreach($almacenes as $almacen)
-                                                <option value="{{ $almacen->id }}" 
-                                                        {{ old('almacen_id') == $almacen->id ? 'selected' : '' }}>
-                                                    🏢 {{ $almacen->nombre }}
-                                                    @if($almacen->ubicacion)
-                                                        ({{ $almacen->ubicacion }})
-                                                    @endif
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
+                                <!-- Variante del producto -->
+                                <div id="seccionVariante" class="hidden">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-layer-group mr-1 text-indigo-500"></i>
+                                        Variante <span class="text-red-500">*</span>
+                                        <span class="ml-1 text-xs font-normal text-gray-500">(color + capacidad)</span>
+                                    </label>
+                                    <input type="hidden" name="variante_id" id="variante_id" value="{{ old('variante_id') }}">
+                                    <input type="hidden" name="color_id" id="color_id" value="{{ old('color_id') }}">
+                                    <div id="variantesGrid" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
+                                    <p id="varianteError" class="hidden mt-1 text-xs text-red-600">Debes seleccionar una variante</p>
+                                </div>
 
-                                    <div>
-                                        <label for="color_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                            <i class="fas fa-palette mr-1 text-gray-500"></i>
-                                            Color
-                                        </label>
-                                        <select name="color_id" id="color_id"
-                                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                                            <option value="">Sin especificar</option>
-                                            @foreach($colores as $color)
-                                                <option value="{{ $color->id }}" 
-                                                        data-color="{{ $color->nombre }}"
-                                                        style="background-color: {{ $color->codigo_hex ?? '#fff' }};"
-                                                        {{ old('color_id') == $color->id ? 'selected' : '' }}>
-                                                    {{ $color->nombre }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
+                                <!-- Almacén -->
+                                <div>
+                                    <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                        <i class="fas fa-warehouse mr-1 text-gray-500"></i>
+                                        Almacén <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="almacen_id" id="almacen_id"
+                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                            required>
+                                        <option value="">Seleccionar ubicación</option>
+                                        @foreach($almacenes as $almacen)
+                                            <option value="{{ $almacen->id }}"
+                                                    {{ old('almacen_id') == $almacen->id ? 'selected' : '' }}>
+                                                🏢 {{ $almacen->nombre }}
+                                                @if($almacen->ubicacion) ({{ $almacen->ubicacion }}) @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
                                 </div>
 
                                 <!-- Número de Serie (opcional) -->
@@ -354,62 +344,110 @@
     </div>
 
     @push('scripts')
-    <!-- Select2 para mejor búsqueda -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
+        // Variantes por producto (desde PHP)
+        const variantesPorProducto = @json($variantesPorProducto);
+
         $(document).ready(function() {
-            // Inicializar Select2 para producto
             $('#producto_id').select2({
                 placeholder: '🔍 Buscar modelo de celular...',
                 allowClear: true,
                 width: '100%',
-                templateResult: formatProducto,
-                templateSelection: formatProductoSelection
+                templateResult: function(p) {
+                    if (!p.id) return p.text;
+                    return $('<div class="flex items-center p-2"><div class="w-8 h-8 bg-gray-200 rounded flex items-center justify-center mr-2"><i class="fas fa-mobile-alt text-gray-600 text-sm"></i></div><div><div class="font-medium text-sm">' + p.text.split('|')[0] + '</div><div class="text-xs text-gray-500">' + (p.text.split('|')[1] || '') + '</div></div></div>');
+                },
+                templateSelection: function(p) { return p.text.split('|')[0] || p.text; }
             });
 
-            // Función para formatear resultados en el dropdown
-            function formatProducto(producto) {
-                if (!producto.id) return producto.text;
-                
-                var $producto = $(
-                    '<div class="flex items-center p-2">' +
-                        '<div class="w-10 h-10 bg-gray-200 rounded flex items-center justify-center mr-3">' +
-                            '<i class="fas fa-mobile-alt text-gray-600"></i>' +
-                        '</div>' +
-                        '<div>' +
-                            '<div class="font-medium">' + producto.text.split('|')[0] + '</div>' +
-                            '<div class="text-xs text-gray-500">' + (producto.text.split('|')[1] || '') + '</div>' +
-                        '</div>' +
-                    '</div>'
-                );
-                return $producto;
-            }
-
-            function formatProductoSelection(producto) {
-                return producto.text.split('|')[0] || producto.text;
-            }
-
-            // Mostrar preview cuando se selecciona producto
             $('#producto_id').on('change', function() {
+                var pid = $(this).val();
                 var selected = $(this).find('option:selected');
-                if (selected.val()) {
+
+                // Preview producto
+                if (pid) {
                     $('#previewNombre').text(selected.text().split('|')[0]);
                     $('#previewMarca').text(selected.data('marca') || '-');
                     $('#previewModelo').text(selected.data('modelo') || '-');
-                    $('#previewColor').text(selected.data('color') || '-');
-                    $('#previewCapacidad').text(selected.data('capacidad') || '-');
+                    $('#previewColor').text('-');
+                    $('#previewCapacidad').text('-');
                     $('#productoPreview').removeClass('hidden');
                 } else {
                     $('#productoPreview').addClass('hidden');
                 }
+
+                // Limpiar variante seleccionada
+                $('#variante_id').val('');
+                $('#color_id').val('');
+
+                // Cargar variantes
+                var variantes = variantesPorProducto[pid] || [];
+                if (variantes.length > 0) {
+                    $('#seccionVariante').removeClass('hidden');
+                    renderVariantes(variantes);
+                } else {
+                    $('#seccionVariante').addClass('hidden');
+                    $('#variantesGrid').empty();
+                }
             });
 
-            // Generar IMEI aleatorio
+            function renderVariantes(variantes) {
+                var oldVarianteId = '{{ old('variante_id') }}';
+                var grid = $('#variantesGrid');
+                grid.empty();
+                variantes.forEach(function(v) {
+                    var colorBox = v.color_hex
+                        ? '<div style="background:' + v.color_hex + '" class="w-4 h-4 rounded-full shrink-0 border border-gray-300"></div>'
+                        : '<i class="fas fa-circle text-gray-400 text-xs shrink-0"></i>';
+                    var nombre = v.nombre || ((v.color_nombre || '') + (v.capacidad ? ' / ' + v.capacidad : ''));
+                    var card = $(
+                        '<button type="button" data-id="' + v.id + '" data-color-id="' + (v.color_id || '') + '" ' +
+                        'data-color-nombre="' + (v.color_nombre || '') + '" data-capacidad="' + (v.capacidad || '') + '" ' +
+                        'class="variante-card text-left border-2 rounded-xl p-3 transition hover:border-indigo-400 hover:bg-indigo-50 border-gray-200">' +
+                            '<div class="flex items-center gap-2 mb-1">' + colorBox +
+                                '<span class="text-sm font-semibold text-gray-800 truncate">' + nombre + '</span>' +
+                            '</div>' +
+                            '<span class="text-xs font-mono text-gray-400">' + v.sku + '</span>' +
+                        '</button>'
+                    );
+                    grid.append(card);
+                    if (oldVarianteId && oldVarianteId == v.id) {
+                        card.trigger('click');
+                    }
+                });
+
+                // Click handler
+                $(document).off('click', '.variante-card').on('click', '.variante-card', function() {
+                    $('.variante-card').removeClass('border-indigo-500 bg-indigo-50').addClass('border-gray-200');
+                    $(this).removeClass('border-gray-200').addClass('border-indigo-500 bg-indigo-50');
+                    var vid = $(this).data('id');
+                    var colorId = $(this).data('color-id');
+                    var colorNombre = $(this).data('color-nombre');
+                    var capacidad = $(this).data('capacidad');
+                    $('#variante_id').val(vid);
+                    $('#color_id').val(colorId);
+                    $('#previewColor').text(colorNombre || '-');
+                    $('#previewCapacidad').text(capacidad || '-');
+                    $('#varianteError').addClass('hidden');
+                });
+            }
+
+            // Validar variante al submit
+            $('#imeiForm').on('submit', function(e) {
+                var pid = $('#producto_id').val();
+                var variantes = variantesPorProducto[pid] || [];
+                if (variantes.length > 0 && !$('#variante_id').val()) {
+                    e.preventDefault();
+                    $('#varianteError').removeClass('hidden');
+                    $('#seccionVariante')[0].scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+
+            // Generar IMEI
             $('#btnGenerarImei').click(function() {
                 var imei = '';
-                for (var i = 0; i < 15; i++) {
-                    imei += Math.floor(Math.random() * 10);
-                }
+                for (var i = 0; i < 15; i++) imei += Math.floor(Math.random() * 10);
                 $('#codigo_imei').val(imei).trigger('input');
             });
 
@@ -418,36 +456,28 @@
                 var imei = $(this).val();
                 var soloNumeros = /^\d+$/.test(imei);
                 var longitudCorrecta = imei.length === 15;
-                
-                // Validar longitud
-                $('#valid-longitud').toggleClass('text-green-600', longitudCorrecta)
-                                   .toggleClass('text-gray-400', !longitudCorrecta)
-                                   .html('<i class="fas fa-' + (longitudCorrecta ? 'check-circle' : 'circle') + ' mr-1 text-[8px]"></i> 15 dígitos');
-                
-                // Validar números
-                $('#valid-numeros').toggleClass('text-green-600', soloNumeros && imei.length > 0)
-                                  .toggleClass('text-gray-400', !soloNumeros || imei.length === 0)
-                                  .html('<i class="fas fa-' + (soloNumeros && imei.length > 0 ? 'check-circle' : 'circle') + ' mr-1 text-[8px]"></i> Solo números');
-                
-                // Aquí iría validación con AJAX para ver si es único
+                $('#valid-longitud').toggleClass('text-green-600', longitudCorrecta).toggleClass('text-gray-400', !longitudCorrecta)
+                    .html('<i class="fas fa-' + (longitudCorrecta ? 'check-circle' : 'circle') + ' mr-1 text-[8px]"></i> 15 dígitos');
+                $('#valid-numeros').toggleClass('text-green-600', soloNumeros && imei.length > 0).toggleClass('text-gray-400', !soloNumeros || !imei.length)
+                    .html('<i class="fas fa-' + (soloNumeros && imei.length > 0 ? 'check-circle' : 'circle') + ' mr-1 text-[8px]"></i> Solo números');
                 if (longitudCorrecta && soloNumeros) {
-                    // Simular validación única (conectar con backend)
-                    $('#valid-unico').toggleClass('text-green-600', true)
-                                    .toggleClass('text-gray-400', false)
-                                    .html('<i class="fas fa-check-circle mr-1 text-[8px]"></i> IMEI válido');
+                    $('#valid-unico').toggleClass('text-green-600', true).toggleClass('text-gray-400', false)
+                        .html('<i class="fas fa-check-circle mr-1 text-[8px]"></i> IMEI válido');
                     $('#imei-validation').removeClass('hidden');
                 } else {
-                    $('#valid-unico').toggleClass('text-green-600', false)
-                                    .toggleClass('text-gray-400', true)
-                                    .html('<i class="fas fa-circle mr-1 text-[8px]"></i> IMEI único');
+                    $('#valid-unico').toggleClass('text-green-600', false).toggleClass('text-gray-400', true)
+                        .html('<i class="fas fa-circle mr-1 text-[8px]"></i> IMEI único');
                     $('#imei-validation').addClass('hidden');
                 }
             });
 
-            // Trigger inicial si hay valor
-            if ($('#codigo_imei').val()) {
-                $('#codigo_imei').trigger('input');
-            }
+            if ($('#codigo_imei').val()) $('#codigo_imei').trigger('input');
+
+            // Pre-seleccionar producto si viene por URL
+            @if(old('producto_id') || (isset($productoSeleccionado) && $productoSeleccionado))
+                var preselect = '{{ old('producto_id', $productoSeleccionado?->id) }}';
+                if (preselect) { $('#producto_id').val(preselect).trigger('change'); }
+            @endif
         });
     </script>
     @endpush

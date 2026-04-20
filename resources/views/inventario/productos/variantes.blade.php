@@ -141,9 +141,14 @@
                         <div>
                             <p class="text-xs text-gray-400 uppercase tracking-wide">Stock Total</p>
                             <p class="text-2xl font-bold text-gray-900">
-                                {{ $producto->variantes->sum('stock_actual') }}
+                                {{ $stockTotalReal }}
                                 <span class="text-sm font-normal text-gray-400">unidades</span>
                             </p>
+                            @if($producto->tipo_inventario === 'serie')
+                                <p class="text-xs text-indigo-500 mt-0.5">
+                                    <i class="fas fa-sim-card mr-1"></i>IMEIs en stock
+                                </p>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -276,10 +281,17 @@
                                     <div class="flex items-center gap-4 flex-shrink-0">
                                         {{-- Stock --}}
                                         <div class="text-right">
-                                            <p class="text-lg font-bold {{ $variante->stock_actual <= $variante->stock_minimo ? 'text-red-600' : 'text-gray-900' }}">
-                                                {{ $variante->stock_actual }}
+                                            @php
+                                                $stockVar = $producto->tipo_inventario === 'serie'
+                                                    ? ($stockRealPorVariante[$variante->id] ?? 0)
+                                                    : $variante->stock_actual;
+                                            @endphp
+                                            <p class="text-lg font-bold {{ $stockVar <= $variante->stock_minimo ? 'text-red-600' : 'text-gray-900' }}">
+                                                {{ $stockVar }}
                                             </p>
-                                            <p class="text-xs text-gray-400">en stock</p>
+                                            <p class="text-xs text-gray-400">
+                                                {{ $producto->tipo_inventario === 'serie' ? 'IMEI' : 'en stock' }}
+                                            </p>
                                         </div>
 
                                         {{-- Acciones --}}

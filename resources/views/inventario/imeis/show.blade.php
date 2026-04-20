@@ -254,8 +254,24 @@
                                 <p class="font-semibold text-gray-900">{{ $imei->producto->marca->nombre ?? 'N/A' }} / {{ $imei->producto->modelo->nombre ?? 'N/A' }}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-600 mb-1">Color</p>
-                                <p class="font-semibold text-gray-900">{{ $imei->color->nombre ?? $imei->producto->color->nombre ?? 'No especificado' }}</p>
+                                <p class="text-sm text-gray-600 mb-1">Variante</p>
+                                @if($imei->variante)
+                                    <div class="flex items-center gap-2">
+                                        @if($imei->variante->color?->codigo_hex)
+                                            <span class="w-4 h-4 rounded-full border border-gray-300 shrink-0"
+                                                  style="background:{{ $imei->variante->color->codigo_hex }}"></span>
+                                        @endif
+                                        <span class="font-semibold text-gray-900">
+                                            {{ trim(($imei->variante->color?->nombre ?? '') . ($imei->variante->capacidad ? ' / ' . $imei->variante->capacidad : '')) }}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-gray-400 font-mono mt-0.5">{{ $imei->variante->sku }}</p>
+                                @else
+                                    <p class="font-semibold text-gray-400 italic">Sin variante asignada</p>
+                                    @if($imei->color)
+                                        <p class="text-xs text-gray-500">Color: {{ $imei->color->nombre }}</p>
+                                    @endif
+                                @endif
                             </div>
                         </div>
                     </div>
