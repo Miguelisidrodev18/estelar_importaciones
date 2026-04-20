@@ -581,6 +581,7 @@
                             <table class="min-w-full divide-y divide-gray-200" id="tablaProductos">
                                 <thead class="bg-gray-100">
                                     <tr>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-10">#</th>
                                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Producto</th>
                                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Marca</th>
                                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Modelo</th>
@@ -839,40 +840,92 @@
                 </button>
             </div>
 
+            <!-- Tabs: Manual / Pistola -->
+            <div class="flex border-b border-gray-200 bg-gray-50">
+                <button type="button" id="tab_manual"
+                        onclick="activarModoIMEI('manual')"
+                        class="flex-1 py-2.5 text-sm font-medium text-purple-700 border-b-2 border-purple-600 bg-white transition">
+                    <i class="fas fa-keyboard mr-1"></i> Manual
+                </button>
+                <button type="button" id="tab_pistola"
+                        onclick="activarModoIMEI('pistola')"
+                        class="flex-1 py-2.5 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition">
+                    <i class="fas fa-barcode mr-1"></i> Pistola / Escáner
+                </button>
+            </div>
+
             <!-- Cuerpo del modal -->
-            <div class="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-                <!-- Barra de herramientas -->
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-6 p-4 bg-gray-50 rounded-xl">
-                    <div class="flex items-center gap-2">
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+
+                <!-- ── MODO MANUAL ── -->
+                <div id="panel_manual">
+                    <!-- Barra de herramientas -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4 p-3 bg-gray-50 rounded-xl">
                         <span class="text-sm font-medium text-gray-700">
                             <i class="fas fa-info-circle mr-1 text-blue-500"></i>
                             Total: <span id="imeiTotalCount" class="font-bold text-purple-700">0</span> IMEIs
                         </span>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="generarIMEIsAleatorios()"
+                                    class="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm flex items-center">
+                                <i class="fas fa-magic mr-1"></i>Generar
+                            </button>
+                            <button type="button" onclick="limpiarIMEIs()"
+                                    class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm flex items-center">
+                                <i class="fas fa-eraser mr-1"></i>Limpiar
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" onclick="generarIMEIsAleatorios()" 
-                                class="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm flex items-center">
-                            <i class="fas fa-magic mr-1"></i>
-                            Generar
-                        </button>
-                        <button type="button" onclick="limpiarIMEIs()" 
-                                class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm flex items-center">
-                            <i class="fas fa-eraser mr-1"></i>
-                            Limpiar
-                        </button>
+                    <div id="imeiContainer" class="space-y-3"></div>
+                    <div class="mt-4 text-xs text-gray-500 flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                        <span><i class="fas fa-info-circle mr-1 text-blue-500"></i> Cada IMEI debe tener exactamente 15 dígitos</span>
+                        <span><i class="fas fa-level-down-alt mr-1 text-blue-500"></i> Enter avanza al siguiente campo</span>
                     </div>
                 </div>
 
-                <!-- Contenedor de inputs de IMEI -->
-                <div id="imeiContainer" class="space-y-3">
-                    {{-- Los inputs se generarán dinámicamente --}}
+                <!-- ── MODO PISTOLA ── -->
+                <div id="panel_pistola" class="hidden">
+                    <!-- Input principal de escaneo -->
+                    <div class="mb-4">
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                                <i class="fas fa-barcode text-purple-400 text-2xl"></i>
+                            </div>
+                            <input type="text" id="pistola_input"
+                                   class="w-full pl-14 pr-4 py-4 border-2 border-purple-300 rounded-xl focus:border-purple-600 focus:ring-4 focus:ring-purple-100 font-mono text-xl tracking-widest text-center transition"
+                                   placeholder="Escanear IMEI aquí..."
+                                   maxlength="15"
+                                   autocomplete="off"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                   onkeydown="pistolaManejarTecla(event)">
+                        </div>
+                        <p class="text-xs text-center text-gray-500 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Apunta la pistola a este campo y escanea — se registra automáticamente al recibir el Enter
+                        </p>
+                    </div>
+
+                    <!-- Contador y acciones -->
+                    <div class="flex items-center justify-between mb-3 px-1">
+                        <span class="text-sm font-semibold text-gray-700">
+                            IMEIs escaneados: <span id="pistola_count" class="text-purple-700">0</span>
+                        </span>
+                        <button type="button" onclick="pistolaBorrarUltimo()"
+                                class="text-xs text-red-500 hover:text-red-700 transition flex items-center gap-1">
+                            <i class="fas fa-undo"></i> Deshacer último
+                        </button>
+                    </div>
+
+                    <!-- Lista de IMEIs escaneados -->
+                    <div id="pistola_lista" class="space-y-1.5 max-h-72 overflow-y-auto pr-1"></div>
+
+                    <!-- Estado vacío -->
+                    <div id="pistola_vacio" class="py-10 text-center text-gray-400">
+                        <i class="fas fa-barcode text-5xl mb-3 block opacity-30"></i>
+                        <p class="text-sm">Aún no se han escaneado IMEIs</p>
+                    </div>
                 </div>
 
-                <!-- Mensaje de ayuda -->
-                <div class="mt-4 text-xs text-gray-500 flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                    <span><i class="fas fa-info-circle mr-1 text-blue-500"></i> Cada IMEI debe tener exactamente 15 dígitos numéricos</span>
-                    <span><i class="fas fa-keyboard mr-1 text-blue-500"></i> Presiona Tab para navegar entre campos</span>
-                </div>
             </div>
 
             <!-- Footer -->
@@ -1234,6 +1287,9 @@
         row.id = rowId;
         row.className = 'border-b border-gray-100 hover:bg-gray-50';
         row.innerHTML = `
+            <td class="px-4 py-3 text-center">
+                <span class="item-num inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs font-bold"></span>
+            </td>
             <td class="px-4 py-3">
                 <select name="detalles[${idx}][producto_id]"
                         id="producto_select_${idx}"
@@ -1318,15 +1374,23 @@
 
         tbody.appendChild(row);
         contadorProductos++;
+        renumerarFilas();
 
         // Ocultar mensaje de productos vacíos
         const emptyDiv = document.getElementById('emptyProductos');
         if (emptyDiv) emptyDiv.style.display = 'none';
     }
 
+    function renumerarFilas() {
+        document.querySelectorAll('#detallesBody tr .item-num').forEach((el, i) => {
+            el.textContent = i + 1;
+        });
+    }
+
     function eliminarProducto(rowId) {
         if (confirm('¿Eliminar este producto?')) {
             document.getElementById(rowId).remove();
+            renumerarFilas();
             calcularTotales();
         }
     }
@@ -1903,19 +1967,14 @@
                     const stockTxt = v.stock_actual > 0 ? `${v.stock_actual} u.` : 'Sin stock';
                     const bordClr  = sel ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 bg-gray-50';
                     return `
-                        <div id="vcard_${key}" class="flex items-center gap-2 px-2 py-1.5 rounded-lg border ${bordClr} transition-all">
+                        <div id="vcard_${key}" class="flex items-center gap-2 px-2 py-1.5 rounded-lg border ${bordClr} transition-all cursor-pointer"
+                             onclick="npToggleVariante(${p.id},${v.id})">
                             <input type="checkbox"
-                                   class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
-                                   ${sel ? 'checked' : ''}
-                                   onchange="actualizarSeleccionVariante(this,${p.id},${v.id})">
+                                   class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400 pointer-events-none"
+                                   ${sel ? 'checked' : ''}>
                             ${dot}
                             <span class="text-xs font-medium text-gray-800 flex-1 truncate">${label}</span>
                             <span class="text-xs ${stockClr} font-medium shrink-0">${stockTxt}</span>
-                            <input type="number"
-                                   class="w-12 px-1 py-0.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-400"
-                                   value="${cant}" min="1"
-                                   onchange="actualizarCantidadVariante('${key}', this.value)"
-                                   ${sel ? '' : 'disabled'}>
                         </div>`;
                 }).join('');
 
@@ -2265,16 +2324,112 @@
         actualizarContadorIMEI();
     }
 
+    // ── Modo IMEI (manual / pistola) ─────────────────────────────────────────
+    let modoIMEIActual = 'manual';
+
+    function activarModoIMEI(modo) {
+        modoIMEIActual = modo;
+        document.getElementById('panel_manual').classList.toggle('hidden', modo !== 'manual');
+        document.getElementById('panel_pistola').classList.toggle('hidden', modo !== 'pistola');
+        document.getElementById('tab_manual').className  = modo === 'manual'
+            ? 'flex-1 py-2.5 text-sm font-medium text-purple-700 border-b-2 border-purple-600 bg-white transition'
+            : 'flex-1 py-2.5 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition';
+        document.getElementById('tab_pistola').className = modo === 'pistola'
+            ? 'flex-1 py-2.5 text-sm font-medium text-purple-700 border-b-2 border-purple-600 bg-white transition'
+            : 'flex-1 py-2.5 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition';
+        if (modo === 'pistola') {
+            pistolaRenderLista();
+            setTimeout(() => document.getElementById('pistola_input')?.focus(), 100);
+        }
+    }
+
+    // ── Pistola: lógica ───────────────────────────────────────────────────────
+    function pistolaManejarTecla(e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const input = document.getElementById('pistola_input');
+        const valor = input.value.trim();
+
+        if (valor.length !== 15) {
+            input.classList.add('border-red-400', 'bg-red-50');
+            setTimeout(() => input.classList.remove('border-red-400', 'bg-red-50'), 600);
+            return;
+        }
+
+        // Verificar duplicado
+        const lista = imeisPorFila[productoEnEdicion] || [];
+        if (lista.includes(valor)) {
+            Swal.fire({ icon: 'warning', title: 'IMEI duplicado', text: `${valor} ya fue escaneado.`, timer: 1800, showConfirmButton: false });
+            input.select();
+            return;
+        }
+
+        lista.push(valor);
+        imeisPorFila[productoEnEdicion] = lista;
+        input.value = '';
+        input.classList.add('border-green-400', 'bg-green-50');
+        setTimeout(() => input.classList.remove('border-green-400', 'bg-green-50'), 400);
+        pistolaRenderLista();
+        actualizarContadorIMEI();
+    }
+
+    function pistolaRenderLista() {
+        const lista  = imeisPorFila[productoEnEdicion] || [];
+        const div    = document.getElementById('pistola_lista');
+        const vacio  = document.getElementById('pistola_vacio');
+        const contEl = document.getElementById('pistola_count');
+        if (contEl) contEl.textContent = lista.length;
+
+        if (lista.length === 0) {
+            div.innerHTML = '';
+            vacio?.classList.remove('hidden');
+            return;
+        }
+        vacio?.classList.add('hidden');
+        div.innerHTML = lista.map((imei, i) => `
+            <div class="flex items-center justify-between px-3 py-2 rounded-lg ${i % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border border-gray-100">
+                <div class="flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold flex items-center justify-center shrink-0">${i + 1}</span>
+                    <span class="font-mono text-sm text-gray-800 tracking-wider">${imei}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-check-circle text-green-500 text-sm"></i>
+                    <button type="button" onclick="pistolaEliminar(${i})"
+                            class="text-red-400 hover:text-red-600 transition text-xs">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>`).join('');
+    }
+
+    function pistolaEliminar(idx) {
+        const lista = imeisPorFila[productoEnEdicion] || [];
+        lista.splice(idx, 1);
+        imeisPorFila[productoEnEdicion] = lista;
+        pistolaRenderLista();
+        actualizarContadorIMEI();
+    }
+
+    function pistolaBorrarUltimo() {
+        const lista = imeisPorFila[productoEnEdicion] || [];
+        if (!lista.length) return;
+        lista.pop();
+        imeisPorFila[productoEnEdicion] = lista;
+        pistolaRenderLista();
+        actualizarContadorIMEI();
+    }
+
+    // ── Inputs manuales ───────────────────────────────────────────────────────
     function generarInputsIMEI(cantidad, imeisGuardados = []) {
         const container = document.getElementById('imeiContainer');
         let html = '';
-        
+
         for (let i = 0; i < cantidad; i++) {
             const valor = imeisGuardados[i] || '';
             const esValido = valor.length === 15 ? 'border-green-500 bg-green-50' : '';
-            
+
             html += `
-                <div class="grid grid-cols-12 gap-3 items-center">
+                <div class="grid grid-cols-12 gap-3 items-center" id="imei_row_${i}">
                     <div class="col-span-1 text-sm font-medium text-gray-600 text-center bg-gray-100 py-2 rounded-lg">
                         ${i + 1}
                     </div>
@@ -2284,14 +2439,31 @@
                             placeholder="Ingrese IMEI de 15 dígitos"
                             value="${valor}"
                             maxlength="15"
-                            oninput="this.value = this.value.replace(/[^0-9]/g, ''); validarIMEIInput(this)">
+                            autocomplete="off"
+                            data-index="${i}"
+                            oninput="this.value = this.value.replace(/[^0-9]/g, ''); validarIMEIInput(this)"
+                            onkeydown="imeiManualTecla(event, ${i})">
                     </div>
-                </div>
-            `;
+                </div>`;
         }
-        
+
         container.innerHTML = html;
         actualizarContadorIMEI();
+    }
+
+    function imeiManualTecla(e, idx) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const inputs = document.querySelectorAll('.imei-input');
+        const actual = inputs[idx];
+        if (actual?.value.length === 15) {
+            const siguiente = inputs[idx + 1];
+            if (siguiente) {
+                siguiente.focus();
+                siguiente.select();
+            }
+            // Si es el último y está lleno, el foco queda ahí (puede usar Tab o Guardar)
+        }
     }
     function actualizarContadorUnidades() {
         const simplesTotal   = Object.values(cantidadesSeleccionadas).reduce((a, b) => a + b, 0);
@@ -2299,29 +2471,38 @@
         document.getElementById('totalUnidadesCount').innerText = `(${simplesTotal + variantesTotal} unidades)`;
     }
 
+    function npToggleVariante(prodId, varId) {
+        const key      = `${prodId}_${varId}`;
+        const estaSelec = !!variantesSeleccionadas[key];
+        const checkbox  = document.querySelector(`#vcard_${key} input[type="checkbox"]`);
+        if (checkbox) checkbox.checked = !estaSelec;
+        actualizarSeleccionVarianteEstado(key, prodId, varId, !estaSelec);
+    }
+
     function actualizarSeleccionVariante(checkbox, prodId, varId) {
-        const key     = `${prodId}_${varId}`;
+        const key = `${prodId}_${varId}`;
+        actualizarSeleccionVarianteEstado(key, prodId, varId, checkbox.checked);
+    }
+
+    function actualizarSeleccionVarianteEstado(key, prodId, varId, seleccionado) {
         const producto = productosModal[prodId];
         const variante = variantesModal[key];
-        const card = document.getElementById(`vcard_${key}`);
-        const cantidadInput = card ? card.querySelector('input[type="number"]') : null;
+        const card     = document.getElementById(`vcard_${key}`);
 
-        if (checkbox.checked) {
+        if (seleccionado) {
             variantesSeleccionadas[key] = {
                 productoId: producto.id,
                 varianteId: variante.id,
-                cantidad:   parseInt(cantidadInput?.value) || 1,
+                cantidad:   1,
                 producto,
                 variante,
             };
-            if (cantidadInput) cantidadInput.disabled = false;
             if (card) {
                 card.classList.replace('border-gray-200', 'border-indigo-400');
                 card.classList.replace('bg-gray-50',    'bg-indigo-50');
             }
         } else {
             delete variantesSeleccionadas[key];
-            if (cantidadInput) cantidadInput.disabled = true;
             if (card) {
                 card.classList.replace('border-indigo-400', 'border-gray-200');
                 card.classList.replace('bg-indigo-50',     'bg-gray-50');
@@ -2391,34 +2572,39 @@
     }
 
     function guardarIMEIs() {
-        const inputs = document.querySelectorAll('.imei-input');
-        const imeis = [];
-        let valido = true;
-        let primerError = null;
+        let imeis = [];
 
-        // Validar IMEIs
-        inputs.forEach((input, index) => {
-            const valor = input.value.trim();
-            if (valor.length !== 15) {
-                input.classList.add('border-red-500', 'bg-red-50');
-                valido = false;
-                if (!primerError) primerError = input;
-            } else {
-                input.classList.remove('border-red-500', 'bg-red-50');
-                input.classList.add('border-green-500', 'bg-green-50');
-                imeis.push(valor);
+        if (modoIMEIActual === 'pistola') {
+            // En modo pistola los IMEIs ya están en imeisPorFila
+            imeis = imeisPorFila[productoEnEdicion] || [];
+            if (imeis.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'Sin IMEIs', text: 'Escanea al menos un IMEI.', confirmButtonColor: '#7c3aed' });
+                return;
             }
-        });
+        } else {
+            // Modo manual: leer inputs
+            const inputs = document.querySelectorAll('.imei-input');
+            let valido = true;
+            let primerError = null;
 
-        if (!valido) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error de validación',
-                text: 'Todos los IMEI deben tener exactamente 15 dígitos numéricos',
-                confirmButtonColor: '#d33'
+            inputs.forEach(input => {
+                const valor = input.value.trim();
+                if (valor.length !== 15) {
+                    input.classList.add('border-red-500', 'bg-red-50');
+                    valido = false;
+                    if (!primerError) primerError = input;
+                } else {
+                    input.classList.remove('border-red-500', 'bg-red-50');
+                    input.classList.add('border-green-500', 'bg-green-50');
+                    imeis.push(valor);
+                }
             });
-            if (primerError) primerError.focus();
-            return;
+
+            if (!valido) {
+                Swal.fire({ icon: 'error', title: 'Error de validación', text: 'Todos los IMEI deben tener exactamente 15 dígitos numéricos', confirmButtonColor: '#d33' });
+                if (primerError) primerError.focus();
+                return;
+            }
         }
 
         if (productoEnEdicion !== null) {
@@ -2614,6 +2800,7 @@
         document.getElementById('imeiModal').classList.add('hidden');
         document.getElementById('imeiModal').classList.remove('flex');
         productoEnEdicion = null;
+        activarModoIMEI('manual'); // resetear al abrir siguiente vez
     }
 
     function actualizarInfoIMEI(index) {
@@ -2709,17 +2896,24 @@
 function abrirModalCrearProducto(terminoBusqueda) {
     document.getElementById('np_nombre').value = terminoBusqueda || '';
     document.getElementById('np_categoria').value = '';
-    document.getElementById('np_tipo').value = 'regular';
+    document.getElementById('np_tipo').value = 'cantidad';
     const marcaSelect = document.getElementById('np_marca');
     marcaSelect.innerHTML = '<option value="">Seleccionar categoría primero...</option>';
     marcaSelect.disabled = true;
     const modeloSelect = document.getElementById('np_modelo');
     modeloSelect.innerHTML = '<option value="">Seleccionar marca primero...</option>';
     modeloSelect.disabled = true;
-    document.getElementById('np_color').value = '';
     document.getElementById('np_tiene_variantes').checked = false;
     document.getElementById('np_codigo_barras').value = '';
-    document.getElementById('np_color_section').classList.remove('hidden');
+    document.getElementById('np_unidad_medida').value = '';
+    document.getElementById('np_dias_garantia').value = 365;
+    document.getElementById('np_tipo_garantia').value = 'proveedor';
+    document.getElementById('np_garantia_section').classList.add('hidden');
+    document.getElementById('np_variantes_section').classList.add('hidden');
+    document.getElementById('np_var_color').value = '';
+    document.getElementById('np_var_capacidad').value = '';
+    npVariantes = [];
+    npRenderVariantes();
     toggleModeloLabel();
 
     const modal = document.getElementById('modalCrearProducto');
@@ -2728,9 +2922,76 @@ function abrirModalCrearProducto(terminoBusqueda) {
     setTimeout(() => document.getElementById('np_nombre').focus(), 100);
 }
 
+// ── Variantes inline del modal crear producto rápido ──────────────────────
+let npVariantes = []; // [{color_id, color_nombre, color_hex, capacidad}]
+
 function toggleVariantesNuevoProducto() {
-    const tieneVariantes = document.getElementById('np_tiene_variantes').checked;
-    document.getElementById('np_color_section').classList.toggle('hidden', tieneVariantes);
+    const checked = document.getElementById('np_tiene_variantes').checked;
+    document.getElementById('np_variantes_section').classList.toggle('hidden', !checked);
+    if (!checked) { npVariantes = []; npRenderVariantes(); }
+}
+
+function npAgregarVariante() {
+    const colorSel   = document.getElementById('np_var_color');
+    const colorId    = colorSel.value;
+    const colorNombre= colorSel.options[colorSel.selectedIndex]?.dataset.nombre || '';
+    const colorHex   = colorSel.options[colorSel.selectedIndex]?.dataset.hex || '';
+    const capacidad  = document.getElementById('np_var_capacidad').value.trim();
+
+    if (!colorId && !capacidad) {
+        Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Ingresa al menos el color o la capacidad.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
+
+    // Evitar duplicados
+    const existe = npVariantes.some(v => v.color_id == colorId && v.capacidad === capacidad);
+    if (existe) {
+        Swal.fire({ icon: 'warning', title: 'Variante duplicada', text: 'Ya agregaste esta combinación de color y capacidad.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
+
+    npVariantes.push({ color_id: colorId || null, color_nombre: colorNombre, color_hex: colorHex, capacidad });
+    npRenderVariantes();
+
+    // Reset fila
+    colorSel.value = '';
+    document.getElementById('np_var_capacidad').value = '';
+    document.getElementById('np_var_capacidad').focus();
+}
+
+function npEliminarVariante(idx) {
+    npVariantes.splice(idx, 1);
+    npRenderVariantes();
+}
+
+function npRenderVariantes() {
+    const lista  = document.getElementById('np_variantes_lista');
+    const conteo = document.getElementById('np_variantes_count');
+    conteo.textContent = npVariantes.length + ' agregada' + (npVariantes.length !== 1 ? 's' : '');
+
+    if (npVariantes.length === 0) {
+        lista.innerHTML = `<div class="py-4 text-center text-sm text-gray-400">
+            <i class="fas fa-layer-group mr-1"></i> Agrega variantes abajo
+        </div>`;
+        return;
+    }
+
+    lista.innerHTML = npVariantes.map((v, i) => {
+        const circulo = v.color_hex
+            ? `<span class="w-4 h-4 rounded-full border border-gray-300 shrink-0 inline-block" style="background-color:${v.color_hex}"></span>`
+            : `<span class="w-4 h-4 rounded-full bg-gray-200 border border-gray-300 shrink-0 inline-block"></span>`;
+        const label = [v.color_nombre, v.capacidad].filter(Boolean).join(' / ') || 'Sin especificar';
+        return `<div class="flex items-center justify-between px-4 py-2">
+            <div class="flex items-center gap-2">
+                ${circulo}
+                <span class="text-sm text-gray-800">${label}</span>
+            </div>
+            <button type="button" onclick="npEliminarVariante(${i})"
+                    class="text-red-400 hover:text-red-600 transition text-xs px-2 py-1 rounded hover:bg-red-50">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>`;
+    }).join('');
 }
 
 function toggleModeloLabel() {
@@ -2911,6 +3172,16 @@ function cargarModelosNuevoProducto() {
         });
 }
 
+function toggleGarantiaSection() {
+    const tipo = document.getElementById('np_tipo').value;
+    const sec  = document.getElementById('np_garantia_section');
+    if (tipo === 'serie') {
+        sec.classList.remove('hidden');
+    } else {
+        sec.classList.add('hidden');
+    }
+}
+
 function guardarNuevoProducto() {
     const nombre          = document.getElementById('np_nombre').value.trim();
     const categoriaId     = document.getElementById('np_categoria').value;
@@ -2920,6 +3191,9 @@ function guardarNuevoProducto() {
     const tipo            = document.getElementById('np_tipo').value;
     const tieneVariantes  = document.getElementById('np_tiene_variantes').checked;
     const codigoBarras    = document.getElementById('np_codigo_barras').value.trim();
+    const unidadMedidaId  = document.getElementById('np_unidad_medida').value;
+    const diasGarantia    = document.getElementById('np_dias_garantia')?.value || 365;
+    const tipoGarantia    = document.getElementById('np_tipo_garantia')?.value || 'proveedor';
 
     if (!nombre) {
         Swal.fire({ icon: 'warning', title: 'Falta el nombre', text: 'Ingresa el nombre del producto.', confirmButtonColor: '#1e3a8a' });
@@ -2934,8 +3208,16 @@ function guardarNuevoProducto() {
         Swal.fire({ icon: 'warning', title: 'Falta la marca', text: 'Selecciona una marca.', confirmButtonColor: '#1e3a8a' });
         return;
     }
+    if (!unidadMedidaId) {
+        Swal.fire({ icon: 'warning', title: 'Falta la unidad de medida', text: 'Selecciona una unidad de medida.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
     if (tipo === 'serie' && !modeloId) {
         Swal.fire({ icon: 'warning', title: 'Falta el modelo', text: 'Para productos con IMEI el modelo es obligatorio.', confirmButtonColor: '#1e3a8a' });
+        return;
+    }
+    if (tieneVariantes && npVariantes.length === 0) {
+        Swal.fire({ icon: 'warning', title: 'Sin variantes', text: 'Agregaste que tiene variantes pero no definiste ninguna. Agrega al menos una.', confirmButtonColor: '#1e3a8a' });
         return;
     }
 
@@ -2951,13 +3233,17 @@ function guardarNuevoProducto() {
         },
         body: JSON.stringify({
             nombre,
-            categoria_id:    categoriaId,
-            marca_id:        marcaId,
-            modelo_id:       modeloId,
-            color_id:        tieneVariantes ? null : (colorId || null),
-            tipo_inventario: tipo,
-            tiene_variantes: tieneVariantes,
-            codigo_barras:   codigoBarras || null,
+            categoria_id:     categoriaId,
+            marca_id:         marcaId,
+            modelo_id:        modeloId || null,
+            color_id:         tieneVariantes ? null : (colorId || null),
+            unidad_medida_id: unidadMedidaId,
+            tipo_inventario:  tipo,
+            tiene_variantes:  tieneVariantes,
+            variantes:        tieneVariantes ? npVariantes.map(v => ({ color_id: v.color_id || null, capacidad: v.capacidad || null })) : [],
+            codigo_barras:    codigoBarras || null,
+            dias_garantia:    tipo === 'serie' ? parseInt(diasGarantia) : null,
+            tipo_garantia:    tipo === 'serie' ? tipoGarantia : null,
         }),
     })
     .then(r => r.json())
@@ -3009,8 +3295,8 @@ function guardarNuevoProducto() {
 <!-- MODAL: CREAR PRODUCTO RÁPIDO                                 -->
 <!-- ============================================================ -->
 <div id="modalCrearProducto"
-     class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+     class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-start justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-auto">
 
         <!-- Header -->
         <div class="bg-gradient-to-r from-green-700 to-green-600 px-6 py-4 rounded-t-2xl flex items-center justify-between">
@@ -3055,9 +3341,9 @@ function guardarNuevoProducto() {
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Tipo <span class="text-red-500">*</span>
                     </label>
-                    <select id="np_tipo" onchange="toggleModeloLabel()"
+                    <select id="np_tipo" onchange="toggleModeloLabel(); toggleGarantiaSection();"
                             class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
-                        <option value="regular">Regular (stock)</option>
+                        <option value="cantidad">Regular (stock)</option>
                         <option value="serie">Serie (IMEI)</option>
                     </select>
                 </div>
@@ -3101,38 +3387,98 @@ function guardarNuevoProducto() {
                 </div>
             </div>
 
-            <!-- ¿Tiene variantes? -->
-            <div class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
-                <input type="checkbox" id="np_tiene_variantes"
-                       onchange="toggleVariantesNuevoProducto()"
-                       class="w-4 h-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-400">
-                <div>
-                    <label for="np_tiene_variantes" class="text-sm font-medium text-indigo-800 cursor-pointer">
-                        <i class="fas fa-layer-group mr-1"></i>Este producto tiene variantes (colores / capacidades)
-                    </label>
-                    <p class="text-xs text-indigo-500 mt-0.5">Podrás definir las variantes desde Inventario → Variantes después de crearlo.</p>
+            <!-- Unidad de Medida -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Unidad de Medida <span class="text-red-500">*</span>
+                </label>
+                <select id="np_unidad_medida"
+                        class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
+                    <option value="">Seleccionar...</option>
+                    @foreach($unidades as $u)
+                        <option value="{{ $u->id }}">{{ $u->nombre }} ({{ $u->abreviatura }})</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Garantía (solo serie/IMEI) -->
+            <div id="np_garantia_section" class="hidden">
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+                    <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                        <i class="fas fa-shield-alt mr-1"></i>Garantía
+                    </p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Días de garantía</label>
+                            <input type="number" id="np_dias_garantia" value="365" min="0"
+                                   class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:ring-2 focus:ring-blue-100 text-sm transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Tipo garantía</label>
+                            <select id="np_tipo_garantia"
+                                    class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:ring-2 focus:ring-blue-100 text-sm transition">
+                                <option value="proveedor">Proveedor</option>
+                                <option value="tienda">Tienda</option>
+                                <option value="fabricante">Fabricante</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Color (opcional, ocultar si tiene_variantes) -->
-            <div id="np_color_section">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Color
-                    <span class="text-gray-400 text-xs font-normal">(opcional)</span>
+            <!-- ¿Tiene variantes? -->
+            <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="np_tiene_variantes"
+                           onchange="toggleVariantesNuevoProducto()"
+                           class="w-4 h-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-400">
+                    <span class="text-sm font-medium text-indigo-800">
+                        <i class="fas fa-layer-group mr-1"></i>Este producto tiene variantes (colores / capacidades)
+                    </span>
                 </label>
-                <div class="flex gap-2">
-                    <select id="np_color"
-                            class="flex-1 px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-100 transition">
-                        <option value="">Sin color</option>
-                        @foreach($colores as $c)
-                            <option value="{{ $c->id }}">{{ $c->nombre }}</option>
-                        @endforeach
-                    </select>
-                    <button type="button" onclick="crearColorRapido()"
-                            title="Nuevo color"
-                            class="px-3 py-2 bg-pink-50 text-pink-700 border-2 border-pink-200 rounded-xl hover:bg-pink-100 transition shrink-0">
-                        <i class="fas fa-plus text-sm"></i>
-                    </button>
+            </div>
+
+            <!-- Sección variantes inline -->
+            <div id="np_variantes_section" class="hidden">
+                <div class="border-2 border-indigo-200 rounded-xl overflow-hidden">
+                    <!-- Header -->
+                    <div class="bg-indigo-700 px-4 py-2 flex items-center justify-between">
+                        <span class="text-white text-sm font-semibold"><i class="fas fa-layer-group mr-1"></i> Variantes</span>
+                        <span id="np_variantes_count" class="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full">0 agregadas</span>
+                    </div>
+
+                    <!-- Lista de variantes agregadas -->
+                    <div id="np_variantes_lista" class="divide-y divide-gray-100 bg-white"></div>
+
+                    <!-- Fila para agregar nueva variante -->
+                    <div class="p-3 bg-gray-50 border-t border-gray-200">
+                        <div class="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Color</label>
+                                <div class="flex gap-1">
+                                    <select id="np_var_color"
+                                            class="flex-1 px-2 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition">
+                                        <option value="">Sin color</option>
+                                        @foreach($colores as $c)
+                                            <option value="{{ $c->id }}"
+                                                    data-hex="{{ $c->codigo_hex }}"
+                                                    data-nombre="{{ $c->nombre }}">{{ $c->nombre }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Capacidad <span class="text-gray-400">(ej: 256GB)</span></label>
+                                <input type="text" id="np_var_capacidad"
+                                       placeholder="256GB+8RAM"
+                                       class="w-full px-2 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition">
+                            </div>
+                            <button type="button" onclick="npAgregarVariante()"
+                                    class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm shrink-0">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

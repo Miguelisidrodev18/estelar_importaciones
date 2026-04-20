@@ -269,13 +269,41 @@ public function create()
             $stockReal = \App\Models\Imei::where('producto_id', $producto->id)
                 ->where('estado_imei', 'en_stock')
                 ->count();
+
+            // Stock real por variante: primero por variante_id, fallback por color_id
+            $porVarianteId = \App\Models\Imei::where('producto_id', $producto->id)
+                ->where('estado_imei', 'en_stock')
+                ->whereNotNull('variante_id')
+                ->selectRaw('variante_id, COUNT(*) as total')
+                ->groupBy('variante_id')
+                ->pluck('total', 'variante_id');
+
+            $porColorId = \App\Models\Imei::where('producto_id', $producto->id)
+                ->where('estado_imei', 'en_stock')
+                ->whereNull('variante_id')
+                ->selectRaw('color_id, COUNT(*) as total')
+                ->groupBy('color_id')
+                ->pluck('total', 'color_id');
+
+            $stockRealPorVariante = [];
+            foreach ($producto->variantesActivas as $v) {
+                if (isset($porVarianteId[$v->id])) {
+                    $stockRealPorVariante[$v->id] = $porVarianteId[$v->id];
+                } elseif ($v->color_id && isset($porColorId[$v->color_id])) {
+                    $stockRealPorVariante[$v->id] = $porColorId[$v->color_id];
+                } else {
+                    $stockRealPorVariante[$v->id] = 0;
+                }
+            }
+
         } else {
             $stockReal = $producto->variantesActivas->isNotEmpty()
                 ? $producto->variantesActivas->sum('stock_actual')
                 : $producto->stock_actual;
+            $stockRealPorVariante = [];
         }
 
-        return view('inventario.productos.show', compact('producto', 'stockReal'));
+        return view('inventario.productos.show', compact('producto', 'stockReal', 'stockRealPorVariante'));
     }
 
     /**

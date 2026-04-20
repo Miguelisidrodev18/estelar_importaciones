@@ -14,6 +14,7 @@ use App\Services\CompraService;
 use App\Services\VarianteService;
 use App\Models\Catalogo\Color;
 use App\Models\Catalogo\Marca;
+use App\Models\Catalogo\UnidadMedida;
 use App\Services\CodigoBarrasService;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -83,6 +84,7 @@ class CompraController extends Controller
 
         $colores    = Color::where('estado', 'activo')->orderBy('nombre')->get();
         $categorias = Categoria::activas()->orderBy('nombre')->get();
+        $unidades   = UnidadMedida::where('estado', 'activo')->orderBy('nombre')->get();
 
         // Sucursales con sus almacenes activos para el selector en cascada
         $sucursales = Sucursal::where('estado', 'activo')
@@ -90,7 +92,7 @@ class CompraController extends Controller
             ->orderBy('nombre')
             ->get();
 
-        return view('compras.create', compact('proveedores', 'almacenes', 'productos', 'colores', 'marcas', 'categorias', 'sucursales'));
+        return view('compras.create', compact('proveedores', 'almacenes', 'productos', 'colores', 'marcas', 'categorias', 'sucursales', 'unidades'));
     }
 
     public function store(Request $request)
@@ -532,7 +534,7 @@ public function importarIMEI(Request $request)
     {
         $termino = $request->get('q', '');
 
-        $query = Producto::with(['marca', 'modelo', 'categoria', 'variantesActivas.color'])
+        $productos = Producto::with(['marca', 'modelo', 'categoria', 'variantesActivas.color'])
             ->where('estado', 'activo')
             ->where(function($q) use ($termino) {
                 $q->where('nombre', 'like', "%{$termino}%")
@@ -542,9 +544,48 @@ public function importarIMEI(Request $request)
                   ->orWhereHas('variantesActivas', fn($v) => $v->where('sku', 'like', "%{$termino}%"));
             })
             ->limit(20)
-            ->get()
-            ->map(function($producto) {
-                $variantes = $producto->variantesActivas->map(fn($v) => [
+            ->get();
+
+        // Pre-calcular stock real de IMEIs para productos serie en un solo query
+        $productoIdsSerie = $productos->where('tipo_inventario', 'serie')->pluck('id');
+
+        $imeisPorVarianteId = collect();
+        $imeisPorColorId    = collect();
+
+        if ($productoIdsSerie->isNotEmpty()) {
+            $imeisPorVarianteId = \App\Models\Imei::whereIn('producto_id', $productoIdsSerie)
+                ->where('estado_imei', 'en_stock')
+                ->whereNotNull('variante_id')
+                ->selectRaw('variante_id, COUNT(*) as total')
+                ->groupBy('variante_id')
+                ->pluck('total', 'variante_id');
+
+            $imeisPorColorId = \App\Models\Imei::whereIn('producto_id', $productoIdsSerie)
+                ->where('estado_imei', 'en_stock')
+                ->whereNull('variante_id')
+                ->selectRaw('producto_id, color_id, COUNT(*) as total')
+                ->groupBy('producto_id', 'color_id')
+                ->get()
+                ->mapWithKeys(fn($r) => ["{$r->producto_id}_{$r->color_id}" => $r->total]);
+        }
+
+        $result = $productos->map(function($producto) use ($imeisPorVarianteId, $imeisPorColorId) {
+            $esSerie = $producto->tipo_inventario === 'serie';
+
+            $variantes = $producto->variantesActivas->map(function($v) use ($esSerie, $producto, $imeisPorVarianteId, $imeisPorColorId) {
+                if ($esSerie) {
+                    if (isset($imeisPorVarianteId[$v->id])) {
+                        $stock = (int)$imeisPorVarianteId[$v->id];
+                    } elseif ($v->color_id && isset($imeisPorColorId["{$producto->id}_{$v->color_id}"])) {
+                        $stock = (int)$imeisPorColorId["{$producto->id}_{$v->color_id}"];
+                    } else {
+                        $stock = 0;
+                    }
+                } else {
+                    $stock = (int)$v->stock_actual;
+                }
+
+                return [
                     'id'              => $v->id,
                     'sku'             => $v->sku,
                     'color_id'        => $v->color_id,
@@ -552,28 +593,29 @@ public function importarIMEI(Request $request)
                     'color_hex'       => $v->color?->codigo_hex,
                     'capacidad'       => $v->capacidad,
                     'sobreprecio'     => (float)$v->sobreprecio,
-                    'stock_actual'    => (int)$v->stock_actual,
+                    'stock_actual'    => $stock,
                     'nombre_completo' => $v->nombre_completo,
-                ]);
-
-                return [
-                    'id'              => $producto->id,
-                    'nombre'          => $producto->nombre,
-                    'codigo'          => $producto->codigo,
-                    'marca'           => $producto->marca?->nombre,
-                    'modelo'          => $producto->modelo?->nombre,
-                    'categoria'       => $producto->categoria?->nombre,
-                    'categoria_id'    => $producto->categoria_id,
-                    'tipo_inventario' => $producto->tipo_inventario,
-                    'marca_id'        => $producto->marca_id,
-                    'modelo_id'       => $producto->modelo_id,
-                    'imagen'          => $producto->imagen_url ?? null,
-                    'tiene_variantes' => $variantes->isNotEmpty(),
-                    'variantes'       => $variantes,
                 ];
             });
 
-        return response()->json($query);
+            return [
+                'id'              => $producto->id,
+                'nombre'          => $producto->nombre,
+                'codigo'          => $producto->codigo,
+                'marca'           => $producto->marca?->nombre,
+                'modelo'          => $producto->modelo?->nombre,
+                'categoria'       => $producto->categoria?->nombre,
+                'categoria_id'    => $producto->categoria_id,
+                'tipo_inventario' => $producto->tipo_inventario,
+                'marca_id'        => $producto->marca_id,
+                'modelo_id'       => $producto->modelo_id,
+                'imagen'          => $producto->imagen_url ?? null,
+                'tiene_variantes' => $variantes->isNotEmpty(),
+                'variantes'       => $variantes,
+            ];
+        });
+
+        return response()->json($result);
     }
 
     /**
@@ -582,36 +624,72 @@ public function importarIMEI(Request $request)
     public function crearProductoRapido(Request $request)
     {
         $validated = $request->validate([
-            'nombre'          => 'required|string|max:255',
-            'categoria_id'    => 'required|exists:categorias,id',
-            'marca_id'        => 'required|exists:marcas,id',
-            'modelo_id'       => 'nullable|exists:modelos,id',
-            'color_id'        => 'nullable|exists:colores,id',
-            'tipo_inventario' => 'required|in:serie,regular',
-            'tiene_variantes' => 'boolean',
-            'codigo_barras'   => 'nullable|string|max:100',
+            'nombre'            => 'required|string|max:255',
+            'categoria_id'      => 'required|exists:categorias,id',
+            'marca_id'          => 'required|exists:marcas,id',
+            'modelo_id'         => 'nullable|exists:modelos,id',
+            'color_id'          => 'nullable|exists:colores,id',
+            'unidad_medida_id'  => 'required|exists:unidades_medida,id',
+            'tipo_inventario'   => 'required|in:serie,cantidad',
+            'tiene_variantes'         => 'boolean',
+            'variantes'               => 'nullable|array',
+            'variantes.*.color_id'    => 'nullable|exists:colores,id',
+            'variantes.*.capacidad'   => 'nullable|string|max:100',
+            'codigo_barras'           => 'nullable|string|max:100',
+            'dias_garantia'           => 'nullable|integer|min:0',
+            'tipo_garantia'           => 'nullable|in:proveedor,tienda,fabricante',
         ], [
-            'nombre.required'       => 'El nombre del producto es obligatorio.',
-            'categoria_id.required' => 'Selecciona una categoría.',
-            'marca_id.required'     => 'Selecciona una marca.',
+            'nombre.required'          => 'El nombre del producto es obligatorio.',
+            'categoria_id.required'    => 'Selecciona una categoría.',
+            'marca_id.required'        => 'Selecciona una marca.',
+            'unidad_medida_id.required'=> 'Selecciona una unidad de medida.',
         ]);
 
         try {
             $producto = Producto::create([
-                'codigo'          => Producto::generarCodigo(),
-                'nombre'          => $validated['nombre'],
-                'categoria_id'    => $validated['categoria_id'],
-                'marca_id'        => $validated['marca_id'],
-                'modelo_id'       => $validated['modelo_id'] ?? null,
-                'color_id'        => $validated['color_id'] ?? null,
-                'tipo_inventario' => $validated['tipo_inventario'],
-                'codigo_barras'   => $validated['codigo_barras'] ?? null,
-                'estado'          => 'activo',
-                'stock_actual'    => 0,
-                'stock_minimo'    => 0,
-                'stock_maximo'    => 0,
-                'creado_por'      => auth()->id(),
+                'codigo'           => Producto::generarCodigo(),
+                'nombre'           => $validated['nombre'],
+                'categoria_id'     => $validated['categoria_id'],
+                'marca_id'         => $validated['marca_id'],
+                'modelo_id'        => $validated['modelo_id'] ?? null,
+                'color_id'         => $validated['color_id'] ?? null,
+                'unidad_medida_id' => $validated['unidad_medida_id'],
+                'tipo_inventario'  => $validated['tipo_inventario'],
+                'codigo_barras'    => $validated['codigo_barras'] ?? null,
+                'dias_garantia'    => $validated['tipo_inventario'] === 'serie' ? ($validated['dias_garantia'] ?? 365) : null,
+                'tipo_garantia'    => $validated['tipo_inventario'] === 'serie' ? ($validated['tipo_garantia'] ?? 'proveedor') : null,
+                'estado'           => 'activo',
+                'stock_actual'     => 0,
+                'stock_minimo'     => 0,
+                'stock_maximo'     => 0,
+                'creado_por'       => auth()->id(),
             ]);
+
+            // Crear variantes si se enviaron
+            $variantesCreadas = [];
+            if (!empty($validated['variantes'])) {
+                $varianteService = app(\App\Services\VarianteService::class);
+                foreach ($validated['variantes'] as $vData) {
+                    $variante = $varianteService->obtenerOCrearVariante(
+                        $producto,
+                        !empty($vData['color_id']) ? (int)$vData['color_id'] : null,
+                        !empty($vData['capacidad']) ? $vData['capacidad'] : null,
+                        0
+                    );
+                    $variante->load('color');
+                    $variantesCreadas[] = [
+                        'id'              => $variante->id,
+                        'sku'             => $variante->sku,
+                        'color_id'        => $variante->color_id,
+                        'color_nombre'    => $variante->color?->nombre,
+                        'color_hex'       => $variante->color?->codigo_hex,
+                        'capacidad'       => $variante->capacidad,
+                        'sobreprecio'     => (float)$variante->sobreprecio,
+                        'stock_actual'    => 0,
+                        'nombre_completo' => $variante->nombre_completo,
+                    ];
+                }
+            }
 
             $producto->load('categoria', 'marca', 'modelo');
 
@@ -628,8 +706,8 @@ public function importarIMEI(Request $request)
                 'color_id'        => $producto->color_id,
                 'codigo_barras'   => $producto->codigo_barras,
                 'requiere_imei'   => $producto->tipo_inventario === 'serie',
-                'tiene_variantes' => false,   // recién creado, sin variantes aún
-                'variantes'       => [],
+                'tiene_variantes' => count($variantesCreadas) > 0,
+                'variantes'       => $variantesCreadas,
             ]);
 
         } catch (\Exception $e) {
@@ -649,18 +727,53 @@ public function getProductoDetalle($id)
         $producto = Producto::with(['marca', 'modelo', 'categoria', 'variantesActivas.color'])
             ->findOrFail($id);
 
-        $variantes = $producto->variantesActivas->map(fn($v) => [
-            'id'              => $v->id,
-            'sku'             => $v->sku,
-            'color_id'        => $v->color_id,
-            'color_nombre'    => $v->color?->nombre,
-            'color_hex'       => $v->color?->codigo_hex,
-            'capacidad'       => $v->capacidad,
-            'sobreprecio'     => (float)$v->sobreprecio,
-            'stock_actual'    => (int)$v->stock_actual,
-            'nombre_completo' => $v->nombre_completo,
-            'tiene_stock'     => $v->tieneStock(),
-        ]);
+        $esSerie = $producto->tipo_inventario === 'serie';
+
+        $imeisPorVarianteId = collect();
+        $imeisPorColorId    = collect();
+
+        if ($esSerie) {
+            $imeisPorVarianteId = \App\Models\Imei::where('producto_id', $producto->id)
+                ->where('estado_imei', 'en_stock')
+                ->whereNotNull('variante_id')
+                ->selectRaw('variante_id, COUNT(*) as total')
+                ->groupBy('variante_id')
+                ->pluck('total', 'variante_id');
+
+            $imeisPorColorId = \App\Models\Imei::where('producto_id', $producto->id)
+                ->where('estado_imei', 'en_stock')
+                ->whereNull('variante_id')
+                ->selectRaw('color_id, COUNT(*) as total')
+                ->groupBy('color_id')
+                ->pluck('total', 'color_id');
+        }
+
+        $variantes = $producto->variantesActivas->map(function($v) use ($esSerie, $producto, $imeisPorVarianteId, $imeisPorColorId) {
+            if ($esSerie) {
+                if (isset($imeisPorVarianteId[$v->id])) {
+                    $stock = (int)$imeisPorVarianteId[$v->id];
+                } elseif ($v->color_id && isset($imeisPorColorId[$v->color_id])) {
+                    $stock = (int)$imeisPorColorId[$v->color_id];
+                } else {
+                    $stock = 0;
+                }
+            } else {
+                $stock = (int)$v->stock_actual;
+            }
+
+            return [
+                'id'              => $v->id,
+                'sku'             => $v->sku,
+                'color_id'        => $v->color_id,
+                'color_nombre'    => $v->color?->nombre,
+                'color_hex'       => $v->color?->codigo_hex,
+                'capacidad'       => $v->capacidad,
+                'sobreprecio'     => (float)$v->sobreprecio,
+                'stock_actual'    => $stock,
+                'nombre_completo' => $v->nombre_completo,
+                'tiene_stock'     => $stock > 0,
+            ];
+        });
 
         return response()->json([
             'success'         => true,

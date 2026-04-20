@@ -133,10 +133,12 @@
                                 <p class="text-xs text-gray-500">Modelo</p>
                                 <p class="font-medium">{{ $producto->modelo->nombre ?? 'N/A' }}</p>
                             </div>
+                            @if($producto->variantesActivas->isEmpty())
                             <div>
                                 <p class="text-xs text-gray-500">Color</p>
                                 <p class="font-medium">{{ $producto->color->nombre ?? 'N/A' }}</p>
                             </div>
+                            @endif
                             <div>
                                 <p class="text-xs text-gray-500">Unidad Medida</p>
                                 <p class="font-medium">{{ $producto->unidadMedida->nombre ?? 'N/A' }}</p>
@@ -217,8 +219,14 @@
                                     <span class="ml-2 text-xs text-gray-400 font-mono">{{ $variante->sku }}</span>
                                 </div>
                             </div>
-                            <span class="text-sm font-bold {{ $variante->stock_actual <= $variante->stock_minimo ? 'text-red-600' : 'text-gray-800' }}">
-                                {{ $variante->stock_actual }} <span class="text-xs font-normal text-gray-400">unt</span>
+                            @php
+                                $stockVar = $producto->tipo_inventario === 'serie'
+                                    ? ($stockRealPorVariante[$variante->id] ?? 0)
+                                    : $variante->stock_actual;
+                                $labelVar = $producto->tipo_inventario === 'serie' ? 'imeis' : 'unt';
+                            @endphp
+                            <span class="text-sm font-bold {{ $stockVar <= ($variante->stock_minimo ?? 0) ? 'text-red-600' : 'text-gray-800' }}">
+                                {{ $stockVar }} <span class="text-xs font-normal text-gray-400">{{ $labelVar }}</span>
                             </span>
                         </div>
                         @endforeach
@@ -326,20 +334,53 @@
                         </h3>
                     </div>
                     <div class="p-6">
-                        <div class="grid grid-cols-3 gap-4">
-                            <div>
-                                <p class="text-xs text-gray-500">Costo Promedio</p>
-                                <p class="text-lg font-semibold">S/ {{ number_format($producto->costo_promedio, 2) }}</p>
+                        @if($producto->variantesActivas->isNotEmpty())
+                            {{-- Costos por variante --}}
+                            <div class="divide-y divide-gray-100">
+                                @foreach($producto->variantesActivas as $v)
+                                <div class="py-3 flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        @if($v->color?->codigo_hex)
+                                            <span class="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                                  style="background-color: {{ $v->color->codigo_hex }}"></span>
+                                        @endif
+                                        <span class="text-sm font-medium text-gray-700">{{ $v->nombre_completo }}</span>
+                                    </div>
+                                    <div class="flex gap-6 text-right">
+                                        <div>
+                                            <p class="text-xs text-gray-400">Costo promedio</p>
+                                            <p class="text-sm font-semibold">S/ {{ number_format($v->costo_promedio ?? 0, 2) }}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs text-gray-400">Último costo</p>
+                                            <p class="text-sm font-semibold">S/ {{ number_format($v->ultimo_costo_compra ?? 0, 2) }}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs text-gray-400">Actualizado</p>
+                                            <p class="text-sm font-semibold">
+                                                {{ $v->updated_at ? $v->updated_at->format('d/m/Y') : 'N/A' }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endforeach
                             </div>
-                            <div>
-                                <p class="text-xs text-gray-500">Último Costo Compra</p>
-                                <p class="text-lg font-semibold">S/ {{ number_format($producto->ultimo_costo_compra, 2) }}</p>
+                        @else
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <p class="text-xs text-gray-500">Costo Promedio</p>
+                                    <p class="text-lg font-semibold">S/ {{ number_format($producto->costo_promedio ?? 0, 2) }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Último Costo Compra</p>
+                                    <p class="text-lg font-semibold">S/ {{ number_format($producto->ultimo_costo_compra ?? 0, 2) }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Última Compra</p>
+                                    <p class="text-lg font-semibold">{{ $producto->fecha_ultima_compra ? $producto->fecha_ultima_compra->format('d/m/Y') : 'N/A' }}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-xs text-gray-500">Última Compra</p>
-                                <p class="text-lg font-semibold">{{ $producto->fecha_ultima_compra ? $producto->fecha_ultima_compra->format('d/m/Y') : 'N/A' }}</p>
-                            </div>
-                        </div>
+                        @endif
                     </div>
                 </div>
                 @endif
