@@ -9,9 +9,23 @@ use Illuminate\Http\Request;
 
 class MotivoMovimientoController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $motivos = MotivoMovimiento::orderBy('nombre')->paginate(15);
+        $query = MotivoMovimiento::orderBy('nombre');
+
+        if ($request->filled('buscar')) {
+            $query->where('nombre', 'like', '%' . $request->buscar . '%');
+        }
+
+        if ($request->filled('tipo')) {
+            $query->where('tipo', $request->tipo);
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        $motivos = $query->paginate(15)->withQueryString();
         return view('catalogo.motivos.index', compact('motivos'));
     }
 

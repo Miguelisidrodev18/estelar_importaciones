@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -52,8 +52,12 @@ $catalogoJson = $productos->map(fn($p) => [
 
          /* ── Otros campos ─────────────────────────── */
          cantidad: {{ old('cantidad', 1) }},
-         motivo: '',
+         motivoId: '{{ old(''motivo_movimiento_id'', '''') }}',
          observaciones: '',
+         motivos: {{ Js::from($motivos) }},
+         get motivosFiltrados() {
+             return this.tipoMovimiento ? (this.motivos[this.tipoMovimiento] ?? []) : [];
+         },
 
          /* ── Estado del formulario ────────────────── */
          enviando: false,
@@ -68,6 +72,7 @@ $catalogoJson = $productos->map(fn($p) => [
              if (!this.almacenId)      return false;
              if (this.esCelular && !this.esIngresoCelular && !this.imeiId) return false;
              if (!this.esCelular && this.cantidad < 1) return false;
+             if (!this.motivoId) return false;
              return true;
          },
 
@@ -119,6 +124,7 @@ $catalogoJson = $productos->map(fn($p) => [
              this.imeis     = [];
              this.imeiId    = '';
              this.imeiError = '';
+             this.motivoId  = '';
              if (this.esCelular && this.almacenId && this.tipoMovimiento) {
                  this.cargarImeis();
              }
@@ -473,16 +479,34 @@ $catalogoJson = $productos->map(fn($p) => [
                         </div>
 
                         {{-- Motivo --}}
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                        <div x-show="tipoMovimiento && tipoMovimiento !== 'transferencia'" x-cloak>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
                                 Motivo <span class="text-red-500">*</span>
                             </label>
-                            <input type="text" name="motivo"
-                                   value="{{ old('motivo') }}"
-                                   placeholder="Ej: Compra a proveedor, ajuste de inventario físico..."
-                                   required
-                                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
-                            @error('motivo')
+                            <template x-if="motivosFiltrados.length === 0">
+                                <div class="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2.5 rounded-xl">
+                                    <i class="fas fa-exclamation-triangle shrink-0"></i>
+                                    <span>Sin motivos para este tipo. <a href="{{ route('catalogo.motivos.create') }}" class="underline font-semibold">Crear motivo</a></span>
+                                </div>
+                            </template>
+                            <div x-show="motivosFiltrados.length > 0" class="grid grid-cols-1 gap-2">
+                                <template x-for="m in motivosFiltrados" :key="m.id">
+                                    <label class="cursor-pointer block">
+                                        <input type="radio" name="motivo_movimiento_id" :value="m.id"
+                                               x-model="motivoId" class="peer hidden">
+                                        <div class="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-xl
+                                                    peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 transition-all">
+                                            <i class="fas fa-tag text-gray-300 shrink-0"></i>
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-sm font-semibold text-gray-800" x-text="m.nombre"></p>
+                                                <p class="text-xs text-gray-400 truncate" x-text="m.descripcion"></p>
+                                            </div>
+                                            <i x-show="motivoId == m.id" class="fas fa-check-circle text-blue-600 shrink-0"></i>
+                                        </div>
+                                    </label>
+                                </template>
+                            </div>
+                            @error('motivo_movimiento_id')
                                 <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                             @enderror
                         </div>

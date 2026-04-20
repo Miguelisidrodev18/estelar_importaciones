@@ -31,6 +31,7 @@ class MovimientoInventario extends Model
         'stock_anterior',
         'stock_nuevo',
         'motivo',
+        'motivo_movimiento_id',
         'observaciones',
         'documento_referencia',
         'numero_factura',
@@ -261,6 +262,11 @@ class MovimientoInventario extends Model
         return $this->belongsTo(User::class, 'usuario_confirma_id');
     }
       // NUEVA RELACIÓN: IMEI (legado - un solo IMEI)
+    public function motivoMovimiento()
+    {
+        return $this->belongsTo(\App\Models\Catalogo\MotivoMovimiento::class, 'motivo_movimiento_id');
+    }
+
     public function imei()
     {
         return $this->belongsTo(Imei::class, 'imei_id');

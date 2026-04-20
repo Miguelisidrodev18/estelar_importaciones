@@ -10,12 +10,22 @@ use Illuminate\Http\Request;
 
 class UnidadMedidaController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $unidades = UnidadMedida::with('categoriaInventario')
-            ->orderBy('nombre')
-            ->paginate(15);
-            
+        $query = UnidadMedida::orderBy('nombre');
+
+        if ($request->filled('buscar')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nombre', 'like', '%' . $request->buscar . '%')
+                  ->orWhere('abreviatura', 'like', '%' . $request->buscar . '%');
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        $unidades = $query->paginate(15)->withQueryString();
         return view('catalogo.unidades.index', compact('unidades'));
     }
 

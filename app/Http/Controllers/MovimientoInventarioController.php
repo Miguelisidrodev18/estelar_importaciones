@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MovimientoInventario;
 use App\Models\Producto;
 use App\Models\Almacen;
+use App\Models\Catalogo\MotivoMovimiento;
 use Illuminate\Http\Request;
 
 class MovimientoInventarioController extends Controller
@@ -75,8 +76,10 @@ class MovimientoInventarioController extends Controller
     {
         $productos = Producto::activos()->orderBy('nombre')->get();
         $almacenes = Almacen::activos()->orderBy('nombre')->get();
-        
-        return view('inventario.movimientos.create', compact('productos', 'almacenes'));
+        $motivos   = MotivoMovimiento::activos()->orderBy('nombre')->get()
+                        ->groupBy('tipo');
+
+        return view('inventario.movimientos.create', compact('productos', 'almacenes', 'motivos'));
     }
 
     /**
@@ -95,9 +98,9 @@ class MovimientoInventarioController extends Controller
         $rules = [
             'producto_id' => 'required|exists:productos,id',
             'almacen_id' => 'required|exists:almacenes,id',
-            'tipo_movimiento' => 'required|in:ingreso,salida,ajuste,transferencia,devolucion,merma',
-            'motivo' => 'required|string|max:255',
-            'observaciones' => 'nullable|string',
+            'tipo_movimiento'      => 'required|in:ingreso,salida,ajuste,transferencia,devolucion,merma',
+            'motivo_movimiento_id' => 'required|exists:motivos_movimiento,id',
+            'observaciones'        => 'nullable|string',
             'almacen_destino_id' => 'nullable|exists:almacenes,id',
             'numero_guia' => 'nullable|string|max:50',
         ];
@@ -123,7 +126,8 @@ class MovimientoInventarioController extends Controller
             'tipo_movimiento.required' => 'Debe seleccionar el tipo de movimiento.',
             'cantidad.required' => 'La cantidad es obligatoria.',
             'cantidad.min' => 'La cantidad debe ser mayor a 0.',
-            'motivo.required' => 'El motivo es obligatorio.',
+            'motivo_movimiento_id.required' => 'Debes seleccionar un motivo.',
+            'motivo_movimiento_id.exists'   => 'El motivo seleccionado no es válido.',
             'imei_id.required' => 'Debe seleccionar un IMEI para productos tipo celular.',
             'almacen_destino_id.required' => 'Debe seleccionar un almacén destino para transferencias.',
             'almacen_destino_id.different' => 'El almacén destino debe ser diferente al almacén origen.',
@@ -137,11 +141,12 @@ class MovimientoInventarioController extends Controller
             $datos = [
                 'producto_id' => $request->producto_id,
                 'almacen_id' => $request->almacen_id,
-                'tipo_movimiento' => $request->tipo_movimiento,
-                'imei_id' => $request->imei_id,
-                'cantidad' => $esCelular ? 1 : $request->cantidad,
-                'motivo' => $request->motivo,
-                'observaciones' => $request->observaciones,
+                'tipo_movimiento'      => $request->tipo_movimiento,
+                'imei_id'             => $request->imei_id,
+                'cantidad'            => $esCelular ? 1 : $request->cantidad,
+                'motivo_movimiento_id'=> $request->motivo_movimiento_id,
+                'motivo'              => MotivoMovimiento::find($request->motivo_movimiento_id)?->nombre ?? '',
+                'observaciones'       => $request->observaciones,
                 'almacen_destino_id' => $request->almacen_destino_id,
                 'numero_guia' => $request->numero_guia,
                 'user_id' => auth()->id(),

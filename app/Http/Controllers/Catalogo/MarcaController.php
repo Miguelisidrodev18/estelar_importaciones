@@ -11,13 +11,19 @@ use Illuminate\Support\Facades\Storage;
 
 class MarcaController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $marcas = Marca::withCount('modelos')
-            ->with('categorias')
-            ->orderBy('nombre')
-            ->paginate(15);
+        $query = Marca::withCount('modelos')->orderBy('nombre');
 
+        if ($request->filled('buscar')) {
+            $query->where('nombre', 'like', '%' . $request->buscar . '%');
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        $marcas = $query->paginate(15)->withQueryString();
         return view('catalogo.marcas.index', compact('marcas'));
     }
 
@@ -30,21 +36,18 @@ class MarcaController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nombre'       => 'required|string|max:100|unique:marcas',
-            'descripcion'  => 'nullable|string',
-            'sitio_web'    => 'nullable|url|max:255',
-            'logo'         => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'estado'       => 'required|in:activo,inactivo',
-            'categorias'   => 'nullable|array',
-            'categorias.*' => 'exists:categorias,id',
+            'nombre'      => 'required|string|max:100|unique:marcas',
+            'descripcion' => 'nullable|string',
+            'sitio_web'   => 'nullable|url|max:255',
+            'logo'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'estado'      => 'required|in:activo,inactivo',
         ]);
 
         if ($request->hasFile('logo')) {
             $validated['logo'] = $request->file('logo')->store('marcas', 'public');
         }
 
-        $marca = Marca::create($validated);
-        $marca->categorias()->sync($request->input('categorias', []));
+        Marca::create($validated);
 
         return redirect()
             ->route('catalogo.marcas.index')
@@ -61,13 +64,11 @@ class MarcaController extends Controller
     public function update(Request $request, Marca $marca)
     {
         $validated = $request->validate([
-            'nombre'       => 'required|string|max:100|unique:marcas,nombre,' . $marca->id,
-            'descripcion'  => 'nullable|string',
-            'sitio_web'    => 'nullable|url|max:255',
-            'logo'         => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'estado'       => 'required|in:activo,inactivo',
-            'categorias'   => 'nullable|array',
-            'categorias.*' => 'exists:categorias,id',
+            'nombre'      => 'required|string|max:100|unique:marcas,nombre,' . $marca->id,
+            'descripcion' => 'nullable|string',
+            'sitio_web'   => 'nullable|url|max:255',
+            'logo'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'estado'      => 'required|in:activo,inactivo',
         ]);
 
         if ($request->hasFile('logo')) {
@@ -78,7 +79,6 @@ class MarcaController extends Controller
         }
 
         $marca->update($validated);
-        $marca->categorias()->sync($request->input('categorias', []));
 
         return redirect()
             ->route('catalogo.marcas.index')

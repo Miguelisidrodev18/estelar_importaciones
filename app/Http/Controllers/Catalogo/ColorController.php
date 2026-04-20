@@ -9,9 +9,23 @@ use App\Http\Controllers\Controller;
 
 class ColorController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $colores = Color::orderBy('nombre')->paginate(15);
+        $query = Color::orderBy('nombre');
+
+        if ($request->filled('buscar')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nombre', 'like', '%' . $request->buscar . '%')
+                  ->orWhere('codigo_color', 'like', '%' . $request->buscar . '%')
+                  ->orWhere('codigo_hex', 'like', '%' . $request->buscar . '%');
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        $colores = $query->paginate(15)->withQueryString();
         return view('catalogo.colores.index', compact('colores'));
     }
 
