@@ -24,6 +24,7 @@
                 inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }},
                 comprasOpen: {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') || request()->routeIs('cuentas-por-pagar.*') ? 'true' : 'false' }},
                 ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') || request()->routeIs('precios.*') || request()->routeIs('cuentas-por-cobrar.*') ? 'true' : 'false' }},
+                facturacionOpen: {{ request()->routeIs('facturacion.*') ? 'true' : 'false' }},
                 reportesOpen: {{ request()->routeIs('reportes.*') ? 'true' : 'false' }},
                 trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
                 cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }},
@@ -144,8 +145,42 @@
                             </li>
                         </ul>
                     </li>
-                      {{-- Compras --}}
-                    @php $mostrarActualizado = \Carbon\Carbon::now()->lt(\Carbon\Carbon::parse('2026-05-11')); @endphp
+                      {{-- Facturación Electrónica --}}
+                    @php $mostrarNuevo = \Carbon\Carbon::now()->lt(\Carbon\Carbon::parse('2026-05-05')); @endphp
+                    <li>
+                        <button @click="facturacionOpen = !facturacionOpen"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('facturacion.*') ? 'bg-blue-700' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-file-invoice-dollar mr-3"></i>Facturación
+                                @if($mostrarNuevo)
+                                <span class="ml-2 text-[9px] font-bold bg-emerald-400 text-emerald-900 px-1.5 py-0.5 rounded-full leading-none">NEW</span>
+                                @endif
+                            </span>
+                            <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': facturacionOpen }"></i>
+                        </button>
+                        <ul x-show="facturacionOpen" x-transition class="ml-4 mt-2 space-y-1">
+                            <li>
+                                <a href="{{ route('facturacion.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('facturacion.index') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-list-alt mr-3 text-sm"></i>Comprobantes
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('facturacion.series') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('facturacion.series') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-list-ol mr-3 text-sm"></i>Series
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('facturacion.configuracion') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('facturacion.configuracion') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-cog mr-3 text-sm"></i>Configuración
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    {{-- Compras --}}
                     <li>
                         <button @click="comprasOpen = !comprasOpen"
                                 class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') || request()->routeIs('pedidos.*') || request()->routeIs('proveedores.*') || request()->routeIs('cuentas-por-pagar.*') ? 'bg-blue-700' : '' }}">
@@ -165,9 +200,6 @@
                                 <a href="{{ route('compras.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('compras.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-file-invoice mr-3 text-sm"></i>Registrar Compras
-                                    @if($mostrarActualizado)
-                                    <span class="ml-auto text-[10px] font-bold bg-orange-400 text-orange-900 px-1.5 py-0.5 rounded-full leading-none">UPD</span>
-                                    @endif
                                 </a>
                             </li>
                             <li>
@@ -315,7 +347,13 @@
                         <button @click="catalogoOpen = !catalogoOpen"
                                 class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('catalogo.*') ? 'bg-blue-700' : '' }}">
                             <span class="flex items-center">
-                                <i class="fas fa-book mr-3"></i>Catálogo
+                                <i class="fas fa-book mr-3"></i>
+                                <span>
+                                    Catálogo
+                                    @if($mostrarNuevo)
+                                    <span class="ml-1 text-[9px] font-bold bg-emerald-400 text-emerald-900 px-1.5 py-0.5 rounded-full leading-none">UPD</span>
+                                    @endif
+                                </span>
                             </span>
                             <i class="fas fa-chevron-down transition-transform duration-200" :class="{ 'rotate-180': catalogoOpen }"></i>
                         </button>
@@ -385,8 +423,6 @@
                                         <span class="ml-auto bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold shrink-0">
                                             {{ $_alertasCaja > 9 ? '9+' : $_alertasCaja }}
                                         </span>
-                                    @elseif($mostrarActualizado)
-                                        <span class="ml-auto text-[10px] font-bold bg-orange-400 text-orange-900 px-1.5 py-0.5 rounded-full leading-none">UPD</span>
                                     @endif
                                 </a>
                             </li>
@@ -398,9 +434,6 @@
                         <a href="{{ route('users.index') }}"
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('users.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-users mr-3"></i>Usuarios
-                            @if($mostrarActualizado)
-                            <span class="ml-auto text-[10px] font-bold bg-orange-400 text-orange-900 px-1.5 py-0.5 rounded-full leading-none">UPD</span>
-                            @endif
                         </a>
                     </li>
 

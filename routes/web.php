@@ -384,6 +384,19 @@ Route::middleware('auth')->group(function () {
     });
 
     // ========================================
+    // MÓDULO DE FACTURACIÓN ELECTRÓNICA
+    // ========================================
+    Route::middleware('role:Administrador')->prefix('facturacion')->name('facturacion.')->group(function () {
+        Route::get('/',             [\App\Http\Controllers\FacturacionElectronicaController::class, 'index'])->name('index');
+        Route::get('/series',       [\App\Http\Controllers\FacturacionElectronicaController::class, 'series'])->name('series');
+        Route::post('/series',      [\App\Http\Controllers\FacturacionElectronicaController::class, 'storeSerie'])->name('series.store');
+        Route::put('/series/{serie}',   [\App\Http\Controllers\FacturacionElectronicaController::class, 'updateSerie'])->name('series.update');
+        Route::delete('/series/{serie}',[\App\Http\Controllers\FacturacionElectronicaController::class, 'destroySerie'])->name('series.destroy');
+        Route::post('/{venta}/reenviar', [\App\Http\Controllers\FacturacionElectronicaController::class, 'reenviar'])->name('reenviar');
+        Route::get('/configuracion', [\App\Http\Controllers\FacturacionElectronicaController::class, 'configuracion'])->name('configuracion');
+    });
+
+    // ========================================
     // MÓDULO DE TIENDA (Inventario entre tiendas)
     // ========================================
     Route::middleware(['auth', 'role:Tienda'])->prefix('tienda')->name('tienda.')->group(function () {

@@ -34,7 +34,7 @@
 <body class="bg-gray-50 dark:bg-gray-900 h-screen overflow-hidden font-sans antialiased">
 
 {{-- ── Sidebar POS ── --}}
-<x-sidebar-pos :role="auth()->user()->role->nombre" />
+<x-sidebar-pos :role="auth()->user()->role->nombre" :caja="$cajaActual" />
 
 {{-- ── Main wrapper (respects sidebar width) ── --}}
 <div class="flex flex-col h-screen transition-all duration-300"
