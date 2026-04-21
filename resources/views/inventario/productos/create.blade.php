@@ -540,13 +540,13 @@
     <!-- ═══════════════════════════════════════════════════════════
          MODAL PREVISUALIZACIÓN DE PRODUCTO
     ════════════════════════════════════════════════════════════════ -->
-    <div id="modalPrevProducto" class="fixed inset-0 z-50 hidden overflow-y-auto">
-        <div class="flex min-h-screen items-center justify-center p-4">
-            <!-- Backdrop -->
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-
+    <div id="modalPrevProducto" class="fixed inset-0 z-50 hidden">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <!-- Scroll container -->
+        <div class="relative h-full overflow-y-auto flex items-start justify-center p-4 sm:p-6">
             <!-- Card -->
-            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg transform transition-all">
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg my-auto">
 
                 <!-- Header -->
                 <div class="bg-gradient-to-r from-blue-900 to-blue-700 px-6 py-5 rounded-t-2xl">
