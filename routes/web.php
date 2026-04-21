@@ -314,6 +314,10 @@ Route::middleware('auth')->group(function () {
         Route::put('/{compra}', [CompraController::class, 'update'])->name('update');
         Route::post('/{compra}/anular', [CompraController::class, 'anular'])->name('anular');
         Route::delete('/{compra}', [CompraController::class, 'destroy'])->name('destroy');
+        Route::delete('/{compra}/detalle/{detalle}', [CompraController::class, 'destroyDetalle'])->name('detalle.destroy');
+        Route::get('/{compra}/detalle/{detalle}/imeis', [CompraController::class, 'getImeis'])->name('detalle.imeis');
+        Route::put('/{compra}/imei/{imei}', [CompraController::class, 'updateImei'])->name('imei.update');
+        Route::delete('/{compra}/imei/{imei}', [CompraController::class, 'destroyImei'])->name('imei.destroy');
 
         // Rutas para importación de IMEI (AHORA ESTÁN EN EL LUGAR CORRECTO)
         Route::get('/importar-imei', [CompraController::class, 'importarIMEI'])->name('importar-imei');

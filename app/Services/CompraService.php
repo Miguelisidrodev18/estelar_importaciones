@@ -536,6 +536,137 @@ class CompraService
         });
     }
 
+    public function eliminarDetalle(Compra $compra, DetalleCompra $detalle): void
+    {
+        DB::transaction(function () use ($compra, $detalle) {
+            // Verificar que no haya IMEIs vendidos
+            if ($detalle->producto->tipo_inventario === 'serie') {
+                $vendidos = Imei::where('detalle_compra_id', $detalle->id)
+                    ->where('estado_imei', Imei::ESTADO_VENDIDO)
+                    ->count();
+                if ($vendidos > 0) {
+                    throw new \Exception("No se puede eliminar: {$vendidos} IMEI(s) de este producto ya fueron vendidos.");
+                }
+                Imei::where('detalle_compra_id', $detalle->id)
+                    ->whereIn('estado_imei', [Imei::ESTADO_EN_STOCK, Imei::ESTADO_EN_TRANSITO, Imei::ESTADO_RESERVADO])
+                    ->delete();
+            }
+
+            // Revertir stock en almacén
+            $stock = StockAlmacen::where('producto_id', $detalle->producto_id)
+                ->where('almacen_id', $compra->almacen_id)
+                ->first();
+            if ($stock) {
+                $stockAnterior = $stock->cantidad;
+                $stock->decrement('cantidad', $detalle->cantidad);
+
+                $totalStock = StockAlmacen::where('producto_id', $detalle->producto_id)->sum('cantidad');
+                $detalle->producto->update(['stock_actual' => $totalStock]);
+
+                if ($detalle->variante_id) {
+                    $detalle->variante?->decrement('stock_actual', $detalle->cantidad);
+                }
+
+                MovimientoInventario::create([
+                    'producto_id'          => $detalle->producto_id,
+                    'almacen_id'           => $compra->almacen_id,
+                    'user_id'              => auth()->id(),
+                    'tipo_movimiento'      => 'salida',
+                    'cantidad'             => $detalle->cantidad,
+                    'stock_anterior'       => $stockAnterior,
+                    'stock_nuevo'          => $stock->cantidad,
+                    'numero_factura'       => $compra->numero_factura,
+                    'documento_referencia' => 'DEL-DET-' . $detalle->id,
+                    'motivo'               => "Eliminación de producto en compra #{$compra->id}",
+                    'estado'               => 'completado',
+                ]);
+            }
+
+            $detalle->delete();
+
+            // Recalcular totales de la compra
+            $compra->load('detalles');
+            $tipoOp  = $compra->tipo_operacion ?? '01';
+            $subtotal = $compra->detalles->sum('subtotal');
+            $igv      = $tipoOp === '01' ? round($subtotal * 0.18, 2) : 0;
+            $total    = round($subtotal + $igv, 2);
+            $compra->update(['subtotal' => $subtotal, 'igv' => $igv, 'total' => $total]);
+
+            if ($compra->cuentaPorPagar) {
+                $saldo = $total - $compra->cuentaPorPagar->monto_pagado;
+                $estadoCuenta = $saldo <= 0 ? 'pagado' : ($compra->cuentaPorPagar->monto_pagado > 0 ? 'parcial' : $compra->cuentaPorPagar->estado);
+                $compra->cuentaPorPagar->update(['monto_total' => $total, 'estado' => $estadoCuenta]);
+            }
+
+            Log::info('Detalle de compra eliminado', ['compra_id' => $compra->id, 'detalle_id' => $detalle->id]);
+        });
+    }
+
+    public function eliminarImei(Compra $compra, Imei $imei): void
+    {
+        DB::transaction(function () use ($compra, $imei) {
+            if ($imei->estado_imei === Imei::ESTADO_VENDIDO) {
+                throw new \Exception('No se puede eliminar un IMEI ya vendido.');
+            }
+
+            $detalle = $imei->detalle_compra_id
+                ? DetalleCompra::find($imei->detalle_compra_id)
+                : null;
+
+            // Revertir stock
+            $stock = StockAlmacen::where('producto_id', $imei->producto_id)
+                ->where('almacen_id', $compra->almacen_id)
+                ->first();
+            if ($stock && $stock->cantidad > 0) {
+                $stockAnterior = $stock->cantidad;
+                $stock->decrement('cantidad', 1);
+
+                $totalStock = StockAlmacen::where('producto_id', $imei->producto_id)->sum('cantidad');
+                $imei->producto->update(['stock_actual' => $totalStock]);
+
+                if ($imei->variante_id) {
+                    $imei->variante?->decrement('stock_actual', 1);
+                }
+
+                MovimientoInventario::create([
+                    'producto_id'          => $imei->producto_id,
+                    'almacen_id'           => $compra->almacen_id,
+                    'user_id'              => auth()->id(),
+                    'tipo_movimiento'      => 'salida',
+                    'cantidad'             => 1,
+                    'stock_anterior'       => $stockAnterior,
+                    'stock_nuevo'          => $stock->cantidad,
+                    'numero_factura'       => $compra->numero_factura,
+                    'documento_referencia' => 'DEL-IMEI-' . $imei->id,
+                    'motivo'               => "Eliminación de IMEI {$imei->codigo_imei} en compra #{$compra->id}",
+                    'estado'               => 'completado',
+                ]);
+            }
+
+            // Actualizar cantidad del detalle si existe
+            if ($detalle) {
+                $detalle->decrement('cantidad', 1);
+                $detalle->update(['subtotal' => $detalle->cantidad * $detalle->precio_unitario]);
+            }
+
+            $imei->delete();
+
+            // Recalcular totales de la compra
+            $compra->load('detalles');
+            $tipoOp  = $compra->tipo_operacion ?? '01';
+            $subtotal = $compra->detalles->sum('subtotal');
+            $igv      = $tipoOp === '01' ? round($subtotal * 0.18, 2) : 0;
+            $total    = round($subtotal + $igv, 2);
+            $compra->update(['subtotal' => $subtotal, 'igv' => $igv, 'total' => $total]);
+
+            if ($compra->cuentaPorPagar) {
+                $compra->cuentaPorPagar->update(['monto_total' => $total]);
+            }
+
+            Log::info('IMEI eliminado de compra', ['compra_id' => $compra->id, 'imei' => $imei->codigo_imei]);
+        });
+    }
+
     /**
      * Eliminar una compra (revierte stock si está registrada, luego elimina)
      */

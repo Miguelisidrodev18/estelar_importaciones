@@ -4,6 +4,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Compra;
+use App\Models\DetalleCompra;
+use App\Models\Imei;
 use App\Models\Proveedor;
 use App\Models\Almacen;
 use App\Models\Sucursal;
@@ -395,6 +397,74 @@ class CompraController extends Controller
 
         } catch (\Exception $e) {
             return back()->with('error', 'Error al actualizar: ' . $e->getMessage());
+        }
+    }
+
+    public function destroyDetalle(Compra $compra, DetalleCompra $detalle)
+    {
+        if ($compra->estado === 'anulado') {
+            return response()->json(['success' => false, 'message' => 'La compra está anulada'], 422);
+        }
+        if ($detalle->compra_id !== $compra->id) {
+            return response()->json(['success' => false, 'message' => 'El producto no pertenece a esta compra'], 422);
+        }
+        if ($compra->detalles()->count() <= 1) {
+            return response()->json(['success' => false, 'message' => 'No puede eliminar el único producto de la compra. Anule la compra completa si es necesario.'], 422);
+        }
+        try {
+            $this->compraService->eliminarDetalle($compra, $detalle);
+            return response()->json(['success' => true, 'message' => 'Producto eliminado y stock revertido correctamente']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function getImeis(Compra $compra, DetalleCompra $detalle)
+    {
+        if ($detalle->compra_id !== $compra->id) {
+            return response()->json(['success' => false, 'message' => 'El detalle no pertenece a esta compra'], 422);
+        }
+        $imeis = Imei::where(function ($q) use ($compra, $detalle) {
+                $q->where('detalle_compra_id', $detalle->id)
+                  ->orWhere(function ($q2) use ($compra, $detalle) {
+                      $q2->where('compra_id', $compra->id)
+                         ->where('producto_id', $detalle->producto_id)
+                         ->whereNull('detalle_compra_id');
+                  });
+            })
+            ->get(['id', 'codigo_imei', 'serie', 'estado_imei']);
+
+        return response()->json(['success' => true, 'imeis' => $imeis]);
+    }
+
+    public function updateImei(Request $request, Compra $compra, Imei $imei)
+    {
+        if ($imei->compra_id !== $compra->id) {
+            return response()->json(['success' => false, 'message' => 'IMEI no pertenece a esta compra'], 422);
+        }
+        if ($imei->estado_imei === Imei::ESTADO_VENDIDO) {
+            return response()->json(['success' => false, 'message' => 'No se puede editar un IMEI ya vendido'], 422);
+        }
+        $request->validate([
+            'codigo_imei' => 'required|string|size:15|unique:imeis,codigo_imei,' . $imei->id,
+        ], [
+            'codigo_imei.size'   => 'El IMEI debe tener exactamente 15 dígitos.',
+            'codigo_imei.unique' => 'Este IMEI ya está registrado en el sistema.',
+        ]);
+        $imei->update(['codigo_imei' => $request->codigo_imei]);
+        return response()->json(['success' => true, 'message' => 'IMEI actualizado correctamente']);
+    }
+
+    public function destroyImei(Compra $compra, Imei $imei)
+    {
+        if ($imei->compra_id !== $compra->id) {
+            return response()->json(['success' => false, 'message' => 'IMEI no pertenece a esta compra'], 422);
+        }
+        try {
+            $this->compraService->eliminarImei($compra, $imei);
+            return response()->json(['success' => true, 'message' => 'IMEI eliminado y stock ajustado correctamente']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
     }
 
