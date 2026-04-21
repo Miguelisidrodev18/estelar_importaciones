@@ -25,7 +25,7 @@
                     </h2>
                 </div>
 
-                <form action="{{ route('inventario.productos.store') }}" method="POST" enctype="multipart/form-data" class="p-6">
+                <form id="productoCreateForm" action="{{ route('inventario.productos.store') }}" method="POST" enctype="multipart/form-data" class="p-6">
                     @csrf
 
                     @if ($errors->any())
@@ -898,10 +898,10 @@
         // ══════════════════════════════════════════════════════════════
         // PREVISUALIZACIÓN DE PRODUCTO
         // ══════════════════════════════════════════════════════════════
-        const productoForm = document.getElementById('compraForm') || document.querySelector('form[action*="store"]');
+        const productoForm = document.getElementById('productoCreateForm');
 
         // Interceptar el submit para mostrar el modal
-        document.querySelector('form[action*="store"]').addEventListener('submit', function(e) {
+        productoForm.addEventListener('submit', function(e) {
             e.preventDefault();
             mostrarPrevProducto(this);
         });
@@ -1041,7 +1041,7 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
             // Enviar el formulario nativo (sin disparar el evento submit interceptado)
-            document.querySelector('form[action*="store"]').submit();
+            document.getElementById('productoCreateForm').submit();
         }
 
         // Cerrar con Escape
