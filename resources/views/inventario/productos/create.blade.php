@@ -525,8 +525,9 @@
                         <a href="{{ route('inventario.productos.index') }}" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                             <i class="fas fa-times mr-2"></i>Cancelar
                         </a>
-                        <button type="submit" class="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800">
-                            <i class="fas fa-save mr-2"></i>Guardar Producto
+                        <button type="submit" id="btnGuardarProducto"
+                                class="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 flex items-center gap-2">
+                            <i class="fas fa-eye"></i>Previsualizar y Guardar
                         </button>
                     </div>
                 </form>
@@ -535,6 +536,124 @@
     </div>
 
     @include('inventario.productos.partials.modales-rapidos')
+
+    <!-- ═══════════════════════════════════════════════════════════
+         MODAL PREVISUALIZACIÓN DE PRODUCTO
+    ════════════════════════════════════════════════════════════════ -->
+    <div id="modalPrevProducto" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+            <!-- Card -->
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg transform transition-all">
+
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-900 to-blue-700 px-6 py-5 rounded-t-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-200 text-xs font-medium uppercase tracking-wider mb-0.5">Confirmación</p>
+                            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i class="fas fa-box-open"></i>
+                                Vista previa del producto
+                            </h3>
+                        </div>
+                        <button onclick="cerrarPrevProducto()"
+                                class="text-white/60 hover:text-white transition p-1 rounded-lg hover:bg-white/10">
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="p-6 space-y-4">
+
+                    <!-- Tipo badge + nombre -->
+                    <div class="flex items-start gap-4">
+                        <div id="prev-tipo-icono"
+                             class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p id="prev-nombre" class="text-lg font-bold text-gray-900 leading-tight"></p>
+                            <span id="prev-tipo-badge" class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full mt-1"></span>
+                        </div>
+                        <!-- Imagen si existe -->
+                        <img id="prev-imagen" src="" alt="Imagen"
+                             class="w-14 h-14 object-cover rounded-xl border border-gray-200 hidden flex-shrink-0">
+                    </div>
+
+                    <!-- Separador -->
+                    <hr class="border-gray-100">
+
+                    <!-- Grid de datos -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Código de Barras</p>
+                            <p id="prev-codigo" class="text-sm font-semibold text-gray-800 font-mono"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Estado</p>
+                            <p id="prev-estado" class="text-sm font-semibold"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Categoría</p>
+                            <p id="prev-categoria" class="text-sm font-semibold text-gray-800"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Marca / Modelo</p>
+                            <p id="prev-marca-modelo" class="text-sm font-semibold text-gray-800"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Stock mínimo</p>
+                            <p id="prev-stock-min" class="text-sm font-semibold text-gray-800"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Stock máximo</p>
+                            <p id="prev-stock-max" class="text-sm font-semibold text-gray-800"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Unidad base</p>
+                            <p id="prev-unidad" class="text-sm font-semibold text-gray-800"></p>
+                        </div>
+                        <div id="prev-garantia-wrap" class="bg-blue-50 rounded-xl p-3 hidden">
+                            <p class="text-xs font-medium text-blue-400 uppercase tracking-wide mb-0.5">Garantía</p>
+                            <p id="prev-garantia" class="text-sm font-semibold text-blue-800"></p>
+                        </div>
+                    </div>
+
+                    <!-- Variantes -->
+                    <div id="prev-variantes-wrap" class="hidden">
+                        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Variantes</p>
+                        <div id="prev-variantes-lista" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <!-- Descripción -->
+                    <div id="prev-descripcion-wrap" class="hidden">
+                        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Descripción</p>
+                        <p id="prev-descripcion" class="text-sm text-gray-600 bg-gray-50 rounded-xl p-3"></p>
+                    </div>
+
+                    <!-- Aviso -->
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                        <i class="fas fa-info-circle text-amber-500 mt-0.5 flex-shrink-0"></i>
+                        <p class="text-xs text-amber-700">Revisa los datos antes de confirmar. Una vez guardado podrás editarlos desde el detalle del producto.</p>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 pb-6 flex items-center gap-3">
+                    <button onclick="cerrarPrevProducto()"
+                            class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition font-medium text-sm">
+                        <i class="fas fa-arrow-left mr-2"></i>Volver a editar
+                    </button>
+                    <button onclick="confirmarGuardarProducto()" id="btnConfirmarGuardar"
+                            class="flex-1 px-4 py-3 bg-gradient-to-r from-blue-900 to-blue-700 text-white rounded-xl hover:from-blue-800 hover:to-blue-600 transition font-semibold text-sm shadow-lg flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i>Confirmar y Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Preview de imagen
@@ -775,6 +894,160 @@
                 },
             };
         }
+
+        // ══════════════════════════════════════════════════════════════
+        // PREVISUALIZACIÓN DE PRODUCTO
+        // ══════════════════════════════════════════════════════════════
+        const productoForm = document.getElementById('compraForm') || document.querySelector('form[action*="store"]');
+
+        // Interceptar el submit para mostrar el modal
+        document.querySelector('form[action*="store"]').addEventListener('submit', function(e) {
+            e.preventDefault();
+            mostrarPrevProducto(this);
+        });
+
+        function mostrarPrevProducto(form) {
+            // ── Recoger valores ──────────────────────────────────────────
+            const tipo      = form.querySelector('input[name="tipo_inventario"]:checked')?.value || 'cantidad';
+            const nombre    = form.querySelector('#nombre')?.value.trim() || '—';
+            const codigo    = form.querySelector('#codigo_barras')?.value.trim() || '—';
+            const stockMin  = form.querySelector('#stock_minimo')?.value || '0';
+            const stockMax  = form.querySelector('#stock_maximo')?.value || '0';
+            const estado    = form.querySelector('#estado')?.value || 'activo';
+            const descripcion = form.querySelector('#descripcion')?.value.trim() || '';
+
+            const categoriaOpt = form.querySelector('#categoria_id')?.selectedOptions[0];
+            const marcaOpt     = form.querySelector('#marca_id')?.selectedOptions[0];
+            const modeloOpt    = form.querySelector('#modelo_id')?.selectedOptions[0];
+            const unidadOpt    = form.querySelector('#unidad_medida_id')?.selectedOptions[0];
+
+            const categoria   = categoriaOpt?.value  ? categoriaOpt.text  : '—';
+            const marca       = marcaOpt?.value       ? marcaOpt.text       : '—';
+            const modelo      = modeloOpt?.value      ? modeloOpt.text      : '';
+            const unidad      = unidadOpt?.value      ? unidadOpt.text      : '—';
+
+            const diasGar     = form.querySelector('#dias_garantia')?.value || '365';
+            const tipoGarOpt  = form.querySelector('#tipo_garantia')?.selectedOptions[0];
+            const tipoGar     = tipoGarOpt?.text || '';
+
+            // ── Tipo: icono y badge ──────────────────────────────────────
+            const icoEl   = document.getElementById('prev-tipo-icono');
+            const badgeEl = document.getElementById('prev-tipo-badge');
+            if (tipo === 'serie') {
+                icoEl.className   = 'w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl bg-blue-100 text-blue-700';
+                icoEl.innerHTML   = '<i class="fas fa-mobile-alt"></i>';
+                badgeEl.className = 'inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full mt-1 bg-blue-100 text-blue-700';
+                badgeEl.innerHTML = '<i class="fas fa-microchip text-xs"></i> Stock por Serie / IMEI';
+            } else {
+                icoEl.className   = 'w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl bg-green-100 text-green-700';
+                icoEl.innerHTML   = '<i class="fas fa-boxes"></i>';
+                badgeEl.className = 'inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full mt-1 bg-green-100 text-green-700';
+                badgeEl.innerHTML = '<i class="fas fa-layer-group text-xs"></i> Stock por Cantidad';
+            }
+
+            // ── Nombre ───────────────────────────────────────────────────
+            document.getElementById('prev-nombre').textContent = nombre;
+
+            // ── Código ───────────────────────────────────────────────────
+            document.getElementById('prev-codigo').textContent = codigo;
+
+            // ── Estado ───────────────────────────────────────────────────
+            const estadoMap = {
+                activo:        { txt: 'Activo',        cls: 'text-green-600' },
+                inactivo:      { txt: 'Inactivo',      cls: 'text-gray-500' },
+                descontinuado: { txt: 'Descontinuado', cls: 'text-red-500' },
+            };
+            const estadoInfo = estadoMap[estado] || { txt: estado, cls: 'text-gray-700' };
+            const estadoEl   = document.getElementById('prev-estado');
+            estadoEl.textContent = estadoInfo.txt;
+            estadoEl.className   = 'text-sm font-semibold ' + estadoInfo.cls;
+
+            // ── Categoría / Marca / Modelo ───────────────────────────────
+            document.getElementById('prev-categoria').textContent    = categoria;
+            document.getElementById('prev-marca-modelo').textContent = modelo ? `${marca} — ${modelo}` : marca;
+
+            // ── Stock ────────────────────────────────────────────────────
+            document.getElementById('prev-stock-min').textContent = `${stockMin} unidades`;
+            document.getElementById('prev-stock-max').textContent = `${stockMax} unidades`;
+
+            // ── Unidad ───────────────────────────────────────────────────
+            document.getElementById('prev-unidad').textContent = unidad;
+
+            // ── Garantía (solo serie) ────────────────────────────────────
+            const garWrap = document.getElementById('prev-garantia-wrap');
+            if (tipo === 'serie') {
+                garWrap.classList.remove('hidden');
+                document.getElementById('prev-garantia').textContent = `${diasGar} días — ${tipoGar}`;
+            } else {
+                garWrap.classList.add('hidden');
+            }
+
+            // ── Imagen ───────────────────────────────────────────────────
+            const imgPreviewSrc = document.getElementById('imagePreview')?.src;
+            const prevImg       = document.getElementById('prev-imagen');
+            if (imgPreviewSrc && !imgPreviewSrc.endsWith('/')) {
+                prevImg.src = imgPreviewSrc;
+                prevImg.classList.remove('hidden');
+            } else {
+                prevImg.classList.add('hidden');
+            }
+
+            // ── Variantes (leer hidden inputs que genera Alpine) ──────────
+            const variantesWrap = document.getElementById('prev-variantes-wrap');
+            const variantesLista = document.getElementById('prev-variantes-lista');
+            const colorInputs = form.querySelectorAll('input[name*="variantes_iniciales"][name*="color_id"]');
+
+            variantesLista.innerHTML = '';
+            if (colorInputs.length > 0) {
+                colorInputs.forEach((inp, idx) => {
+                    const capInput = form.querySelector(`input[name="variantes_iniciales[${idx}][capacidad]"]`);
+                    const colorId  = inp.value;
+                    const capac    = capInput?.value || '';
+
+                    // Buscar nombre de color en el select del formulario de variante
+                    const colorOpt = form.querySelector(`select[x-model="nueva.color_id"] option[value="${colorId}"]`);
+                    const colorNom = colorOpt?.textContent?.trim() || (colorId ? `Color #${colorId}` : 'Sin color');
+                    const colorHex = colorOpt?.dataset?.hex || '#e5e7eb';
+
+                    const tag = document.createElement('span');
+                    tag.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium text-gray-700 bg-white';
+                    tag.innerHTML = `<span class="w-3 h-3 rounded-full inline-block border" style="background:${colorHex}"></span>${colorNom}${capac ? ' / ' + capac : ''}`;
+                    variantesLista.appendChild(tag);
+                });
+                variantesWrap.classList.remove('hidden');
+            } else {
+                variantesWrap.classList.add('hidden');
+            }
+
+            // ── Descripción ──────────────────────────────────────────────
+            const descWrap = document.getElementById('prev-descripcion-wrap');
+            if (descripcion) {
+                document.getElementById('prev-descripcion').textContent = descripcion;
+                descWrap.classList.remove('hidden');
+            } else {
+                descWrap.classList.add('hidden');
+            }
+
+            // Mostrar modal
+            document.getElementById('modalPrevProducto').classList.remove('hidden');
+        }
+
+        function cerrarPrevProducto() {
+            document.getElementById('modalPrevProducto').classList.add('hidden');
+        }
+
+        function confirmarGuardarProducto() {
+            const btn = document.getElementById('btnConfirmarGuardar');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
+            // Enviar el formulario nativo (sin disparar el evento submit interceptado)
+            document.querySelector('form[action*="store"]').submit();
+        }
+
+        // Cerrar con Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') cerrarPrevProducto();
+        });
 
         // Botón Generar código de barras
         document.getElementById('btnGenerarCodigo')?.addEventListener('click', function() {
