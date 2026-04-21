@@ -898,12 +898,16 @@
         // ══════════════════════════════════════════════════════════════
         // PREVISUALIZACIÓN DE PRODUCTO
         // ══════════════════════════════════════════════════════════════
-        const productoForm = document.getElementById('productoCreateForm');
 
-        // Interceptar el submit para mostrar el modal
-        productoForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            mostrarPrevProducto(this);
+        // Registrar interceptor dentro de DOMContentLoaded para evitar errores de timing
+        document.addEventListener('DOMContentLoaded', function () {
+            const productoForm = document.getElementById('productoCreateForm');
+            if (productoForm) {
+                productoForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    mostrarPrevProducto(this);
+                });
+            }
         });
 
         function mostrarPrevProducto(form) {
@@ -1037,11 +1041,13 @@
         }
 
         function confirmarGuardarProducto() {
-            const btn = document.getElementById('btnConfirmarGuardar');
+            const btn  = document.getElementById('btnConfirmarGuardar');
+            const form = document.getElementById('productoCreateForm');
+            if (!form) return;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
-            // Enviar el formulario nativo (sin disparar el evento submit interceptado)
-            document.getElementById('productoCreateForm').submit();
+            // submit() nativo no dispara el evento 'submit', evita el bucle con preventDefault
+            form.submit();
         }
 
         // Cerrar con Escape
