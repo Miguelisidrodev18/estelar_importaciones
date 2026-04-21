@@ -367,6 +367,11 @@ class CompraService
                     $totalStock = StockAlmacen::where('producto_id', $detalle->producto_id)->sum('cantidad');
                     $detalle->producto->update(['stock_actual' => $totalStock]);
 
+                    // Revertir stock de la variante (color/capacidad)
+                    if ($detalle->variante_id) {
+                        $detalle->variante?->decrement('stock_actual', $detalle->cantidad);
+                    }
+
                     // Registrar movimiento de anulación
                     MovimientoInventario::create([
                         'producto_id' => $detalle->producto_id,
