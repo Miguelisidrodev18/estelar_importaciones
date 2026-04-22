@@ -62,7 +62,7 @@ class CompraService
                 $subtotalGeneral += $subtotalDetalle;
 
                 // 3.1 Crear detalle de compra (con variante_id si existe)
-                DetalleCompra::create([
+                $detalleCompra = DetalleCompra::create([
                     'compra_id'       => $compra->id,
                     'producto_id'     => $productoBase->id,
                     'variante_id'     => $variante?->id,
@@ -79,7 +79,7 @@ class CompraService
 
                 // 3.3 Registrar IMEIs si es serie/IMEI
                 if ($productoBase->tipo_inventario === 'serie') {
-                    $this->registrarIMEIs($detalle, $productoBase, $compra, $variante);
+                    $this->registrarIMEIs($detalle, $productoBase, $compra, $variante, $detalleCompra);
                 }
 
                 // 3.4 Registrar código de barras generado si existe
@@ -253,7 +253,7 @@ class CompraService
     /**
      * Registrar IMEIs para productos celulares
      */
-    private function registrarIMEIs(array $detalle, Producto $producto, Compra $compra, ?ProductoVariante $variante = null): void
+    private function registrarIMEIs(array $detalle, Producto $producto, Compra $compra, ?ProductoVariante $variante = null, ?\App\Models\DetalleCompra $detalleCompra = null): void
     {
         if (!isset($detalle['imeis']) || !is_array($detalle['imeis'])) {
             return;
@@ -261,15 +261,16 @@ class CompraService
 
         foreach ($detalle['imeis'] as $imeiData) {
             Imei::create([
-                'codigo_imei'  => $imeiData['codigo_imei'],
-                'serie'        => $imeiData['serie'] ?? null,
-                'color_id'     => $detalle['color_id'] ?? ($variante?->color_id),
-                'producto_id'  => $producto->id,
-                'variante_id'  => $variante?->id,
-                'modelo_id'    => $detalle['modelo_id'] ?? null,
-                'almacen_id'   => $compra->almacen_id,
-                'compra_id'    => $compra->id,
-                'estado_imei'  => 'en_stock',
+                'codigo_imei'       => $imeiData['codigo_imei'],
+                'serie'             => $imeiData['serie'] ?? null,
+                'color_id'          => $detalle['color_id'] ?? ($variante?->color_id),
+                'producto_id'       => $producto->id,
+                'variante_id'       => $variante?->id,
+                'modelo_id'         => $detalle['modelo_id'] ?? null,
+                'almacen_id'        => $compra->almacen_id,
+                'compra_id'         => $compra->id,
+                'detalle_compra_id' => $detalleCompra?->id,
+                'estado_imei'       => 'en_stock',
             ]);
         }
     }

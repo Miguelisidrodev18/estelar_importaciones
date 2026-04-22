@@ -1347,7 +1347,7 @@
                            onfocus="if(this.value==='0'||this.value==='0.00')this.value=''"
                            onblur="if(this.value===''||parseFloat(this.value)===0){this.value='';}"
                            oninput="calcularSubtotal(${idx})"
-                           onchange="calcularSubtotal(${idx})"
+                           onchange="calcularSubtotal(${idx}); propagarPrecio(${idx})"
                            class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
                            required>
                 </div>
@@ -1610,6 +1610,62 @@
         actualizarContadorUnidades();
     }
 
+
+    function propagarPrecio(index) {
+        const precio = parseFloat(document.getElementById(`precio_${index}`)?.value);
+        if (!precio || precio <= 0) return;
+
+        const productoId = document.getElementById(`producto_select_${index}`)?.value;
+        if (!productoId) return;
+
+        // Obtener capacidad de la variante seleccionada en esta fila
+        const varianteSelect = document.getElementById(`variante_select_${index}`);
+        const capacidad = varianteSelect
+            ? (varianteSelect.selectedOptions[0]?.dataset?.capacidad ?? '')
+            : '';
+
+        let propagados = 0;
+
+        document.querySelectorAll('[id^="producto_select_"]').forEach(sel => {
+            const idx = sel.id.replace('producto_select_', '');
+            if (idx === String(index)) return;           // skip fila actual
+            if (sel.value !== productoId) return;        // distinto producto
+
+            // Comparar capacidad
+            const vs = document.getElementById(`variante_select_${idx}`);
+            const capOtra = vs ? (vs.selectedOptions[0]?.dataset?.capacidad ?? '') : '';
+            if (capOtra !== capacidad) return;           // distinta capacidad
+
+            // Solo rellenar si el precio está vacío o en 0
+            const inputPrecio = document.getElementById(`precio_${idx}`);
+            if (!inputPrecio) return;
+            const valorActual = parseFloat(inputPrecio.value) || 0;
+            if (valorActual > 0) return;                 // ya tiene precio, no pisar
+
+            inputPrecio.value = precio.toFixed(2);
+            calcularSubtotal(parseInt(idx));
+            propagados++;
+        });
+
+        if (propagados > 0) {
+            mostrarToastPrecio(`Precio S/ ${precio.toFixed(2)} aplicado a ${propagados} fila(s) con la misma capacidad.`);
+        }
+    }
+
+    function mostrarToastPrecio(mensaje) {
+        let toast = document.getElementById('toastPrecio');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toastPrecio';
+            toast.className = 'fixed bottom-6 right-6 z-50 bg-indigo-700 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-opacity duration-300';
+            toast.innerHTML = '<i class="fas fa-magic"></i><span id="toastPrecioMsg"></span>';
+            document.body.appendChild(toast);
+        }
+        document.getElementById('toastPrecioMsg').textContent = mensaje;
+        toast.style.opacity = '1';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    }
 
     function calcularSubtotal(index) {
         const cantidad = parseFloat(document.getElementById(`cantidad_${index}`).value) || 0;

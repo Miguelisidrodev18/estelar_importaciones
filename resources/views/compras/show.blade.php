@@ -372,7 +372,7 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Producto</th>
-                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca / Modelo</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca / Modelo / Cap.</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Color</th>
                                     <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Cant.</th>
                                     <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Unit.</th>
@@ -387,21 +387,26 @@
                                         @if($detalle->codigo_barras)
                                             <p class="text-xs text-gray-400 font-mono mt-0.5">{{ $detalle->codigo_barras }}</p>
                                         @endif
-                                        @if($detalle->imeis->count())
+                                        @if($detalle->imeis_con_legacy->count())
                                             <p class="text-xs text-purple-600 mt-0.5">
-                                                <i class="fas fa-microchip mr-1"></i>{{ $detalle->imeis->count() }} IMEI(s)
+                                                <i class="fas fa-microchip mr-1"></i>{{ $detalle->imeis_con_legacy->count() }} IMEI(s)
                                             </p>
                                         @endif
                                     </td>
                                     <td class="px-5 py-4">
                                         @php
-                                            $marca = $detalle->producto->marca?->nombre ?? $detalle->producto->marca?->nombre ?? null;
+                                            $marca = $detalle->producto->marca?->nombre ?? null;
                                             $modelo = $detalle->modelo?->nombre ?? $detalle->producto->modelo?->nombre ?? null;
+                                            $capacidad = $detalle->variante?->capacidad ?? null;
                                         @endphp
                                         <span class="text-gray-700">{{ $marca ?? '-' }}</span>
                                         @if($modelo)
                                             <span class="text-gray-400 mx-1">/</span>
                                             <span class="text-gray-600">{{ $modelo }}</span>
+                                        @endif
+                                        @if($capacidad)
+                                            <span class="text-gray-400 mx-1">/</span>
+                                            <span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">{{ $capacidad }}</span>
                                         @endif
                                     </td>
                                     <td class="px-5 py-4">
@@ -502,12 +507,12 @@
                         <h2 class="font-bold text-white flex items-center gap-2">
                             <i class="fas fa-microchip"></i> IMEIs por Producto
                         </h2>
-                        <span class="text-purple-200 text-sm">{{ $detallesSerie->sum(fn($d) => $d->imeis->count()) }} / {{ $detallesSerie->sum('cantidad') }} registrados</span>
+                        <span class="text-purple-200 text-sm">{{ $detallesSerie->sum(fn($d) => $d->imeis_con_legacy->count()) }} / {{ $detallesSerie->sum('cantidad') }} registrados</span>
                     </div>
                     <div class="divide-y divide-gray-100">
                         @foreach($detallesSerie as $detalle)
                         @php
-                            $registrados = $detalle->imeis->count();
+                            $registrados = $detalle->imeis_con_legacy->count();
                             $esperados   = $detalle->cantidad;
                             $pendientes  = $esperados - $registrados;
                             $completo    = $pendientes <= 0;
@@ -537,7 +542,7 @@
                             </div>
                             @if($registrados > 0)
                             <div class="flex flex-wrap gap-2">
-                                @foreach($detalle->imeis as $imei)
+                                @foreach($detalle->imeis_con_legacy as $imei)
                                 <span class="px-2.5 py-1 bg-purple-50 border border-purple-200 rounded-lg text-xs font-mono text-purple-800">
                                     {{ $imei->codigo_imei }}
                                 </span>

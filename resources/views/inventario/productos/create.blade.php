@@ -452,17 +452,24 @@
                                 <!-- Color -->
                                 <div>
                                     <label class="block text-xs font-medium text-gray-600 mb-1">Color</label>
-                                    <select x-model="nueva.color_id" @change="actualizarColorHex($event)"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
-                                        <option value="">Sin color</option>
-                                        @foreach($colores as $color)
-                                            <option value="{{ $color->id }}"
-                                                    data-hex="{{ $color->codigo_hex }}"
-                                                    data-nombre="{{ $color->nombre }}">
-                                                {{ $color->nombre }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <div class="flex gap-2 items-center">
+                                        <select id="variante_color_select" x-model="nueva.color_id" @change="actualizarColorHex($event)"
+                                                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                            <option value="">Sin color</option>
+                                            @foreach($colores as $color)
+                                                <option value="{{ $color->id }}"
+                                                        data-hex="{{ $color->codigo_hex }}"
+                                                        data-nombre="{{ $color->nombre }}">
+                                                    {{ $color->nombre }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <button type="button" onclick="abrirModalColorCreate()"
+                                                class="shrink-0 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg text-sm font-medium transition"
+                                                title="Agregar nuevo color">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <!-- Capacidad -->
                                 <div>
@@ -1088,5 +1095,131 @@
             });
         });
     </script>
+
+<!-- Modal Nuevo Color (create producto) -->
+<div id="modalColorCreate" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+        <div class="bg-linear-to-r from-indigo-600 to-indigo-500 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+            <h3 class="font-bold text-white flex items-center gap-2">
+                <i class="fas fa-palette"></i> Nuevo Color
+            </h3>
+            <button onclick="cerrarModalColorCreate()" class="text-white/70 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <input type="text" id="createColorNombre" placeholder="Ej: Azul medianoche"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Color HEX <span class="text-gray-400 text-xs">(opcional)</span></label>
+                <div class="flex gap-3 items-center">
+                    <input type="color" id="createColorPicker" value="#3b82f6"
+                           class="h-10 w-14 rounded-lg border border-gray-300 cursor-pointer p-0.5"
+                           oninput="document.getElementById('createColorHexText').value = this.value">
+                    <input type="text" id="createColorHexText" value="#3b82f6" maxlength="7"
+                           placeholder="#rrggbb"
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-400"
+                           oninput="if(/^#[a-fA-F0-9]{6}$/.test(this.value)) document.getElementById('createColorPicker').value = this.value">
+                </div>
+            </div>
+            <div id="createColorError" class="hidden text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
+            <div class="flex justify-end gap-3 pt-1">
+                <button type="button" onclick="cerrarModalColorCreate()"
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="button" id="btnGuardarColorCreate" onclick="guardarColorCreate()"
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition flex items-center gap-2">
+                    <i class="fas fa-save"></i> Guardar Color
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function abrirModalColorCreate() {
+        document.getElementById('createColorNombre').value = '';
+        document.getElementById('createColorPicker').value = '#3b82f6';
+        document.getElementById('createColorHexText').value = '#3b82f6';
+        document.getElementById('createColorError').classList.add('hidden');
+        const modal = document.getElementById('modalColorCreate');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => document.getElementById('createColorNombre').focus(), 100);
+    }
+
+    function cerrarModalColorCreate() {
+        const modal = document.getElementById('modalColorCreate');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    async function guardarColorCreate() {
+        const nombre = document.getElementById('createColorNombre').value.trim();
+        const hex    = document.getElementById('createColorHexText').value.trim() || null;
+
+        if (!nombre) { mostrarErrorColorCreate('El nombre del color es obligatorio.'); return; }
+        if (hex && !/^#[a-fA-F0-9]{6}$/.test(hex)) { mostrarErrorColorCreate('El código HEX debe tener formato #rrggbb.'); return; }
+
+        const btn = document.getElementById('btnGuardarColorCreate');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        document.getElementById('createColorError').classList.add('hidden');
+
+        try {
+            const res = await fetch('{{ route('catalogo.colores.rapida') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ nombre, codigo_hex: hex }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Agregar opción al select
+                const select = document.getElementById('variante_color_select');
+                const opt = document.createElement('option');
+                opt.value           = data.id;
+                opt.text            = data.nombre;
+                opt.dataset.hex     = data.codigo_hex || '';
+                opt.dataset.nombre  = data.nombre;
+                select.appendChild(opt);
+
+                // Seleccionar y actualizar estado Alpine
+                select.value = data.id;
+                const alpineEl = select.closest('[x-data]');
+                if (alpineEl && window.Alpine) {
+                    const state = Alpine.$data(alpineEl);
+                    state.nueva.color_id     = String(data.id);
+                    state.nueva.color_nombre = data.nombre;
+                    state.nueva.color_hex    = data.codigo_hex || '';
+                }
+
+                cerrarModalColorCreate();
+            } else {
+                mostrarErrorColorCreate(data.message || 'Error al guardar el color.');
+            }
+        } catch (e) {
+            mostrarErrorColorCreate('Error de conexión. Intenta nuevamente.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Guardar Color';
+        }
+    }
+
+    function mostrarErrorColorCreate(msg) {
+        const el = document.getElementById('createColorError');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    document.getElementById('modalColorCreate').addEventListener('click', function(e) {
+        if (e.target === this) cerrarModalColorCreate();
+    });
+</script>
 </body>
 </html>

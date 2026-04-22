@@ -148,7 +148,7 @@
                                 <p class="text-xs text-indigo-500 mt-0.5">
                                     <i class="fas fa-sim-card mr-1"></i>Unidades en stock
                                 </p>
-                                <a href="{{ route('imeis.index', ['producto_id' => $producto->id]) }}"
+                                <a href="{{ route('inventario.imeis.index', ['producto_id' => $producto->id]) }}"
                                    class="inline-flex items-center gap-1 mt-2 text-xs font-medium text-white bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-lg transition">
                                     <i class="fas fa-list text-xs"></i> Ver todos los IMEIs
                                 </a>
@@ -157,9 +157,23 @@
                     </div>
                 </div>
 
+                {{-- ─── Mensajes flash ──────────────────────────────── --}}
+                @if(session('success'))
+                <div class="mt-4 flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    {{ session('success') }}
+                </div>
+                @endif
+                @if(session('error'))
+                <div class="mt-4 flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-exclamation-circle text-red-500"></i>
+                    {{ session('error') }}
+                </div>
+                @endif
+
                 {{-- ─── AGREGAR VARIANTE ─────────────────────────────── --}}
                 <div class="bg-white rounded-2xl shadow-md overflow-hidden mt-4"
-                     x-data="{ abierto: {{ $errors->any() ? 'true' : 'false' }} }">
+                     x-data="{ abierto: {{ $errors->any() || session('error') ? 'true' : 'false' }} }">
                     <button @click="abierto = !abierto"
                             class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 px-5 py-4 flex items-center justify-between">
                         <span class="text-base font-bold text-white flex items-center gap-2">
@@ -178,16 +192,23 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Color <span class="text-gray-400 text-xs">(opcional)</span>
                                 </label>
-                                <select name="color_id"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
-                                    <option value="">Sin color específico</option>
-                                    @foreach($colores as $color)
-                                        <option value="{{ $color->id }}"
-                                                {{ old('color_id') == $color->id ? 'selected' : '' }}>
-                                            {{ $color->nombre }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                <div class="flex gap-2 items-center">
+                                    <select id="color_id_variante" name="color_id"
+                                            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                                        <option value="">Sin color específico</option>
+                                        @foreach($colores as $color)
+                                            <option value="{{ $color->id }}"
+                                                    {{ old('color_id') == $color->id ? 'selected' : '' }}>
+                                                {{ $color->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <button type="button" onclick="abrirModalColor()"
+                                            class="shrink-0 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg text-sm font-medium transition"
+                                            title="Agregar nuevo color">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
                                 @error('color_id')
                                     <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                 @enderror
@@ -300,7 +321,7 @@
 
                                         {{-- Acciones --}}
                                         @if($producto->tipo_inventario === 'serie')
-                                            <a href="{{ route('imeis.index', ['producto_id' => $producto->id, 'variante_id' => $variante->id]) }}"
+                                            <a href="{{ route('inventario.imeis.index', ['producto_id' => $producto->id, 'variante_id' => $variante->id]) }}"
                                                class="text-indigo-400 hover:text-indigo-600 p-2 rounded-lg hover:bg-indigo-50 transition"
                                                title="Ver IMEIs de esta variante">
                                                 <i class="fas fa-sim-card text-sm"></i>
@@ -357,6 +378,132 @@ function editModal() {
         }
     }
 }
+</script>
+
+<!-- Modal Nuevo Color -->
+<div id="modalColor" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+        <div class="bg-linear-to-r from-indigo-600 to-indigo-500 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+            <h3 class="font-bold text-white flex items-center gap-2">
+                <i class="fas fa-palette"></i> Nuevo Color
+            </h3>
+            <button onclick="cerrarModalColor()" class="text-white/70 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <input type="text" id="colorNombre" placeholder="Ej: Azul medianoche"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Color HEX <span class="text-gray-400 text-xs">(opcional)</span></label>
+                <div class="flex gap-3 items-center">
+                    <input type="color" id="colorHexPicker" value="#3b82f6"
+                           class="h-10 w-14 rounded-lg border border-gray-300 cursor-pointer p-0.5"
+                           oninput="document.getElementById('colorHexText').value = this.value">
+                    <input type="text" id="colorHexText" value="#3b82f6" maxlength="7"
+                           placeholder="#rrggbb"
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+                           oninput="sincronizarHex(this.value)">
+                </div>
+            </div>
+            <div id="colorError" class="hidden text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
+            <div class="flex justify-end gap-3 pt-1">
+                <button type="button" onclick="cerrarModalColor()"
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="button" id="btnGuardarColor" onclick="guardarColor()"
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition flex items-center gap-2">
+                    <i class="fas fa-save"></i> Guardar Color
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function abrirModalColor() {
+        document.getElementById('colorNombre').value = '';
+        document.getElementById('colorHexPicker').value = '#3b82f6';
+        document.getElementById('colorHexText').value = '#3b82f6';
+        document.getElementById('colorError').classList.add('hidden');
+        const modal = document.getElementById('modalColor');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => document.getElementById('colorNombre').focus(), 100);
+    }
+
+    function cerrarModalColor() {
+        const modal = document.getElementById('modalColor');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    function sincronizarHex(val) {
+        if (/^#[a-fA-F0-9]{6}$/.test(val)) {
+            document.getElementById('colorHexPicker').value = val;
+        }
+    }
+
+    async function guardarColor() {
+        const nombre = document.getElementById('colorNombre').value.trim();
+        const hex    = document.getElementById('colorHexText').value.trim() || null;
+
+        if (!nombre) {
+            mostrarErrorColor('El nombre del color es obligatorio.');
+            return;
+        }
+        if (hex && !/^#[a-fA-F0-9]{6}$/.test(hex)) {
+            mostrarErrorColor('El código HEX debe tener formato #rrggbb.');
+            return;
+        }
+
+        const btn = document.getElementById('btnGuardarColor');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        document.getElementById('colorError').classList.add('hidden');
+
+        try {
+            const res = await fetch('{{ route('catalogo.colores.rapida') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ nombre, codigo_hex: hex }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Agregar al select y seleccionarlo
+                const select = document.getElementById('color_id_variante');
+                const option = document.createElement('option');
+                option.value   = data.id;
+                option.text    = data.nombre;
+                option.selected = true;
+                select.appendChild(option);
+                cerrarModalColor();
+            } else {
+                mostrarErrorColor(data.message || 'Error al guardar el color.');
+            }
+        } catch (e) {
+            mostrarErrorColor('Error de conexión. Intenta nuevamente.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Guardar Color';
+        }
+    }
+
+    function mostrarErrorColor(msg) {
+        const el = document.getElementById('colorError');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    document.getElementById('modalColor').addEventListener('click', function(e) {
+        if (e.target === this) cerrarModalColor();
+    });
 </script>
 </body>
 </html>

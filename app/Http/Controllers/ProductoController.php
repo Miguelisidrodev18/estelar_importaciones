@@ -641,10 +641,22 @@ public function storeVariante(Request $request, Producto $producto, VarianteServ
     ]);
 
     try {
+        $colorId   = $validated['color_id'] ?? null;
+        $capacidad = $validated['capacidad'] ? trim($validated['capacidad']) : null;
+
+        $yaExiste = ProductoVariante::where('producto_id', $producto->id)
+            ->when($colorId,   fn($q) => $q->where('color_id', $colorId),   fn($q) => $q->whereNull('color_id'))
+            ->when($capacidad, fn($q) => $q->where('capacidad', $capacidad), fn($q) => $q->whereNull('capacidad'))
+            ->exists();
+
+        if ($yaExiste) {
+            return back()->withInput()->with('error', 'Ya existe una variante con ese color y capacidad para este producto.');
+        }
+
         $variante = $varianteService->obtenerOCrearVariante(
             $producto,
-            $validated['color_id'] ?? null,
-            $validated['capacidad'] ?? null,
+            $colorId,
+            $capacidad,
             (float)($validated['sobreprecio'] ?? 0)
         );
 
