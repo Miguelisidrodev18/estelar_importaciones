@@ -967,7 +967,7 @@
                         </div>
                         <div class="flex items-center justify-between text-xs mt-1">
                             <span class="font-semibold text-blue-600 dark:text-blue-400"
-                                  x-text="'S/ ' + (parseFloat(productoActual?.precio_venta || 0) + parseFloat(v.sobreprecio || 0)).toFixed(2)"></span>
+                                  x-text="'S/ ' + (v.precio_venta != null ? parseFloat(v.precio_venta) : (parseFloat(productoActual?.precio_venta || 0) + parseFloat(v.sobreprecio || 0))).toFixed(2)"></span>
                             <span :class="stockVarianteEnAlmacen(v) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'"
                                   x-text="productoActual?.tipo_inventario === 'serie'
                                       ? (orden.almacenId && v.stock_por_almacen?.[orden.almacenId] !== undefined
@@ -1649,7 +1649,11 @@ function posApp() {
         seleccionarVariante(v) {
             this.varianteActual = v;
             this.mostrarModalVariante = false;
-            const precioFinal    = parseFloat(this.productoActual.precio_venta) + parseFloat(v.sobreprecio || 0);
+            const precioBase     = v.precio_venta != null
+                ? parseFloat(v.precio_venta)
+                : parseFloat(this.productoActual.precio_venta || 0) + parseFloat(v.sobreprecio || 0);
+            const incluyeIgv     = v.incluye_igv != null ? v.incluye_igv : this.productoActual.incluye_igv;
+            const precioFinal    = incluyeIgv ? Math.round((precioBase / 1.18) * 100) / 100 : precioBase;
             const nombreCompleto = this.productoActual.nombre + (v.nombre_completo ? ' — ' + v.nombre_completo : '');
             const stockDisponible = this.stockVarianteEnAlmacen(v);
             if (this.productoActual.tipo_inventario === 'serie') {
@@ -1665,9 +1669,7 @@ function posApp() {
                 this.orden.carrito.push({
                     producto_id: this.productoActual.id, variante_id: v.id,
                     nombre: nombreCompleto,
-                    precio_unitario: this.productoActual.incluye_igv
-                        ? Math.round((precioFinal / 1.18) * 100) / 100
-                        : precioFinal,
+                    precio_unitario: precioFinal,
                     cantidad: 1, stock_disponible: stockDisponible,
                     tipo_inventario: this.productoActual.tipo_inventario, imeis: []
                 });
@@ -1898,14 +1900,16 @@ function posApp() {
             }
             // Modo nuevo: crear ítem en el carrito
             const v = this.varianteActual;
-            const precioFinal    = parseFloat(this.productoActual.precio_venta) + (v ? parseFloat(v.sobreprecio || 0) : 0);
+            const precioBase     = (v && v.precio_venta != null)
+                ? parseFloat(v.precio_venta)
+                : parseFloat(this.productoActual.precio_venta || 0) + (v ? parseFloat(v.sobreprecio || 0) : 0);
+            const incluyeIgv     = (v && v.incluye_igv != null) ? v.incluye_igv : this.productoActual.incluye_igv;
+            const precioFinal    = incluyeIgv ? Math.round((precioBase / 1.18) * 100) / 100 : precioBase;
             const nombreCompleto = this.productoActual.nombre + (v?.nombre_completo ? ' — ' + v.nombre_completo : '');
             this.orden.carrito.push({
                 producto_id: this.productoActual.id, variante_id: v ? v.id : null,
                 nombre: nombreCompleto,
-                precio_unitario: this.productoActual.incluye_igv
-                    ? Math.round((precioFinal / 1.18) * 100) / 100
-                    : precioFinal,
+                precio_unitario: precioFinal,
                 cantidad: this.imeisTemp.length, stock_disponible: this.imeisTemp.length,
                 tipo_inventario: 'serie', imeis: this.imeisTemp.map(i => ({ codigo_imei: i.codigo_imei }))
             });

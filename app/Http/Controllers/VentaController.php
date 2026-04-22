@@ -116,13 +116,23 @@ class VentaController extends Controller
             ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
 
         $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen, $imeisPorVarianteId, $imeisPorColor) {
-            // Precio más reciente (cualquier variante) → para incluye_igv
-            $precioActivo = $p->precios->first();
-            // Precio a nivel de producto (variante_id=null) → para precio_venta base
-            $precioBase   = $p->precios->first(fn($pr) => is_null($pr->variante_id));
-            $esSerie      = $p->tipo_inventario === 'serie';
+            $esSerie = $p->tipo_inventario === 'serie';
 
-            $variantes = $p->variantesActivas->map(fn($v) => [
+            // Indexar precios por variante_id para lookup O(1)
+            $preciosPorVariante = $p->precios->whereNotNull('variante_id')->keyBy('variante_id');
+            // Precio base del producto (sin variante) — fallback
+            $precioBase   = $p->precios->first(fn($pr) => is_null($pr->variante_id));
+            // Para incluye_igv usamos el primer precio activo (configuración global del producto)
+            $precioActivo = $p->precios->first();
+
+            $variantes = $p->variantesActivas->map(function($v) use ($esSerie, $imeisPorVarianteId, $imeisPorColor, $p, $preciosPorVariante) {
+                // 1) precio manual en el campo nuevo del variante (override), 2) Gestión de Precios, 3) null
+                $precioGestion = $preciosPorVariante->get($v->id);
+                $precioVenta = $v->precio_venta !== null
+                    ? (float)$v->precio_venta
+                    : ($precioGestion ? (float)$precioGestion->precio : null);
+
+                return [
                 'id'                => $v->id,
                 'sku'               => $v->sku,
                 'color_id'          => $v->color_id,
@@ -130,6 +140,8 @@ class VentaController extends Controller
                 'color_hex'         => $v->color?->codigo_hex,
                 'capacidad'         => $v->capacidad,
                 'sobreprecio'       => (float)$v->sobreprecio,
+                'precio_venta'      => $precioVenta,
+                'incluye_igv'       => $precioGestion ? (bool)$precioGestion->incluye_igv : null,
                 'stock_actual'      => $esSerie
                     ? (function() use ($imeisPorVarianteId, $imeisPorColor, $v, $p) {
                         $byVariante = $imeisPorVarianteId[$v->id] ?? collect();
@@ -148,7 +160,8 @@ class VentaController extends Controller
                     : [],
                 'nombre_completo'   => $v->nombre_completo,
                 'tiene_stock'       => $v->tieneStock(),
-            ]);
+                ];
+            });
 
             $stockMap = $p->tipo_inventario === 'serie'
                 ? ($imeisPorAlmacen[$p->id] ?? collect())->toArray()
@@ -163,7 +176,7 @@ class VentaController extends Controller
                 'tipo_inventario'  => $p->tipo_inventario,
                 'stock_actual'     => (int) $p->stock_actual,
                 'stock_por_almacen'=> $stockMap,  // {almacen_id: qty}
-                'precio_venta'     => (float) ($precioBase?->precio ?? $p->precio_venta),
+                'precio_venta'     => (float) ($precioBase?->precio ?? $precioActivo?->precio ?? $p->precio_venta),
                 'incluye_igv'      => (bool) ($precioActivo?->incluye_igv ?? false),
                 'imagen'           => $p->imagen_url ?? null,
                 'tiene_variantes'  => $variantes->isNotEmpty(),
