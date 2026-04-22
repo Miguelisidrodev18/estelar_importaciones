@@ -615,41 +615,13 @@ public function variantes(Producto $producto)
     $producto->load(['variantes.color', 'marca', 'modelo', 'categoria']);
     $colores = Color::where('estado', 'activo')->orderBy('nombre')->get();
 
-    // Para productos serie: contar IMEIs reales en_stock por variante_id
-    // y también por color_id (fallback para IMEIs sin variante_id asignada)
     $stockRealPorVariante = collect();
     $stockTotalReal = $producto->stock_actual;
 
     if ($producto->tipo_inventario === 'serie') {
-        // IMEIs con variante_id asignado
-        $porVarianteId = \App\Models\Imei::where('producto_id', $producto->id)
-            ->where('estado_imei', 'en_stock')
-            ->whereNotNull('variante_id')
-            ->selectRaw('variante_id, COUNT(*) as total')
-            ->groupBy('variante_id')
-            ->pluck('total', 'variante_id');
-
-        // IMEIs sin variante_id — agrupar por color_id como fallback
-        $porColorId = \App\Models\Imei::where('producto_id', $producto->id)
-            ->where('estado_imei', 'en_stock')
-            ->whereNull('variante_id')
-            ->selectRaw('color_id, COUNT(*) as total')
-            ->groupBy('color_id')
-            ->pluck('total', 'color_id');
-
         foreach ($producto->variantes as $v) {
-            if ($porVarianteId->has($v->id)) {
-                $stockRealPorVariante[$v->id] = $porVarianteId[$v->id];
-            } elseif ($porColorId->has($v->color_id)) {
-                $stockRealPorVariante[$v->id] = $porColorId[$v->color_id];
-            } else {
-                $stockRealPorVariante[$v->id] = 0;
-            }
+            $stockRealPorVariante[$v->id] = $v->stock_actual;
         }
-
-        $stockTotalReal = \App\Models\Imei::where('producto_id', $producto->id)
-            ->where('estado_imei', 'en_stock')
-            ->count();
     }
 
     return view('inventario.productos.variantes', compact('producto', 'colores', 'stockRealPorVariante', 'stockTotalReal'));

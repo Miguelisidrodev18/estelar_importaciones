@@ -146,7 +146,7 @@
                             </p>
                             @if($producto->tipo_inventario === 'serie')
                                 <p class="text-xs text-indigo-500 mt-0.5">
-                                    <i class="fas fa-sim-card mr-1"></i>IMEIs en stock
+                                    <i class="fas fa-sim-card mr-1"></i>Unidades en stock
                                 </p>
                             @endif
                         </div>
@@ -290,7 +290,7 @@
                                                 {{ $stockVar }}
                                             </p>
                                             <p class="text-xs text-gray-400">
-                                                {{ $producto->tipo_inventario === 'serie' ? 'IMEI' : 'en stock' }}
+                                                en stock
                                             </p>
                                         </div>
 
