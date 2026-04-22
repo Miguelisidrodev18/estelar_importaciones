@@ -88,7 +88,7 @@ class DashboardController extends Controller
 
         // ── Inventario ────────────────────────────────────────────────────────
         $stockTotal     = StockAlmacen::sum('cantidad');
-        $stockCelulares = Imei::where('estado_imei', 'en_stock')->count();
+        $stockCelulares = Producto::where('tipo_inventario', 'serie')->sum('stock_actual');
         $stockAccesorios = Producto::where('tipo_inventario', 'cantidad')
             ->sum('stock_actual');
 

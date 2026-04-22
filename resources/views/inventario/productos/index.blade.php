@@ -243,8 +243,7 @@
                                 @php
                                     $esSerie = $producto->tipo_inventario === 'serie';
                                     if ($esSerie) {
-                                        // Fuente de verdad: IMEIs reales en_stock
-                                        $stockTotal = $producto->imeis_en_stock_count ?? 0;
+                                        $stockTotal = $producto->stock_actual ?? 0;
                                     } elseif ($producto->variantesActivas->count() > 0) {
                                         $stockTotal = $producto->variantesActivas->sum('stock_actual');
                                     } else {
