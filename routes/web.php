@@ -316,6 +316,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{compra}', [CompraController::class, 'destroy'])->name('destroy');
         Route::delete('/{compra}/detalle/{detalle}', [CompraController::class, 'destroyDetalle'])->name('detalle.destroy');
         Route::get('/{compra}/detalle/{detalle}/imeis', [CompraController::class, 'getImeis'])->name('detalle.imeis');
+        Route::post('/{compra}/detalle/{detalle}/imeis/bulk', [CompraController::class, 'storeBulkImeis'])->name('detalle.imeis.bulk');
         Route::put('/{compra}/imei/{imei}', [CompraController::class, 'updateImei'])->name('imei.update');
         Route::delete('/{compra}/imei/{imei}', [CompraController::class, 'destroyImei'])->name('imei.destroy');
 

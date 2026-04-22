@@ -148,6 +148,10 @@
                                 <p class="text-xs text-indigo-500 mt-0.5">
                                     <i class="fas fa-sim-card mr-1"></i>Unidades en stock
                                 </p>
+                                <a href="{{ route('imeis.index', ['producto_id' => $producto->id]) }}"
+                                   class="inline-flex items-center gap-1 mt-2 text-xs font-medium text-white bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-lg transition">
+                                    <i class="fas fa-list text-xs"></i> Ver todos los IMEIs
+                                </a>
                             @endif
                         </div>
                     </div>
@@ -295,6 +299,13 @@
                                         </div>
 
                                         {{-- Acciones --}}
+                                        @if($producto->tipo_inventario === 'serie')
+                                            <a href="{{ route('imeis.index', ['producto_id' => $producto->id, 'variante_id' => $variante->id]) }}"
+                                               class="text-indigo-400 hover:text-indigo-600 p-2 rounded-lg hover:bg-indigo-50 transition"
+                                               title="Ver IMEIs de esta variante">
+                                                <i class="fas fa-sim-card text-sm"></i>
+                                            </a>
+                                        @endif
                                         @if($variante->estado === 'activo')
                                             {{-- Editar --}}
                                             <button type="button"

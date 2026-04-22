@@ -328,7 +328,7 @@ class CompraController extends Controller
 
     public function show(Compra $compra)
     {
-        $compra->load(['proveedor', 'usuario', 'almacen', 'detalles.producto']);
+        $compra->load(['proveedor', 'usuario', 'almacen', 'detalles.producto', 'detalles.variante.color', 'detalles.color', 'detalles.imeis']);
 
         return view('compras.show', compact('compra'));
     }
@@ -435,6 +435,74 @@ class CompraController extends Controller
             ->get(['id', 'codigo_imei', 'serie', 'estado_imei']);
 
         return response()->json(['success' => true, 'imeis' => $imeis]);
+    }
+
+    public function storeBulkImeis(Request $request, Compra $compra, DetalleCompra $detalle)
+    {
+        if ($detalle->compra_id !== $compra->id) {
+            return response()->json(['success' => false, 'message' => 'El detalle no pertenece a esta compra'], 422);
+        }
+
+        $request->validate([
+            'imeis'                  => 'required|array|min:1',
+            'imeis.*.codigo_imei'    => 'required|string|size:15|distinct|unique:imeis,codigo_imei',
+            'imeis.*.serie'          => 'nullable|string|max:50',
+        ], [
+            'imeis.*.codigo_imei.required' => 'El código IMEI es obligatorio.',
+            'imeis.*.codigo_imei.size'     => 'Cada IMEI debe tener exactamente 15 dígitos.',
+            'imeis.*.codigo_imei.distinct' => 'Hay IMEIs duplicados en la lista.',
+            'imeis.*.codigo_imei.unique'   => 'Uno o más IMEIs ya están registrados en el sistema.',
+        ]);
+
+        $yaRegistrados = Imei::where(function ($q) use ($compra, $detalle) {
+                $q->where('detalle_compra_id', $detalle->id)
+                  ->orWhere(function ($q2) use ($compra, $detalle) {
+                      $q2->where('compra_id', $compra->id)
+                         ->where('producto_id', $detalle->producto_id)
+                         ->whereNull('detalle_compra_id');
+                  });
+            })->count();
+
+        $pendientes = $detalle->cantidad - $yaRegistrados;
+
+        if (count($request->imeis) > $pendientes) {
+            return response()->json([
+                'success' => false,
+                'message' => "Solo puedes registrar {$pendientes} IMEI(s) más para este detalle (cantidad comprada: {$detalle->cantidad}).",
+            ], 422);
+        }
+
+        DB::transaction(function () use ($request, $compra, $detalle) {
+            foreach ($request->imeis as $imeiData) {
+                Imei::create([
+                    'codigo_imei'       => $imeiData['codigo_imei'],
+                    'serie'             => $imeiData['serie'] ?? null,
+                    'producto_id'       => $detalle->producto_id,
+                    'variante_id'       => $detalle->variante_id,
+                    'color_id'          => $detalle->color_id,
+                    'almacen_id'        => $compra->almacen_id,
+                    'compra_id'         => $compra->id,
+                    'detalle_compra_id' => $detalle->id,
+                    'estado_imei'       => 'en_stock',
+                ]);
+            }
+        });
+
+        $totalAhora = Imei::where(function ($q) use ($compra, $detalle) {
+            $q->where('detalle_compra_id', $detalle->id)
+              ->orWhere(function ($q2) use ($compra, $detalle) {
+                  $q2->where('compra_id', $compra->id)
+                     ->where('producto_id', $detalle->producto_id)
+                     ->whereNull('detalle_compra_id');
+              });
+        })->count();
+
+        return response()->json([
+            'success'        => true,
+            'message'        => count($request->imeis) . ' IMEI(s) registrados correctamente.',
+            'registrados'    => $totalAhora,
+            'total_esperado' => $detalle->cantidad,
+        ]);
     }
 
     public function updateImei(Request $request, Compra $compra, Imei $imei)

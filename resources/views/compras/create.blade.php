@@ -2809,15 +2809,26 @@
         const btnImei = document.getElementById(`btn_imei_${index}`);
         const guardados = imeisPorFila[index] || [];
 
-        if (guardados.length > 0) {
+        const cantidadInput = document.getElementById(`cantidad_${index}`);
+        const cantidad = cantidadInput ? (parseInt(cantidadInput.value) || 1) : 1;
+        const pendientes = cantidad - guardados.length;
+
+        if (guardados.length > 0 && pendientes <= 0) {
             countSpan.innerText = guardados.length;
             infoDiv.classList.remove('hidden');
             btnImei.innerHTML = `<i class="fas fa-check-circle mr-1 text-green-600"></i>${guardados.length} IMEI(s)`;
+            btnImei.classList.remove('text-orange-600', 'font-medium');
             btnImei.classList.add('text-green-700', 'font-medium');
+        } else if (guardados.length > 0 && pendientes > 0) {
+            countSpan.innerText = guardados.length;
+            infoDiv.classList.remove('hidden');
+            btnImei.innerHTML = `<i class="fas fa-exclamation-triangle mr-1 text-orange-500"></i>${guardados.length}/${cantidad} IMEIs`;
+            btnImei.classList.remove('text-green-700');
+            btnImei.classList.add('text-orange-600', 'font-medium');
         } else {
             infoDiv.classList.add('hidden');
-            btnImei.innerHTML = '<i class="fas fa-microchip mr-1"></i>IMEIs';
-            btnImei.classList.remove('text-green-700', 'font-medium');
+            btnImei.innerHTML = '<i class="fas fa-microchip mr-1"></i>IMEIs <span class="text-red-500 font-bold">*</span>';
+            btnImei.classList.remove('text-green-700', 'text-orange-600', 'font-medium');
         }
     }
 
@@ -2882,6 +2893,37 @@
                     title: 'Productos requeridos',
                     text: 'Debes agregar al menos un producto a la compra.',
                     confirmButtonColor: '#1e3a8a'
+                });
+                return false;
+            }
+
+            // Validar IMEIs completos para productos tipo serie
+            const filasSerie = [];
+            document.querySelectorAll('[id^="producto_select_"]').forEach(sel => {
+                if (!sel.value) return;
+                const opt = sel.selectedOptions[0];
+                if (!opt || opt.dataset.tipo !== 'serie') return;
+                const idx = sel.id.replace('producto_select_', '');
+                const cantidad = parseInt(document.getElementById(`cantidad_${idx}`)?.value) || 1;
+                const registrados = (imeisPorFila[idx] || []).length;
+                if (registrados < cantidad) {
+                    filasSerie.push({ nombre: opt.text.trim(), registrados, cantidad });
+                }
+            });
+
+            if (filasSerie.length > 0) {
+                e.preventDefault();
+                const lista = filasSerie.map(f =>
+                    `• ${f.nombre}: ${f.registrados}/${f.cantidad} IMEIs`
+                ).join('\n');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'IMEIs incompletos',
+                    html: `<p class="text-gray-600 mb-2">Los siguientes productos requieren IMEIs:</p>
+                           <pre class="text-left text-sm bg-gray-50 rounded p-3">${lista}</pre>
+                           <p class="text-xs text-gray-400 mt-2">Haz clic en el botón <strong>IMEIs</strong> de cada fila para registrarlos.</p>`,
+                    confirmButtonColor: '#7c3aed',
+                    confirmButtonText: 'Entendido'
                 });
                 return false;
             }
