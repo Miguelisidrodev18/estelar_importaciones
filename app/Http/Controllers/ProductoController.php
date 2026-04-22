@@ -93,13 +93,19 @@ class ProductoController extends Controller
 
         $productos = $query->orderBy('nombre')->paginate(15);
         $categorias = Categoria::activas()->orderBy('nombre')->get();
-        
+
+        // Productos inactivos/descontinuados — siempre se muestran al pie (sin paginación)
+        $productosInactivos = Producto::with(['categoria'])
+            ->whereIn('estado', ['inactivo', 'descontinuado'])
+            ->orderBy('nombre')
+            ->get();
+
         // Verificar permisos
         $canCreate = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
-        $canEdit = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
+        $canEdit   = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
         $canDelete = auth()->user()->role->nombre === 'Administrador';
-        
-        return view('inventario.productos.index', compact('productos', 'categorias', 'canCreate', 'canEdit', 'canDelete'));
+
+        return view('inventario.productos.index', compact('productos', 'categorias', 'canCreate', 'canEdit', 'canDelete', 'productosInactivos'));
     }
 
     /**
@@ -416,27 +422,44 @@ public function create()
 }
 
     /**
-     * Eliminar producto
+     * Eliminar o desactivar producto.
+     * Si tiene movimientos → inactivo (ocultado pero conservado).
+     * Si no tiene movimientos → borrado definitivo.
      */
     public function destroy(Producto $producto)
     {
-        try {
-            // Eliminar imagen si existe
-            if ($producto->imagen) {
-                Storage::disk('public')->delete($producto->imagen);
-            }
-            
-            $producto->delete();
-            
+        $tieneMovimientos = $producto->movimientos()->exists()
+            || $producto->imeis()->exists()
+            || \App\Models\DetalleCompra::where('producto_id', $producto->id)->exists()
+            || \App\Models\DetalleVenta::where('producto_id', $producto->id)->exists();
+
+        if ($tieneMovimientos) {
+            $producto->update(['estado' => 'inactivo']);
             return redirect()
                 ->route('inventario.productos.index')
-                ->with('success', 'Producto eliminado exitosamente');
-                
-        } catch (\Exception $e) {
-            return redirect()
-                ->route('inventario.productos.index')
-                ->with('error', 'No se puede eliminar el producto porque tiene movimientos registrados');
+                ->with('info', 'El producto tiene movimientos registrados y fue desactivado. Puedes reactivarlo desde la sección de productos inactivos.');
         }
+
+        // Sin movimientos: borrado físico
+        if ($producto->imagen) {
+            Storage::disk('public')->delete($producto->imagen);
+        }
+        $producto->delete();
+
+        return redirect()
+            ->route('inventario.productos.index')
+            ->with('success', 'Producto eliminado correctamente.');
+    }
+
+    /**
+     * Reactivar un producto inactivo/descontinuado.
+     */
+    public function reactivar(Producto $producto)
+    {
+        $producto->update(['estado' => 'activo']);
+        return redirect()
+            ->route('inventario.productos.index')
+            ->with('success', "Producto \"{$producto->nombre}\" reactivado.");
     }
     /**
      * Mostrar gestión de códigos de barras del producto

@@ -169,6 +169,7 @@ Route::middleware('auth')->group(function () {
                 Route::get('/productos/{producto}/edit', [ProductoController::class, 'edit'])->name('productos.edit');
                 Route::put('/productos/{producto}', [ProductoController::class, 'update'])->name('productos.update');
                 Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->middleware('role:Administrador')->name('productos.destroy');
+                Route::patch('/productos/{producto}/reactivar', [ProductoController::class, 'reactivar'])->middleware('role:Administrador')->name('productos.reactivar');
                 
                 // Gestión de códigos de barras múltiples
                 Route::get('/productos/{producto}/codigos-barras', [ProductoController::class, 'codigosBarras'])->name('productos.codigos-barras');

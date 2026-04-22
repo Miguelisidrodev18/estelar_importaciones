@@ -39,6 +39,15 @@
             </div>
         @endif
 
+        @if(session('info'))
+            <div class="mb-6 bg-blue-50 border-l-4 border-blue-400 text-blue-700 p-4 rounded-lg">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-info-circle text-xl"></i>
+                    <p>{{ session('info') }}</p>
+                </div>
+            </div>
+        @endif
+
         <!-- Estadísticas -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-900">
@@ -336,11 +345,12 @@
                                     </a>
                                     
                                     @if($canDelete)
-                                        <form action="{{ route('inventario.productos.destroy', $producto) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.')">
+                                        <form action="{{ route('inventario.productos.destroy', $producto) }}" method="POST" class="inline"
+                                              onsubmit="return confirm('Si el producto tiene movimientos se desactivará (no se borrará). ¿Continuar?')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900" title="Eliminar">
-                                                <i class="fas fa-trash"></i>
+                                            <button type="submit" class="text-red-600 hover:text-red-900" title="Desactivar / Eliminar">
+                                                <i class="fas fa-power-off"></i>
                                             </button>
                                         </form>
                                     @endif
@@ -401,12 +411,94 @@
         </div>
     </div>
 
-    <!-- Script para tooltips (opcional) -->
+    {{-- ══════════════ PANEL PRODUCTOS INACTIVOS ══════════════ --}}
+    @if($productosInactivos->isNotEmpty())
+    <div class="md:ml-64 px-4 md:px-8 pb-10">
+        <details class="group bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+            <summary class="flex items-center justify-between px-5 py-4 cursor-pointer select-none
+                            bg-gray-50 hover:bg-gray-100 transition list-none">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-archive text-gray-400"></i>
+                    <span class="font-semibold text-gray-600 text-sm">
+                        Productos Inactivos / Descontinuados
+                    </span>
+                    <span class="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                        {{ $productosInactivos->count() }}
+                    </span>
+                </div>
+                <i class="fas fa-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+            </summary>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-100 text-sm">
+                    <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Producto</th>
+                            <th class="px-4 py-3 text-left">Categoría</th>
+                            <th class="px-4 py-3 text-left">Estado</th>
+                            <th class="px-4 py-3 text-left">Desactivado</th>
+                            @if($canDelete)
+                            <th class="px-4 py-3 text-center">Acción</th>
+                            @endif
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        @foreach($productosInactivos as $p)
+                        <tr class="opacity-60 hover:opacity-100 transition-opacity">
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                    @if($p->imagen)
+                                        <img src="{{ Storage::url($p->imagen) }}" class="w-8 h-8 rounded object-cover">
+                                    @else
+                                        <div class="w-8 h-8 rounded bg-gray-100 flex items-center justify-center">
+                                            <i class="fas fa-box text-gray-300 text-xs"></i>
+                                        </div>
+                                    @endif
+                                    <div>
+                                        <p class="font-medium text-gray-700 line-through">{{ $p->nombre }}</p>
+                                        <p class="text-xs text-gray-400">{{ $p->codigo }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-gray-500">{{ $p->categoria?->nombre ?? '—' }}</td>
+                            <td class="px-4 py-3">
+                                @if($p->estado === 'inactivo')
+                                    <span class="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
+                                        <i class="fas fa-ban text-[10px]"></i> Inactivo
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">
+                                        <i class="fas fa-exclamation-circle text-[10px]"></i> Descontinuado
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-gray-400 text-xs">
+                                {{ $p->updated_at->format('d/m/Y') }}
+                            </td>
+                            @if($canDelete)
+                            <td class="px-4 py-3 text-center">
+                                <form action="{{ route('inventario.productos.reactivar', $p) }}" method="POST" class="inline"
+                                      onsubmit="return confirm('¿Reactivar el producto {{ addslashes($p->nombre) }}?')">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button type="submit"
+                                            class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition">
+                                        <i class="fas fa-redo-alt"></i> Reactivar
+                                    </button>
+                                </form>
+                            </td>
+                            @endif
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    </div>
+    @endif
+
     <script>
-        // Inicializar tooltips si estás usando algún framework
-        document.addEventListener('DOMContentLoaded', function() {
-            // Si usas Bootstrap u otro, inicializar tooltips aquí
-        });
+        document.addEventListener('DOMContentLoaded', function() {});
     </script>
 </body>
 </html>
