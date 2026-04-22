@@ -110,7 +110,7 @@ class VentaService
                 // Si hay pago, procesarlo y registrar en caja
                 if ($pago) {
                     $this->procesarPago($venta, $pago);
-                    $this->registrarEnCaja($venta, $pago['metodo_pago'] ?? 'efectivo');
+                    $this->registrarEnCaja($venta, 'venta');
                 }
             }
 
@@ -728,28 +728,48 @@ class VentaService
     }
 
     /**
-     * Registrar en caja
+     * Registrar en caja.
+     * $contexto: 'venta' (ingreso) | 'anulacion' | 'eliminacion' | 'nota_credito' (egreso/devolución)
      */
-    private function registrarEnCaja(Venta $venta, string $metodoPago)
+    private function registrarEnCaja(Venta $venta, string $contexto)
     {
         $caja = \App\Models\Caja::where('user_id', auth()->id())
             ->where('estado', 'abierta')
             ->first();
 
-        if ($caja) {
-            $cajaService = app(CajaService::class);
-            $cajaService->registrarMovimiento(
-                $caja->id,
-                'ingreso',
-                $venta->total,
-                'Venta #' . $venta->codigo,
-                $venta->id,
-                null,
-                null,
-                $metodoPago,
-                null
-            );
+        if (!$caja) {
+            return;
         }
+
+        $esDevolucion = in_array($contexto, ['anulacion', 'eliminacion', 'nota_credito']);
+        $tipo         = $esDevolucion ? 'egreso' : 'ingreso';
+
+        // Usar el método de pago registrado en la venta (siempre dentro del ENUM)
+        $metodosValidos = ['efectivo', 'yape', 'plin', 'transferencia', 'mixto'];
+        $metodoPago     = in_array($venta->metodo_pago, $metodosValidos)
+            ? $venta->metodo_pago
+            : 'efectivo';
+
+        $conceptos = [
+            'venta'       => 'Venta #' . $venta->codigo,
+            'anulacion'   => 'Anulación venta #' . $venta->codigo,
+            'eliminacion' => 'Eliminación venta #' . $venta->codigo,
+            'nota_credito'=> 'Nota Crédito venta #' . $venta->codigo,
+        ];
+        $concepto = $conceptos[$contexto] ?? 'Venta #' . $venta->codigo;
+
+        $cajaService = app(CajaService::class);
+        $cajaService->registrarMovimiento(
+            $caja->id,
+            $tipo,
+            $venta->total,
+            $concepto,
+            $venta->id,
+            null,
+            null,
+            $metodoPago,
+            null
+        );
     }
 
     /**
@@ -830,7 +850,7 @@ class VentaService
                 'usuario_confirma_id' => auth()->id(),
             ]);
 
-            $this->registrarEnCaja($venta, $metodoPago);
+            $this->registrarEnCaja($venta, 'venta');
 
             Log::info('Cotización convertida a venta', [
                 'venta_id'         => $venta->id,
@@ -860,7 +880,7 @@ class VentaService
                 'fecha_confirmacion'  => now(),
             ]);
 
-            $this->registrarEnCaja($venta, $metodoPago);
+            $this->registrarEnCaja($venta, 'venta');
         });
 
         return $venta;
