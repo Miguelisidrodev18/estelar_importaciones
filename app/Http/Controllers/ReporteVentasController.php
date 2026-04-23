@@ -128,6 +128,8 @@ class ReporteVentasController extends Controller
             ->join('ventas as v', 'dv.venta_id', '=', 'v.id')
             ->join('productos as p', 'dv.producto_id', '=', 'p.id')
             ->leftJoin('categorias as c', 'p.categoria_id', '=', 'c.id')
+            ->leftJoin('producto_variantes as pv', 'dv.variante_id', '=', 'pv.id')
+            ->leftJoin('colores as col', 'pv.color_id', '=', 'col.id')
             ->where('v.estado_pago', 'pagado')
             ->whereBetween('v.fecha', [$desde, $hasta]);
 
@@ -146,8 +148,8 @@ class ReporteVentasController extends Controller
         $row = $this->baseQuery($desde, $hasta, $almacenId, $categoriaId)
             ->selectRaw('
                 COALESCE(SUM(dv.subtotal * 1.18), 0) as total_ventas,
-                COALESCE(SUM(dv.cantidad * p.costo_promedio), 0) as total_costo,
-                COALESCE(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - p.costo_promedio)), 0) as ganancia_bruta,
+                COALESCE(SUM(dv.cantidad * COALESCE(pv.costo_promedio, p.costo_promedio)), 0) as total_costo,
+                COALESCE(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - COALESCE(pv.costo_promedio, p.costo_promedio))), 0) as ganancia_bruta,
                 COUNT(DISTINCT v.id) as num_ventas,
                 COALESCE(SUM(dv.cantidad), 0) as unidades_vendidas
             ')
@@ -173,7 +175,7 @@ class ReporteVentasController extends Controller
             ->selectRaw('
                 DATE(v.fecha) as fecha,
                 COALESCE(SUM(dv.subtotal * 1.18), 0) as total_ventas,
-                COALESCE(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - p.costo_promedio)), 0) as ganancia
+                COALESCE(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - COALESCE(pv.costo_promedio, p.costo_promedio))), 0) as ganancia
             ')
             ->groupBy(DB::raw('DATE(v.fecha)'))
             ->orderBy(DB::raw('DATE(v.fecha)'))
@@ -186,9 +188,9 @@ class ReporteVentasController extends Controller
             ->selectRaw('
                 p.nombre,
                 COALESCE(SUM(dv.subtotal * 1.18), 0) as total_ventas,
-                COALESCE(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - p.costo_promedio)), 0) as ganancia,
+                COALESCE(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - COALESCE(pv.costo_promedio, p.costo_promedio))), 0) as ganancia,
                 CASE WHEN SUM(dv.subtotal * 1.18) > 0
-                    THEN SUM(dv.cantidad * (dv.precio_unitario * 1.18 - p.costo_promedio)) / SUM(dv.subtotal * 1.18) * 100
+                    THEN SUM(dv.cantidad * (dv.precio_unitario * 1.18 - COALESCE(pv.costo_promedio, p.costo_promedio))) / SUM(dv.subtotal * 1.18) * 100
                     ELSE 0 END as margen
             ')
             ->groupBy('p.id', 'p.nombre')
@@ -203,7 +205,7 @@ class ReporteVentasController extends Controller
             ->selectRaw('
                 COALESCE(c.nombre, "Sin categoría") as categoria,
                 COALESCE(SUM(dv.subtotal * 1.18), 0) as total_ventas,
-                COALESCE(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - p.costo_promedio)), 0) as ganancia
+                COALESCE(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - COALESCE(pv.costo_promedio, p.costo_promedio))), 0) as ganancia
             ')
             ->groupBy('p.categoria_id', 'c.nombre')
             ->orderByDesc('total_ventas')
@@ -215,23 +217,39 @@ class ReporteVentasController extends Controller
         return $this->baseQuery($desde, $hasta, $almacenId, $categoriaId)
             ->selectRaw('
                 p.id,
-                p.codigo,
+                COALESCE(pv.sku, p.codigo) as codigo,
                 p.nombre,
+                CASE
+                    WHEN pv.id IS NOT NULL
+                    THEN TRIM(CONCAT(COALESCE(col.nombre, ""), " ", COALESCE(pv.capacidad, "")))
+                    ELSE NULL
+                END as nombre_variante,
                 COALESCE(c.nombre, "Sin categoría") as categoria,
                 SUM(dv.cantidad) as cantidad_vendida,
-                AVG(dv.precio_unitario * 1.18) as precio_promedio,
-                p.costo_promedio as costo_unitario,
-                AVG(dv.precio_unitario * 1.18) - p.costo_promedio as ganancia_unitaria,
-                CASE WHEN AVG(dv.precio_unitario * 1.18) > 0
-                    THEN (AVG(dv.precio_unitario * 1.18) - p.costo_promedio) / AVG(dv.precio_unitario * 1.18) * 100
+                SUM(dv.subtotal * 1.18) / NULLIF(SUM(dv.cantidad), 0) as precio_promedio,
+                COALESCE(pv.costo_promedio, p.costo_promedio) as costo_unitario,
+                SUM(dv.subtotal * 1.18) / NULLIF(SUM(dv.cantidad), 0)
+                    - COALESCE(pv.costo_promedio, p.costo_promedio) as ganancia_unitaria,
+                CASE WHEN SUM(dv.subtotal * 1.18) > 0
+                    THEN (SUM(dv.subtotal * 1.18) / SUM(dv.cantidad) - COALESCE(pv.costo_promedio, p.costo_promedio))
+                         / (SUM(dv.subtotal * 1.18) / SUM(dv.cantidad)) * 100
                     ELSE 0 END as margen_porcentaje,
-                CASE WHEN AVG(dv.precio_unitario) > 0
-                    THEN (AVG(dv.precio_unitario) - p.costo_promedio) / AVG(dv.precio_unitario) * 100
+                CASE WHEN SUM(dv.subtotal) > 0
+                    THEN (SUM(dv.subtotal) / SUM(dv.cantidad) - COALESCE(pv.costo_promedio, p.costo_promedio))
+                         / (SUM(dv.subtotal) / SUM(dv.cantidad)) * 100
                     ELSE 0 END as margen_bruto_sin_igv,
                 SUM(dv.subtotal * 1.18) as total_vendido,
-                SUM(dv.cantidad * (dv.precio_unitario * 1.18 - p.costo_promedio)) as total_ganancia
+                SUM(dv.cantidad * (dv.precio_unitario * 1.18 - COALESCE(pv.costo_promedio, p.costo_promedio))) as total_ganancia,
+                SUM(dv.subtotal) / NULLIF(SUM(dv.cantidad), 0)
+                    - COALESCE(pv.costo_promedio, p.costo_promedio) as ganancia_real_unit,
+                SUM(dv.cantidad * (dv.precio_unitario - COALESCE(pv.costo_promedio, p.costo_promedio))) as total_ganancia_real
             ')
-            ->groupBy('p.id', 'p.codigo', 'p.nombre', 'c.nombre', 'p.costo_promedio')
+            ->groupBy(
+                'p.id', 'p.codigo', 'p.nombre', 'c.nombre',
+                'p.costo_promedio', 'pv.id', 'pv.sku', 'pv.capacidad',
+                'pv.costo_promedio', 'col.nombre'
+            )
+            ->orderBy('p.nombre')
             ->orderByDesc('total_ganancia')
             ->get();
     }

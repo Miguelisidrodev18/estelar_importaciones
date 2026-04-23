@@ -334,14 +334,43 @@
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Cant.</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">P. Venta Prom.</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Costo Unit.</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Gan. Unit.</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Margen %</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                                    <span class="flex items-center justify-end gap-1">
+                                        Gan. Unit.
+                                        @include('reportes.info-tip', ['tip' => 'Ganancia por unidad sobre el precio cobrado al cliente (incluye IGV).'])
+                                    </span>
+                                </th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                                    <span class="flex items-center justify-end gap-1">
+                                        <span>Gan. Real Unit.<span class="block text-gray-400 font-normal normal-case tracking-normal" style="font-size:9px">(s/ IGV)</span></span>
+                                        @include('reportes.info-tip', ['tip' => 'Lo que queda en el negocio por unidad después de descontar el IGV (18%) que se paga a SUNAT. = Precio sin IGV − Costo'])
+                                    </span>
+                                </th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                                    Margen Bruto
-                                    <span class="block text-gray-400 font-normal normal-case tracking-normal" style="font-size:9px">(s/ IGV)</span>
+                                    <span class="flex items-center justify-center gap-1">
+                                        Margen %
+                                        @include('reportes.info-tip', ['tip' => 'Margen sobre el precio total con IGV. = (Precio con IGV − Costo) / Precio con IGV × 100'])
+                                    </span>
+                                </th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                                    <span class="flex items-center justify-center gap-1">
+                                        <span>Margen Bruto<span class="block text-gray-400 font-normal normal-case tracking-normal" style="font-size:9px">(s/ IGV)</span></span>
+                                        @include('reportes.info-tip', ['tip' => 'Margen real del negocio sobre la base imponible (sin IGV). = (Precio sin IGV − Costo) / Precio sin IGV × 100'])
+                                    </span>
                                 </th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Total Vendido</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Total Ganancia</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                                    <span class="flex items-center justify-end gap-1">
+                                        Total Ganancia
+                                        @include('reportes.info-tip', ['tip' => 'Suma de ganancias sobre el precio cobrado (con IGV).'])
+                                    </span>
+                                </th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                                    <span class="flex items-center justify-end gap-1">
+                                        <span>Total Gan. Real<span class="block text-gray-400 font-normal normal-case tracking-normal" style="font-size:9px">(s/ IGV)</span></span>
+                                        @include('reportes.info-tip', ['tip' => 'Ganancia neta real: lo que ingresa al negocio después de pagar el IGV a SUNAT. = Σ (Precio sin IGV − Costo) × Cantidad'])
+                                    </span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody id="tbodyProductos" class="divide-y divide-gray-100">
@@ -354,11 +383,16 @@
                                         : 'bg-red-100 text-red-600'));
                                 @endphp
                                 <tr class="hover:bg-gray-50 transition-colors"
-                                    data-nombre="{{ strtolower($row->nombre) }}"
+                                    data-nombre="{{ strtolower($row->nombre . ' ' . ($row->nombre_variante ?? '')) }}"
                                     data-codigo="{{ strtolower($row->codigo ?? '') }}">
                                     <td class="px-4 py-3 sticky left-0 bg-white hover:bg-gray-50">
                                         <div class="font-medium text-gray-900">{{ $row->nombre }}</div>
-                                        <div class="text-xs text-gray-400 font-mono">{{ $row->codigo }}</div>
+                                        @if($row->nombre_variante)
+                                            <div class="text-xs font-medium text-indigo-600 mt-0.5">
+                                                <i class="fas fa-tag mr-1 opacity-60"></i>{{ $row->nombre_variante }}
+                                            </div>
+                                        @endif
+                                        <div class="text-xs text-gray-400 font-mono mt-0.5">{{ $row->codigo }}</div>
                                     </td>
                                     <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ $row->categoria }}</td>
                                     <td class="px-4 py-3 text-right font-semibold text-gray-800">{{ number_format($row->cantidad_vendida) }}</td>
@@ -367,6 +401,10 @@
                                     <td class="px-4 py-3 text-right font-medium
                                         {{ $row->ganancia_unitaria >= 0 ? 'text-green-600' : 'text-red-500' }}">
                                         S/ {{ number_format($row->ganancia_unitaria, 2) }}
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-medium
+                                        {{ $row->ganancia_real_unit >= 0 ? 'text-teal-600' : 'text-red-500' }}">
+                                        S/ {{ number_format($row->ganancia_real_unit, 2) }}
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold {{ $margenColor }}">
@@ -390,6 +428,10 @@
                                         {{ $row->total_ganancia >= 0 ? 'text-green-700' : 'text-red-600' }}">
                                         S/ {{ number_format($row->total_ganancia, 2) }}
                                     </td>
+                                    <td class="px-4 py-3 text-right font-bold
+                                        {{ $row->total_ganancia_real >= 0 ? 'text-teal-700' : 'text-red-600' }}">
+                                        S/ {{ number_format($row->total_ganancia_real, 2) }}
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
@@ -412,9 +454,10 @@
                                         TOTALES
                                     </td>
                                     <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($totalCantidad) }}</td>
-                                    <td colspan="5"></td>
+                                    <td colspan="6"></td>
                                     <td class="px-4 py-3 text-right font-bold text-gray-800">S/ {{ number_format($totalVendido, 2) }}</td>
                                     <td class="px-4 py-3 text-right font-bold text-green-700">S/ {{ number_format($totalGanancia, 2) }}</td>
+                                    <td class="px-4 py-3 text-right font-bold text-teal-700">S/ {{ number_format($tablaProductos->sum('total_ganancia_real'), 2) }}</td>
                                 </tr>
                             </tfoot>
                         @endif
