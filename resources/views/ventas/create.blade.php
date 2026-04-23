@@ -192,8 +192,14 @@
                             <div class="p-2">
                                 <p class="text-[11px] text-gray-700 dark:text-gray-200 font-medium line-clamp-2 leading-tight mb-1" x-text="producto.nombre"></p>
                                 <div class="flex items-center justify-between gap-1">
-                                    <p class="text-sm font-bold text-blue-600 dark:text-blue-400"
-                                       x-text="(producto.tiene_variantes ? 'Desde ' : '') + 'S/ ' + producto.precio_venta.toFixed(2)"></p>
+                                    <div>
+                                        <p class="text-sm font-bold"
+                                           :class="modoMayorista && producto.precio_mayorista ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'"
+                                           x-text="(producto.tiene_variantes ? 'Desde ' : '') + 'S/ ' + (modoMayorista && producto.precio_mayorista ? producto.precio_mayorista.toFixed(2) : producto.precio_venta.toFixed(2))"></p>
+                                        <p x-show="producto.precio_mayorista" x-cloak
+                                           class="text-[9px] text-amber-500 dark:text-amber-400 font-semibold leading-tight"
+                                           x-text="modoMayorista ? 'Regular: S/ ' + producto.precio_venta.toFixed(2) : 'Mayor: S/ ' + producto.precio_mayorista?.toFixed(2)"></p>
+                                    </div>
                                     <span x-show="orden.almacenId && producto.tipo_inventario !== 'serie'" x-cloak
                                           class="text-[9px] font-semibold text-gray-400 dark:text-gray-500 shrink-0"
                                           x-text="stockEnAlmacen(producto) + ' u.'"></span>
@@ -259,11 +265,22 @@
                           class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold"
                           x-text="orden.carrito.reduce((s, i) => s + i.cantidad, 0) + ' ítems'"></span>
                 </div>
-                <button @click="vaciarCarrito()"
-                        x-show="orden.carrito.length > 0" x-cloak
-                        class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition flex items-center gap-1">
-                    <i class="fas fa-trash-alt text-xs"></i> Vaciar
-                </button>
+                <div class="flex items-center gap-2">
+                    {{-- Toggle Modo Mayorista --}}
+                    <button @click="modoMayorista = !modoMayorista"
+                            :class="modoMayorista
+                                ? 'bg-amber-500 text-white border-amber-500'
+                                : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600'"
+                            class="flex items-center gap-1.5 text-[11px] font-semibold border rounded-lg px-2 py-1 transition">
+                        <i class="fas fa-tags text-[10px]"></i>
+                        <span x-text="modoMayorista ? 'Mayorista ✓' : 'Mayorista'"></span>
+                    </button>
+                    <button @click="vaciarCarrito()"
+                            x-show="orden.carrito.length > 0" x-cloak
+                            class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition flex items-center gap-1">
+                        <i class="fas fa-trash-alt text-xs"></i> Vaciar
+                    </button>
+                </div>
             </div>
 
             {{-- Almacén selector --}}
@@ -619,21 +636,30 @@
                     {{-- Payment rows --}}
                     <div class="space-y-2">
                         <template x-for="(pago, pi) in orden.pagos" :key="pi">
-                            <div class="flex items-center gap-2">
-                                <select x-model="pago.metodo"
-                                        class="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
-                                    <option value="efectivo">💵 Efectivo</option>
-                                    <option value="yape">📱 Yape</option>
-                                    <option value="plin">📱 Plin</option>
-                                    <option value="transferencia">🏦 Transferencia</option>
-                                </select>
-                                <input type="number" x-model.number="pago.monto" step="0.50" min="0"
-                                       :placeholder="pi === 0 && orden.pagos.length === 1 ? total.toFixed(2) : '0.00'"
-                                       class="w-24 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-xs text-right font-mono text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
-                                <button x-show="orden.pagos.length > 1" @click="quitarPago(pi)" x-cloak
-                                        class="text-gray-400 hover:text-red-500 transition">
-                                    <i class="fas fa-times text-sm"></i>
-                                </button>
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <select x-model="pago.metodo"
+                                            class="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                                        <option value="efectivo">💵 Efectivo</option>
+                                        <option value="yape">📱 Yape</option>
+                                        <option value="plin">📱 Plin</option>
+                                        <option value="transferencia">🏦 Transferencia</option>
+                                    </select>
+                                    <input type="number" x-model.number="pago.monto" step="0.50" min="0"
+                                           :placeholder="pi === 0 && orden.pagos.length === 1 ? total.toFixed(2) : '0.00'"
+                                           class="w-24 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-xs text-right font-mono text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                                    <button x-show="orden.pagos.length > 1" @click="quitarPago(pi)" x-cloak
+                                            class="text-gray-400 hover:text-red-500 transition">
+                                        <i class="fas fa-times text-sm"></i>
+                                    </button>
+                                </div>
+                                {{-- N° Operación (solo métodos digitales) --}}
+                                <div x-show="pago.metodo !== 'efectivo'" x-cloak>
+                                    <input type="text" x-model="pago.referencia"
+                                           :placeholder="pago.metodo === 'transferencia' ? 'N° operación / referencia' : 'Código de operación'"
+                                           maxlength="100"
+                                           class="w-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-2 py-1.5 text-xs text-gray-700 dark:text-gray-200 placeholder-amber-400 dark:placeholder-amber-600 focus:ring-2 focus:ring-amber-400">
+                                </div>
                             </div>
                         </template>
                     </div>
@@ -966,8 +992,16 @@
                             <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" x-text="v.nombre_completo"></span>
                         </div>
                         <div class="flex items-center justify-between text-xs mt-1">
-                            <span class="font-semibold text-blue-600 dark:text-blue-400"
-                                  x-text="'S/ ' + (v.precio_venta != null ? parseFloat(v.precio_venta) : (parseFloat(productoActual?.precio_venta || 0) + parseFloat(v.sobreprecio || 0))).toFixed(2)"></span>
+                            <div>
+                                <span class="font-semibold"
+                                      :class="modoMayorista && (v.precio_mayorista != null || productoActual?.precio_mayorista != null) ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'"
+                                      x-text="'S/ ' + (modoMayorista && (v.precio_mayorista != null || productoActual?.precio_mayorista != null)
+                                          ? parseFloat(v.precio_mayorista ?? productoActual?.precio_mayorista)
+                                          : (v.precio_venta != null ? parseFloat(v.precio_venta) : (parseFloat(productoActual?.precio_venta || 0) + parseFloat(v.sobreprecio || 0)))).toFixed(2)"></span>
+                                <span x-show="(v.precio_mayorista != null || productoActual?.precio_mayorista != null)" x-cloak
+                                      class="block text-[9px] text-amber-500 font-medium leading-tight"
+                                      x-text="modoMayorista ? 'Regular: S/ ' + (v.precio_venta != null ? parseFloat(v.precio_venta) : (parseFloat(productoActual?.precio_venta || 0) + parseFloat(v.sobreprecio || 0))).toFixed(2) : 'Mayor: S/ ' + parseFloat(v.precio_mayorista ?? productoActual?.precio_mayorista).toFixed(2)"></span>
+                            </div>
                             <span :class="stockVarianteEnAlmacen(v) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'"
                                   x-text="productoActual?.tipo_inventario === 'serie'
                                       ? (orden.almacenId && v.stock_por_almacen?.[orden.almacenId] !== undefined
@@ -1398,7 +1432,7 @@ function crearOrden(id) {
             transportista_nombre:  '',
         },
         carrito:          [],
-        pagos:            [{ metodo: 'efectivo', monto: 0 }],
+        pagos:            [{ metodo: 'efectivo', monto: 0, referencia: '' }],
         condicionPago:    'contado',
         credito: {
             numero_cuotas:    3,
@@ -1445,6 +1479,7 @@ function posApp() {
         imeisDisponibles:     [],
         cargandoImeis:        false,
         cartItemEditIndex:    null,  // null = nuevo ítem, number = agregar IMEIs a ítem existente
+        modoMayorista:        false,
 
         // ── Client modal ──
         showModalCliente: false,
@@ -1466,9 +1501,18 @@ function posApp() {
         get orden() { return this.ordenes[this.ordenActiva]; },
 
         // ── Computed: financials ──
-        get subtotal()    { return this.orden.carrito.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0); },
-        get igv()         { return this.subtotal * 0.18; },
-        get total()       { return this.subtotal + this.igv; },
+        // total = suma exacta de (precio_con_igv × qty) por línea → evita error de redondeo /1.18
+        get total() {
+            return Math.round(
+                this.orden.carrito.reduce((s, i) => {
+                    const precioConIgv = i.incluye_igv ? i.precio_unitario
+                        : Math.round(i.precio_unitario * 1.18 * 100) / 100;
+                    return s + precioConIgv * i.cantidad;
+                }, 0) * 100
+            ) / 100;
+        },
+        get subtotal()    { return Math.round(this.total / 1.18 * 100) / 100; },
+        get igv()         { return Math.round((this.total - this.subtotal) * 100) / 100; },
         get totalPagado() { return this.orden.pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0); },
         get vuelto()      { return Math.max(0, this.totalPagado - this.total); },
         get falta()       { return Math.max(0, this.total - this.totalPagado); },
@@ -1633,12 +1677,14 @@ function posApp() {
                     this.toast('warning', 'Stock máximo alcanzado');
                 }
             } else {
+                const precioBase = this.modoMayorista && producto.precio_mayorista
+                    ? producto.precio_mayorista
+                    : producto.precio_venta;
                 this.orden.carrito.push({
                     producto_id: producto.id, variante_id: null,
                     nombre: producto.nombre,
-                    precio_unitario: producto.incluye_igv
-                        ? Math.round((producto.precio_venta / 1.18) * 100) / 100
-                        : producto.precio_venta,
+                    precio_unitario: precioBase,
+                    incluye_igv: !!producto.incluye_igv,
                     cantidad: 1, stock_disponible: stockAlmacen,
                     tipo_inventario: producto.tipo_inventario, imeis: []
                 });
@@ -1649,11 +1695,14 @@ function posApp() {
         seleccionarVariante(v) {
             this.varianteActual = v;
             this.mostrarModalVariante = false;
-            const precioBase     = v.precio_venta != null
+            const precioBaseRegular = v.precio_venta != null
                 ? parseFloat(v.precio_venta)
                 : parseFloat(this.productoActual.precio_venta || 0) + parseFloat(v.sobreprecio || 0);
+            const precioBaseMayor = (this.modoMayorista && (v.precio_mayorista != null || this.productoActual.precio_mayorista != null))
+                ? parseFloat(v.precio_mayorista ?? this.productoActual.precio_mayorista)
+                : null;
+            const precioBase     = precioBaseMayor ?? precioBaseRegular;
             const incluyeIgv     = v.incluye_igv != null ? v.incluye_igv : this.productoActual.incluye_igv;
-            const precioFinal    = incluyeIgv ? Math.round((precioBase / 1.18) * 100) / 100 : precioBase;
             const nombreCompleto = this.productoActual.nombre + (v.nombre_completo ? ' — ' + v.nombre_completo : '');
             const stockDisponible = this.stockVarianteEnAlmacen(v);
             if (this.productoActual.tipo_inventario === 'serie') {
@@ -1669,7 +1718,8 @@ function posApp() {
                 this.orden.carrito.push({
                     producto_id: this.productoActual.id, variante_id: v.id,
                     nombre: nombreCompleto,
-                    precio_unitario: precioFinal,
+                    precio_unitario: precioBase,
+                    incluye_igv: !!incluyeIgv,
                     cantidad: 1, stock_disponible: stockDisponible,
                     tipo_inventario: this.productoActual.tipo_inventario, imeis: []
                 });
@@ -1714,7 +1764,7 @@ function posApp() {
         // ══════════════════════════════════════
         // PAYMENTS
         // ══════════════════════════════════════
-        agregarPago() { if (this.orden.pagos.length >= 4) return; this.orden.pagos.push({ metodo: 'efectivo', monto: 0 }); },
+        agregarPago() { if (this.orden.pagos.length >= 4) return; this.orden.pagos.push({ metodo: 'efectivo', monto: 0, referencia: '' }); },
         quitarPago(idx) { this.orden.pagos.splice(idx, 1); },
 
         // Crédito helpers
@@ -1784,9 +1834,23 @@ function posApp() {
                 metodoPago = null;
             } else if (this.orden.pagos.length > 1) {
                 metodoPago   = 'mixto';
-                pagosDetalle = this.orden.pagos.map(p => ({ metodo: p.metodo, monto: parseFloat(p.monto) || 0 }));
+                pagosDetalle = this.orden.pagos.map(p => ({
+                    metodo:     p.metodo,
+                    monto:      parseFloat(p.monto) || 0,
+                    referencia: p.referencia?.trim() || null,
+                }));
             } else if (this.orden.tipoComprobante === 'cotizacion') {
                 metodoPago = null;
+            } else {
+                // Pago único: también guardar referencia si existe
+                const p0 = this.orden.pagos[0];
+                if (p0.referencia?.trim()) {
+                    pagosDetalle = [{
+                        metodo:     p0.metodo,
+                        monto:      parseFloat(p0.monto) || 0,
+                        referencia: p0.referencia.trim(),
+                    }];
+                }
             }
 
             try {
@@ -1826,6 +1890,7 @@ function posApp() {
                             variante_id:      i.variante_id || null,
                             cantidad:         i.cantidad,
                             precio_unitario:  i.precio_unitario,
+                            incluye_igv:      i.incluye_igv ?? false,
                             imeis:            i.imeis || []
                         }))
                     })
@@ -1900,16 +1965,20 @@ function posApp() {
             }
             // Modo nuevo: crear ítem en el carrito
             const v = this.varianteActual;
-            const precioBase     = (v && v.precio_venta != null)
+            const precioRegular  = (v && v.precio_venta != null)
                 ? parseFloat(v.precio_venta)
                 : parseFloat(this.productoActual.precio_venta || 0) + (v ? parseFloat(v.sobreprecio || 0) : 0);
+            const precioMayor    = this.modoMayorista
+                ? parseFloat(v?.precio_mayorista ?? this.productoActual.precio_mayorista ?? precioRegular)
+                : null;
+            const precioBase     = precioMayor ?? precioRegular;
             const incluyeIgv     = (v && v.incluye_igv != null) ? v.incluye_igv : this.productoActual.incluye_igv;
-            const precioFinal    = incluyeIgv ? Math.round((precioBase / 1.18) * 100) / 100 : precioBase;
             const nombreCompleto = this.productoActual.nombre + (v?.nombre_completo ? ' — ' + v.nombre_completo : '');
             this.orden.carrito.push({
                 producto_id: this.productoActual.id, variante_id: v ? v.id : null,
                 nombre: nombreCompleto,
-                precio_unitario: precioFinal,
+                precio_unitario: precioBase,
+                incluye_igv: !!incluyeIgv,
                 cantidad: this.imeisTemp.length, stock_disponible: this.imeisTemp.length,
                 tipo_inventario: 'serie', imeis: this.imeisTemp.map(i => ({ codigo_imei: i.codigo_imei }))
             });

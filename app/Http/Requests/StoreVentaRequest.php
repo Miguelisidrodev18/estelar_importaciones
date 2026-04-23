@@ -52,8 +52,9 @@ class StoreVentaRequest extends FormRequest
             'condicion_pago'           => 'nullable|in:contado,credito',
             'metodo_pago'              => 'nullable|in:efectivo,transferencia,yape,plin,mixto',
             'pagos_detalle'            => 'nullable|array',
-            'pagos_detalle.*.metodo'   => 'required_with:pagos_detalle|in:efectivo,transferencia,yape,plin',
-            'pagos_detalle.*.monto'    => 'required_with:pagos_detalle|numeric|min:0.01',
+            'pagos_detalle.*.metodo'    => 'required_with:pagos_detalle|in:efectivo,transferencia,yape,plin',
+            'pagos_detalle.*.monto'     => 'required_with:pagos_detalle|numeric|min:0.01',
+            'pagos_detalle.*.referencia'=> 'nullable|string|max:100',
 
             // Crédito
             'credito'                        => 'nullable|array',
@@ -67,6 +68,7 @@ class StoreVentaRequest extends FormRequest
             'detalles.*.variante_id'         => 'nullable|exists:producto_variantes,id',
             'detalles.*.cantidad'            => 'required|integer|min:1',
             'detalles.*.precio_unitario'     => 'required|numeric|min:0.01',
+            'detalles.*.incluye_igv'         => 'nullable|boolean',
             'detalles.*.imeis'               => 'nullable|array',
             'detalles.*.imeis.*.codigo_imei' => 'nullable|string',
         ];

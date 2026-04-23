@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Empresa;
 use App\Models\Venta;
 use App\Models\SerieComprobante;
 use App\Models\Sucursal;
@@ -159,5 +160,145 @@ class FacturacionElectronicaController extends Controller
         $sucursales = Sucursal::with('series')->orderBy('nombre')->get();
 
         return view('facturacion.configuracion', compact('sucursales'));
+    }
+
+    public function downloadXml(Venta $venta)
+    {
+        $venta->load(['cliente', 'serieComprobante', 'detalles.producto', 'detalles.variante']);
+        $empresa = Empresa::instancia();
+
+        $tipoDoc  = match($venta->tipo_comprobante) {
+            'factura'        => '01',
+            'boleta'         => '03',
+            'nota_credito'   => '07',
+            'nota_debito'    => '08',
+            default          => '03',
+        };
+
+        $serie       = $venta->serieComprobante?->serie ?? 'B001';
+        $correlativo = str_pad($venta->correlativo ?? 1, 8, '0', STR_PAD_LEFT);
+        $id          = "{$serie}-{$correlativo}";
+        $fecha       = $venta->fecha->format('Y-m-d');
+
+        $subtotalBase = (float) $venta->subtotal;
+        $igvTotal     = (float) $venta->igv;
+        $totalPagar   = (float) $venta->total;
+
+        $tipoDocCliente = match(strtolower($venta->cliente?->tipo_documento ?? 'dni')) {
+            'ruc'       => '6',
+            'dni'       => '1',
+            'pasaporte' => '7',
+            'ce'        => '4',
+            default     => '0',
+        };
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $xml .= '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"' . "\n";
+        $xml .= '  xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"' . "\n";
+        $xml .= '  xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"' . "\n";
+        $xml .= '  xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">' . "\n";
+
+        $xml .= "  <ext:UBLExtensions><ext:UBLExtension><ext:ExtensionContent/></ext:UBLExtension></ext:UBLExtensions>\n";
+        $xml .= "  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>\n";
+        $xml .= "  <cbc:CustomizationID>2.0</cbc:CustomizationID>\n";
+        $xml .= "  <cbc:ID>{$id}</cbc:ID>\n";
+        $xml .= "  <cbc:IssueDate>{$fecha}</cbc:IssueDate>\n";
+        $xml .= "  <cbc:InvoiceTypeCode listID=\"{$tipoDoc}\">{$tipoDoc}</cbc:InvoiceTypeCode>\n";
+        $xml .= "  <cbc:DocumentCurrencyCode>PEN</cbc:DocumentCurrencyCode>\n";
+
+        // Emisor
+        $xml .= "  <cac:AccountingSupplierParty>\n";
+        $xml .= "    <cac:Party>\n";
+        $xml .= "      <cac:PartyIdentification>\n";
+        $xml .= "        <cbc:ID schemeID=\"6\">" . e($empresa?->ruc ?? '') . "</cbc:ID>\n";
+        $xml .= "      </cac:PartyIdentification>\n";
+        $xml .= "      <cac:PartyLegalEntity>\n";
+        $xml .= "        <cbc:RegistrationName>" . e($empresa?->razon_social ?? '') . "</cbc:RegistrationName>\n";
+        $xml .= "        <cac:RegistrationAddress>\n";
+        $xml .= "          <cbc:AddressLine><cbc:Line>" . e($empresa?->direccion ?? '') . "</cbc:Line></cbc:AddressLine>\n";
+        $xml .= "        </cac:RegistrationAddress>\n";
+        $xml .= "      </cac:PartyLegalEntity>\n";
+        $xml .= "    </cac:Party>\n";
+        $xml .= "  </cac:AccountingSupplierParty>\n";
+
+        // Receptor
+        $xml .= "  <cac:AccountingCustomerParty>\n";
+        $xml .= "    <cac:Party>\n";
+        $xml .= "      <cac:PartyIdentification>\n";
+        $xml .= "        <cbc:ID schemeID=\"{$tipoDocCliente}\">" . e($venta->cliente?->numero_documento ?? '-') . "</cbc:ID>\n";
+        $xml .= "      </cac:PartyIdentification>\n";
+        $xml .= "      <cac:PartyLegalEntity>\n";
+        $xml .= "        <cbc:RegistrationName>" . e($venta->cliente?->nombre ?? 'CLIENTE VARIOS') . "</cbc:RegistrationName>\n";
+        $xml .= "      </cac:PartyLegalEntity>\n";
+        $xml .= "    </cac:Party>\n";
+        $xml .= "  </cac:AccountingCustomerParty>\n";
+
+        // IGV
+        $xml .= "  <cac:TaxTotal>\n";
+        $xml .= "    <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvTotal, 2, '.', '') . "</cbc:TaxAmount>\n";
+        $xml .= "    <cac:TaxSubtotal>\n";
+        $xml .= "      <cbc:TaxableAmount currencyID=\"PEN\">" . number_format($subtotalBase, 2, '.', '') . "</cbc:TaxableAmount>\n";
+        $xml .= "      <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvTotal, 2, '.', '') . "</cbc:TaxAmount>\n";
+        $xml .= "      <cac:TaxCategory>\n";
+        $xml .= "        <cbc:ID schemeID=\"UN/ECE 5305\">S</cbc:ID>\n";
+        $xml .= "        <cbc:Percent>18</cbc:Percent>\n";
+        $xml .= "        <cac:TaxScheme><cbc:ID>1000</cbc:ID><cbc:Name>IGV</cbc:Name><cbc:TaxTypeCode>VAT</cbc:TaxTypeCode></cac:TaxScheme>\n";
+        $xml .= "      </cac:TaxCategory>\n";
+        $xml .= "    </cac:TaxSubtotal>\n";
+        $xml .= "  </cac:TaxTotal>\n";
+
+        // Totales
+        $xml .= "  <cac:LegalMonetaryTotal>\n";
+        $xml .= "    <cbc:LineExtensionAmount currencyID=\"PEN\">" . number_format($subtotalBase, 2, '.', '') . "</cbc:LineExtensionAmount>\n";
+        $xml .= "    <cbc:TaxInclusiveAmount currencyID=\"PEN\">" . number_format($totalPagar, 2, '.', '') . "</cbc:TaxInclusiveAmount>\n";
+        $xml .= "    <cbc:PayableAmount currencyID=\"PEN\">" . number_format($totalPagar, 2, '.', '') . "</cbc:PayableAmount>\n";
+        $xml .= "  </cac:LegalMonetaryTotal>\n";
+
+        // Líneas de detalle
+        foreach ($venta->detalles as $i => $det) {
+            $linea   = $i + 1;
+            $nombre  = $det->producto?->nombre ?? 'Producto';
+            if ($det->variante?->nombre_completo) {
+                $nombre .= ' - ' . $det->variante->nombre_completo;
+            }
+            $precioUnit  = (float) $det->precio_unitario;
+            $subtotalDet = (float) $det->subtotal;
+            $precioUnitSinIgv = round($precioUnit / 1.18, 6);
+            $igvLinea    = round($subtotalDet - ($subtotalDet / 1.18), 2);
+            $baseImponible = round($subtotalDet / 1.18, 2);
+
+            $xml .= "  <cac:InvoiceLine>\n";
+            $xml .= "    <cbc:ID>{$linea}</cbc:ID>\n";
+            $xml .= "    <cbc:InvoicedQuantity unitCode=\"NIU\">{$det->cantidad}</cbc:InvoicedQuantity>\n";
+            $xml .= "    <cbc:LineExtensionAmount currencyID=\"PEN\">" . number_format($baseImponible, 2, '.', '') . "</cbc:LineExtensionAmount>\n";
+            $xml .= "    <cac:TaxTotal>\n";
+            $xml .= "      <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvLinea, 2, '.', '') . "</cbc:TaxAmount>\n";
+            $xml .= "      <cac:TaxSubtotal>\n";
+            $xml .= "        <cbc:TaxableAmount currencyID=\"PEN\">" . number_format($baseImponible, 2, '.', '') . "</cbc:TaxableAmount>\n";
+            $xml .= "        <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvLinea, 2, '.', '') . "</cbc:TaxAmount>\n";
+            $xml .= "        <cac:TaxCategory>\n";
+            $xml .= "          <cbc:ID schemeID=\"UN/ECE 5305\">S</cbc:ID>\n";
+            $xml .= "          <cbc:Percent>18</cbc:Percent>\n";
+            $xml .= "          <cac:TaxScheme><cbc:ID>1000</cbc:ID><cbc:Name>IGV</cbc:Name><cbc:TaxTypeCode>VAT</cbc:TaxTypeCode></cac:TaxScheme>\n";
+            $xml .= "        </cac:TaxCategory>\n";
+            $xml .= "      </cac:TaxSubtotal>\n";
+            $xml .= "    </cac:TaxTotal>\n";
+            $xml .= "    <cac:Item>\n";
+            $xml .= "      <cbc:Description>" . e($nombre) . "</cbc:Description>\n";
+            $xml .= "    </cac:Item>\n";
+            $xml .= "    <cac:Price>\n";
+            $xml .= "      <cbc:PriceAmount currencyID=\"PEN\">" . number_format($precioUnitSinIgv, 6, '.', '') . "</cbc:PriceAmount>\n";
+            $xml .= "    </cac:Price>\n";
+            $xml .= "  </cac:InvoiceLine>\n";
+        }
+
+        $xml .= "</Invoice>\n";
+
+        $filename = "{$id}.xml";
+
+        return response($xml, 200, [
+            'Content-Type'        => 'application/xml; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 }

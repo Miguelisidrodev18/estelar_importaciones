@@ -213,6 +213,10 @@
                                class="text-red-500 hover:text-red-700 transition" title="Descargar PDF">
                                 <i class="fas fa-file-pdf"></i>
                             </a>
+                            <a href="{{ route('facturacion.xml', $comp) }}"
+                               class="text-green-600 hover:text-green-800 transition" title="Descargar XML">
+                                <i class="fas fa-file-code"></i>
+                            </a>
                         </div>
                     </td>
                 </tr>

@@ -165,6 +165,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Concepto</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Método</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Op.</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
                     </tr>
                 </thead>
@@ -191,7 +192,23 @@
                         </td>
                         <td class="px-4 py-3">
                             @php $mp = $mov->metodo_pago ?? 'efectivo'; @endphp
-                            <span class="text-xs text-gray-500 capitalize">{{ $mp }}</span>
+                            @php $mpColor = match($mp) {
+                                'yape'          => 'text-purple-600',
+                                'plin'          => 'text-teal-600',
+                                'transferencia' => 'text-blue-600',
+                                'mixto'         => 'text-orange-600',
+                                default         => 'text-gray-500',
+                            }; @endphp
+                            <span class="text-xs font-medium {{ $mpColor }} capitalize">{{ $mp }}</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            @if($mov->referencia)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-mono font-semibold">
+                                    <i class="fas fa-hashtag text-[9px]"></i>{{ $mov->referencia }}
+                                </span>
+                            @else
+                                <span class="text-gray-300 text-xs">—</span>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-right">
                             <span class="font-semibold {{ $mov->tipo === 'ingreso' ? 'text-green-600' : 'text-red-600' }}">
@@ -411,6 +428,41 @@
                     @if($arqueo['ventas_transferencia'] > 0)
                         <div class="flex justify-between"><span>Transferencia:</span><span>S/ {{ number_format($arqueo['ventas_transferencia'], 2) }}</span></div>
                     @endif
+                </div>
+                @endif
+
+                {{-- Listado de operaciones digitales con N° referencia --}}
+                @php
+                    $opsDigitales = $caja->movimientos
+                        ->where('tipo', 'ingreso')
+                        ->whereNotNull('referencia')
+                        ->whereIn('metodo_pago', ['yape', 'plin', 'transferencia'])
+                        ->sortBy('created_at');
+                @endphp
+                @if($opsDigitales->isNotEmpty())
+                <div class="mt-3 pt-2 border-t border-dashed border-amber-200">
+                    <p class="text-xs font-bold text-amber-700 mb-2 flex items-center gap-1">
+                        <i class="fas fa-list-ol text-[10px]"></i> Operaciones digitales registradas
+                    </p>
+                    <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        @foreach($opsDigitales as $op)
+                        @php $mpCol = match($op->metodo_pago) {
+                            'yape' => 'text-purple-700 bg-purple-50 border-purple-200',
+                            'plin' => 'text-teal-700 bg-teal-50 border-teal-200',
+                            default => 'text-blue-700 bg-blue-50 border-blue-200',
+                        }; @endphp
+                        <div class="flex items-center justify-between gap-2 rounded-lg border px-2 py-1 {{ $mpCol }}">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="text-[10px] font-bold capitalize shrink-0">{{ $op->metodo_pago }}</span>
+                                <span class="font-mono text-[10px] truncate">#{{ $op->referencia }}</span>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <span class="font-bold text-xs">S/ {{ number_format($op->monto, 2) }}</span>
+                                <span class="block text-[9px] opacity-60">{{ $op->created_at->format('H:i') }}</span>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
                 </div>
                 @endif
             </div>

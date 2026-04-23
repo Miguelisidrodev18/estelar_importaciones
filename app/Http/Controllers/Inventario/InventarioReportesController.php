@@ -43,6 +43,24 @@ class InventarioReportesController extends Controller
             ->groupBy('variante_id')
             ->map(fn($prices) => (float) $prices->first()->precio);
 
+        // ── Pre-cargar precios mayoristas por variante
+        $precioMayoristaPorVariante = \App\Models\ProductoPrecio::whereNotNull('variante_id')
+            ->where('activo', true)
+            ->where('tipo_precio', 'venta_mayorista')
+            ->orderByDesc('prioridad')
+            ->get(['variante_id', 'precio'])
+            ->groupBy('variante_id')
+            ->map(fn($prices) => (float) $prices->first()->precio);
+
+        // ── Pre-cargar precios mayoristas a nivel producto (sin variante)
+        $precioMayoristaPorProducto = \App\Models\ProductoPrecio::whereNull('variante_id')
+            ->where('activo', true)
+            ->where('tipo_precio', 'venta_mayorista')
+            ->orderByDesc('prioridad')
+            ->get(['producto_id', 'precio'])
+            ->groupBy('producto_id')
+            ->map(fn($prices) => (float) $prices->first()->precio);
+
         // ── Pre-calcular CPP por variante (Costo Promedio Ponderado real desde historial de compras)
         // Una sola query para todos los productos → evita N+1
         $cppPorVariante = DetalleCompra::whereNotNull('variante_id')
@@ -72,21 +90,26 @@ class InventarioReportesController extends Controller
                 'marca',
                 'variantesActivas.color',
                 'precios' => fn($q) => $q->where('activo', true)
-                                         ->where('tipo_precio', 'venta_regular')
+                                         ->whereIn('tipo_precio', ['venta_regular', 'venta_mayorista'])
                                          ->orderByDesc('prioridad'),
             ])
             ->when($categoriaId, fn($q) => $q->where('categoria_id', $categoriaId))
             ->when($marcaId,     fn($q) => $q->where('marca_id', $marcaId))
             ->orderBy('nombre')
             ->get()
-            ->map(function ($p) use ($almacenId, $cppPorVariante, $cppPorProducto, $imeisPorVariante, $precioVentaPorVariante) {
-                $precioVentaBase = (float) ($p->precios->first()?->precio ?? 0);
+            ->map(function ($p) use ($almacenId, $cppPorVariante, $cppPorProducto, $imeisPorVariante, $precioVentaPorVariante, $precioMayoristaPorVariante, $precioMayoristaPorProducto) {
+                $preciosRegulares = $p->precios->where('tipo_precio', 'venta_regular');
+                $precioVentaBase  = (float) ($preciosRegulares->first()?->precio ?? 0);
+                $precioMayoristaBase = isset($precioMayoristaPorProducto[$p->id])
+                    ? (float) $precioMayoristaPorProducto[$p->id]
+                    : null;
                 $cppProducto = (float) ($p->costo_promedio ?: $p->ultimo_costo_compra ?: 0);
 
                 if ($p->variantesActivas->isNotEmpty()) {
                     // ── Producto CON variantes: desglosar por variante ──────────────
                     $variantesData = $p->variantesActivas->map(function ($v) use (
-                        $almacenId, $cppPorVariante, $p, $precioVentaBase, $imeisPorVariante, $precioVentaPorVariante
+                        $almacenId, $cppPorVariante, $p, $precioVentaBase, $imeisPorVariante, $precioVentaPorVariante,
+                        $precioMayoristaPorVariante, $precioMayoristaBase
                     ) {
                         // Stock por variante
                         if ($p->tipo_inventario === 'serie') {
@@ -106,52 +129,68 @@ class InventarioReportesController extends Controller
                             ?? (float) ($v->costo_promedio ?: $v->ultimo_costo_compra ?: 0)
                             ?: (float) ($p->costo_promedio ?: $p->ultimo_costo_compra ?: 0);
 
-                        // Precio variante: usar precio configurado en gestión de precios si existe,
-                        // si no, precio base del producto + sobreprecio de la variante
+                        // Precio regular: gestión de precios si existe, si no precio base + sobreprecio
                         $pv = $precioVentaPorVariante[$v->id] ?? ($precioVentaBase + (float) $v->sobreprecio);
+                        // Precio mayorista: por variante → por producto → null
+                        $pm = isset($precioMayoristaPorVariante[$v->id])
+                            ? (float) $precioMayoristaPorVariante[$v->id]
+                            : $precioMayoristaBase;
 
                         return [
-                            'variante_id'  => $v->id,
-                            'nombre'       => $v->nombre_completo,
-                            'sku'          => $v->sku,
-                            'color_hex'    => $v->color?->codigo_hex,
-                            'stock'        => $stock,
-                            'costo_cpp'    => $cpp,
-                            'precio_venta' => $pv,
-                            'valor_compra' => $stock * $cpp,
-                            'valor_venta'  => $stock * $pv,
-                            'utilidad'     => $stock * ($pv - $cpp),
-                            'margen_pct'   => $pv > 0 ? round(($pv - $cpp) / $pv * 100, 1) : 0,
+                            'variante_id'          => $v->id,
+                            'nombre'               => $v->nombre_completo,
+                            'sku'                  => $v->sku,
+                            'color_hex'            => $v->color?->codigo_hex,
+                            'stock'                => $stock,
+                            'costo_cpp'            => $cpp,
+                            'precio_venta'         => $pv,
+                            'precio_mayorista'     => $pm,
+                            'valor_compra'         => $stock * $cpp,
+                            'valor_venta'          => $stock * $pv,
+                            'valor_venta_mayorista'=> $pm !== null ? $stock * $pm : null,
+                            'utilidad'             => $stock * ($pv - $cpp),
+                            'utilidad_mayorista'   => $pm !== null ? $stock * ($pm - $cpp) : null,
+                            'margen_pct'           => $pv > 0 ? round(($pv - $cpp) / $pv * 100, 1) : 0,
+                            'margen_pct_mayorista' => $pm !== null && $pm > 0 ? round(($pm - $cpp) / $pm * 100, 1) : null,
                         ];
                     })->filter(fn($v) => $v['stock'] > 0)->values();
 
-                    $stockTotal = $variantesData->sum('stock');
-                    $valCompra  = $variantesData->sum('valor_compra');
-                    $valVenta   = $variantesData->sum('valor_venta');
-                    $utilidad   = $variantesData->sum('utilidad');
+                    $stockTotal    = $variantesData->sum('stock');
+                    $valCompra     = $variantesData->sum('valor_compra');
+                    $valVenta      = $variantesData->sum('valor_venta');
+                    $utilidad      = $variantesData->sum('utilidad');
+                    $valMayorista  = $variantesData->filter(fn($v) => $v['valor_venta_mayorista'] !== null)->sum('valor_venta_mayorista');
+                    $utilMayorista = $variantesData->filter(fn($v) => $v['utilidad_mayorista'] !== null)->sum('utilidad_mayorista');
+                    $tieneMayorista = $variantesData->contains(fn($v) => $v['precio_mayorista'] !== null);
 
                     if ($stockTotal === 0 && $p->tipo_inventario === 'serie' && $p->stock_actual > 0) {
-                        $stockTotal = $p->stock_actual;
-                        $valCompra  = $stockTotal * $cppProducto;
-                        $valVenta   = $stockTotal * $precioVentaBase;
-                        $utilidad   = $stockTotal * ($precioVentaBase - $cppProducto);
+                        $stockTotal    = $p->stock_actual;
+                        $valCompra     = $stockTotal * $cppProducto;
+                        $valVenta      = $stockTotal * $precioVentaBase;
+                        $utilidad      = $stockTotal * ($precioVentaBase - $cppProducto);
+                        $valMayorista  = $precioMayoristaBase !== null ? $stockTotal * $precioMayoristaBase : null;
+                        $utilMayorista = $precioMayoristaBase !== null ? $stockTotal * ($precioMayoristaBase - $cppProducto) : null;
+                        $tieneMayorista = $precioMayoristaBase !== null;
                     }
 
                     return [
-                        'id'             => $p->id,
-                        'nombre'         => $p->nombre,
-                        'categoria'      => $p->categoria?->nombre ?? '—',
-                        'marca'          => $p->marca?->nombre     ?? '—',
-                        'tipo'           => $p->tipo_inventario,
-                        'tiene_variantes'=> true,
-                        'variantes'      => $variantesData,
-                        'stock'          => $stockTotal,
-                        'precio_compra'  => $stockTotal > 0 ? round($valCompra / $stockTotal, 2) : 0,
-                        'precio_venta'   => $stockTotal > 0 ? round($valVenta  / $stockTotal, 2) : 0,
-                        'valor_compra'   => $valCompra,
-                        'valor_venta'    => $valVenta,
-                        'utilidad'       => $utilidad,
-                        'margen_pct'     => $valVenta > 0 ? round($utilidad / $valVenta * 100, 1) : 0,
+                        'id'                    => $p->id,
+                        'nombre'                => $p->nombre,
+                        'categoria'             => $p->categoria?->nombre ?? '—',
+                        'marca'                 => $p->marca?->nombre     ?? '—',
+                        'tipo'                  => $p->tipo_inventario,
+                        'tiene_variantes'       => true,
+                        'variantes'             => $variantesData,
+                        'stock'                 => $stockTotal,
+                        'precio_compra'         => $stockTotal > 0 ? round($valCompra / $stockTotal, 2) : 0,
+                        'precio_venta'          => $stockTotal > 0 ? round($valVenta  / $stockTotal, 2) : 0,
+                        'valor_compra'          => $valCompra,
+                        'valor_venta'           => $valVenta,
+                        'valor_venta_mayorista' => $tieneMayorista ? $valMayorista : null,
+                        'utilidad'              => $utilidad,
+                        'utilidad_mayorista'    => $tieneMayorista ? $utilMayorista : null,
+                        'margen_pct'            => $valVenta > 0 ? round($utilidad / $valVenta * 100, 1) : 0,
+                        'margen_pct_mayorista'  => ($tieneMayorista && $valMayorista > 0) ? round($utilMayorista / $valMayorista * 100, 1) : null,
                     ];
                 }
 
@@ -171,33 +210,40 @@ class InventarioReportesController extends Controller
                 $cpp = $cppPorProducto[$p->id]
                     ?? (float) ($p->costo_promedio ?: $p->ultimo_costo_compra ?: 0);
                 $pv  = $precioVentaBase;
+                $pm  = $precioMayoristaBase;
 
                 return [
-                    'id'             => $p->id,
-                    'nombre'         => $p->nombre,
-                    'categoria'      => $p->categoria?->nombre ?? '—',
-                    'marca'          => $p->marca?->nombre     ?? '—',
-                    'tipo'           => $p->tipo_inventario,
-                    'tiene_variantes'=> false,
-                    'variantes'      => collect(),
-                    'stock'          => $stock,
-                    'precio_compra'  => $cpp,
-                    'precio_venta'   => $pv,
-                    'valor_compra'   => $stock * $cpp,
-                    'valor_venta'    => $stock * $pv,
-                    'utilidad'       => $stock * ($pv - $cpp),
-                    'margen_pct'     => $pv > 0 ? round(($pv - $cpp) / $pv * 100, 1) : 0,
+                    'id'                    => $p->id,
+                    'nombre'                => $p->nombre,
+                    'categoria'             => $p->categoria?->nombre ?? '—',
+                    'marca'                 => $p->marca?->nombre     ?? '—',
+                    'tipo'                  => $p->tipo_inventario,
+                    'tiene_variantes'       => false,
+                    'variantes'             => collect(),
+                    'stock'                 => $stock,
+                    'precio_compra'         => $cpp,
+                    'precio_venta'          => $pv,
+                    'precio_mayorista'      => $pm,
+                    'valor_compra'          => $stock * $cpp,
+                    'valor_venta'           => $stock * $pv,
+                    'valor_venta_mayorista' => $pm !== null ? $stock * $pm : null,
+                    'utilidad'              => $stock * ($pv - $cpp),
+                    'utilidad_mayorista'    => $pm !== null ? $stock * ($pm - $cpp) : null,
+                    'margen_pct'            => $pv > 0 ? round(($pv - $cpp) / $pv * 100, 1) : 0,
+                    'margen_pct_mayorista'  => $pm !== null && $pm > 0 ? round(($pm - $cpp) / $pm * 100, 1) : null,
                 ];
             })
             ->filter(fn($p) => $p['stock'] > 0)
             ->values();
 
         $totales = [
-            'items'        => $productos->count(),
-            'unidades'     => $productos->sum('stock'),
-            'valor_compra' => $productos->sum('valor_compra'),
-            'valor_venta'  => $productos->sum('valor_venta'),
-            'utilidad'     => $productos->sum('utilidad'),
+            'items'                 => $productos->count(),
+            'unidades'              => $productos->sum('stock'),
+            'valor_compra'          => $productos->sum('valor_compra'),
+            'valor_venta'           => $productos->sum('valor_venta'),
+            'valor_venta_mayorista' => $productos->filter(fn($p) => $p['valor_venta_mayorista'] !== null)->sum('valor_venta_mayorista'),
+            'utilidad'              => $productos->sum('utilidad'),
+            'utilidad_mayorista'    => $productos->filter(fn($p) => $p['utilidad_mayorista'] !== null)->sum('utilidad_mayorista'),
         ];
 
         if ($request->export === 'csv') {

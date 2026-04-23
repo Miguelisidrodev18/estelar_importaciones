@@ -303,14 +303,25 @@
 
             {{-- ── TABLA DETALLADA ──────────────────── --}}
             <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <div class="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                    <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-2 shrink-0">
                         <i class="fas fa-table text-blue-500"></i>
                         Detalle por Producto
-                        <span class="bg-gray-100 text-gray-500 text-xs rounded-full px-2 py-0.5 ml-1">
+                        <span id="contadorProductos" class="bg-gray-100 text-gray-500 text-xs rounded-full px-2 py-0.5 ml-1">
                             {{ $tablaProductos->count() }} productos
                         </span>
                     </h2>
+                    <div class="relative w-full sm:w-72">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+                        <input type="text" id="buscarProducto"
+                               placeholder="Buscar por nombre o código..."
+                               oninput="filtrarTablaProductos(this.value)"
+                               class="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <button onclick="document.getElementById('buscarProducto').value=''; filtrarTablaProductos('');"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 hidden" id="btnLimpiarBuscar">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm divide-y divide-gray-100">
@@ -325,11 +336,15 @@
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Costo Unit.</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Gan. Unit.</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Margen %</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                                    Margen Bruto
+                                    <span class="block text-gray-400 font-normal normal-case tracking-normal" style="font-size:9px">(s/ IGV)</span>
+                                </th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Total Vendido</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Total Ganancia</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody id="tbodyProductos" class="divide-y divide-gray-100">
                             @forelse($tablaProductos as $row)
                                 @php
                                     $margen = (float) $row->margen_porcentaje;
@@ -338,7 +353,9 @@
                                         : ($margen > 0  ? 'bg-orange-100 text-orange-700'
                                         : 'bg-red-100 text-red-600'));
                                 @endphp
-                                <tr class="hover:bg-gray-50 transition-colors">
+                                <tr class="hover:bg-gray-50 transition-colors"
+                                    data-nombre="{{ strtolower($row->nombre) }}"
+                                    data-codigo="{{ strtolower($row->codigo ?? '') }}">
                                     <td class="px-4 py-3 sticky left-0 bg-white hover:bg-gray-50">
                                         <div class="font-medium text-gray-900">{{ $row->nombre }}</div>
                                         <div class="text-xs text-gray-400 font-mono">{{ $row->codigo }}</div>
@@ -356,6 +373,18 @@
                                             {{ number_format($margen, 1) }}%
                                         </span>
                                     </td>
+                                    @php
+                                        $margenBruto = (float) $row->margen_bruto_sin_igv;
+                                        $margenBrutoColor = $margenBruto >= 30 ? 'bg-green-100 text-green-700'
+                                            : ($margenBruto >= 15 ? 'bg-yellow-100 text-yellow-700'
+                                            : ($margenBruto > 0  ? 'bg-orange-100 text-orange-700'
+                                            : 'bg-red-100 text-red-600'));
+                                    @endphp
+                                    <td class="px-4 py-3 text-center">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold {{ $margenBrutoColor }}">
+                                            {{ number_format($margenBruto, 1) }}%
+                                        </span>
+                                    </td>
                                     <td class="px-4 py-3 text-right font-semibold text-gray-800">S/ {{ number_format($row->total_vendido, 2) }}</td>
                                     <td class="px-4 py-3 text-right font-bold
                                         {{ $row->total_ganancia >= 0 ? 'text-green-700' : 'text-red-600' }}">
@@ -364,7 +393,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9" class="px-4 py-12 text-center text-gray-400">
+                                    <td colspan="10" class="px-4 py-12 text-center text-gray-400">
                                         <i class="fas fa-search text-3xl block mb-2 text-gray-300"></i>
                                         No hay ventas registradas para este período
                                     </td>
@@ -383,7 +412,7 @@
                                         TOTALES
                                     </td>
                                     <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($totalCantidad) }}</td>
-                                    <td colspan="4"></td>
+                                    <td colspan="5"></td>
                                     <td class="px-4 py-3 text-right font-bold text-gray-800">S/ {{ number_format($totalVendido, 2) }}</td>
                                     <td class="px-4 py-3 text-right font-bold text-green-700">S/ {{ number_format($totalGanancia, 2) }}</td>
                                 </tr>
@@ -473,6 +502,26 @@ new Chart(document.getElementById('chartCategoria'), {
     }
 });
 @endif
+
+function filtrarTablaProductos(q) {
+    const term = q.toLowerCase().trim();
+    const rows = document.querySelectorAll('#tbodyProductos tr[data-nombre]');
+    let visible = 0;
+    rows.forEach(row => {
+        const match = !term
+            || row.dataset.nombre.includes(term)
+            || row.dataset.codigo.includes(term);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    const contador = document.getElementById('contadorProductos');
+    const total = rows.length;
+    contador.textContent = term
+        ? `${visible} de ${total} productos`
+        : `${total} productos`;
+    const btnLimpiar = document.getElementById('btnLimpiarBuscar');
+    if (btnLimpiar) btnLimpiar.classList.toggle('hidden', !term);
+}
 
 @if($topProductos->isNotEmpty())
 const topNombres  = @json($topProductos->pluck('nombre'));

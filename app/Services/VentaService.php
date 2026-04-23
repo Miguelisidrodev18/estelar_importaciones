@@ -53,22 +53,31 @@ class VentaService
             // Crear la venta
             $venta = Venta::create($datosVenta);
 
-            $subtotal = 0;
+            $subtotal   = 0;
+            $totalExact = 0;
 
             // Procesar cada detalle
             foreach ($detalles as $detalle) {
-                // Usar el precio confirmado en el POS (el cajero ya lo validó)
-                $precioUnitario  = (float) $detalle['precio_unitario'];
-                $subtotalDetalle = $detalle['cantidad'] * $precioUnitario;
-                $subtotal += $subtotalDetalle;
+                $precioRecibido = (float) $detalle['precio_unitario'];
+                $incluyeIgv     = (bool) ($detalle['incluye_igv'] ?? false);
+                $qty            = (int)   $detalle['cantidad'];
+
+                // precio_unitario en detalle_ventas siempre sin IGV (base imponible)
+                $precioSinIgv   = $incluyeIgv ? round($precioRecibido / 1.18, 2) : $precioRecibido;
+                // total con IGV por línea: usar precio original para no acumular error de redondeo
+                $precioConIgv   = $incluyeIgv ? $precioRecibido : round($precioRecibido * 1.18, 2);
+
+                $subtotalDetalle = round($precioSinIgv * $qty, 2);
+                $subtotal       += $subtotalDetalle;
+                $totalExact     += round($precioConIgv * $qty, 2);
 
                 // Crear detalle de venta
                 $detalleVenta = DetalleVenta::create([
                     'venta_id'        => $venta->id,
                     'producto_id'     => $detalle['producto_id'],
                     'variante_id'     => $detalle['variante_id'] ?? null,
-                    'cantidad'        => $detalle['cantidad'],
-                    'precio_unitario' => $precioUnitario,
+                    'cantidad'        => $qty,
+                    'precio_unitario' => $precioSinIgv,
                     'subtotal'        => $subtotalDetalle,
                 ]);
 
@@ -87,9 +96,9 @@ class VentaService
                 );
             }
 
-            // Calcular IGV (18%)
-            $igv   = $subtotal * 0.18;
-            $total = $subtotal + $igv;
+            // Total exacto desde precios originales; IGV = total - base imponible
+            $total = round($totalExact, 2);
+            $igv   = round($total - $subtotal, 2);
 
             // Actualizar venta con montos calculados
             $venta->update([
@@ -744,7 +753,6 @@ class VentaService
         $esDevolucion = in_array($contexto, ['anulacion', 'eliminacion', 'nota_credito']);
         $tipo         = $esDevolucion ? 'egreso' : 'ingreso';
 
-        // Usar el método de pago registrado en la venta (siempre dentro del ENUM)
         $metodosValidos = ['efectivo', 'yape', 'plin', 'transferencia', 'mixto'];
         $metodoPago     = in_array($venta->metodo_pago, $metodosValidos)
             ? $venta->metodo_pago
@@ -759,16 +767,30 @@ class VentaService
         $concepto = $conceptos[$contexto] ?? 'Venta #' . $venta->codigo;
 
         $cajaService = app(CajaService::class);
+
+        // Para pagos mixtos: crear un movimiento por cada método con su referencia
+        $pagosDetalle = $venta->pagos_detalle ?? [];
+        if ($tipo === 'ingreso' && count($pagosDetalle) > 1) {
+            foreach ($pagosDetalle as $pd) {
+                $mp  = in_array($pd['metodo'] ?? '', $metodosValidos) ? $pd['metodo'] : 'efectivo';
+                $ref = $pd['referencia'] ?? null;
+                $cajaService->registrarMovimiento(
+                    $caja->id, $tipo, (float) $pd['monto'],
+                    $concepto, $venta->id, null, null, $mp, $ref
+                );
+            }
+            return;
+        }
+
+        // Pago único: extraer referencia si existe
+        $referencia = null;
+        if ($tipo === 'ingreso' && count($pagosDetalle) === 1) {
+            $referencia = $pagosDetalle[0]['referencia'] ?? null;
+        }
+
         $cajaService->registrarMovimiento(
-            $caja->id,
-            $tipo,
-            $venta->total,
-            $concepto,
-            $venta->id,
-            null,
-            null,
-            $metodoPago,
-            null
+            $caja->id, $tipo, $venta->total,
+            $concepto, $venta->id, null, null, $metodoPago, $referencia
         );
     }
 
@@ -781,26 +803,33 @@ class VentaService
             $datosVenta['tipo_comprobante'] = 'cotizacion';
             $datosVenta['estado_pago']      = 'cotizacion';
 
-            $venta    = Venta::create($datosVenta);
-            $subtotal = 0;
+            $venta      = Venta::create($datosVenta);
+            $subtotal   = 0;
+            $totalExact = 0;
 
             foreach ($detalles as $detalle) {
-                $precioUnitario  = (float) $detalle['precio_unitario'];
-                $subtotalDetalle = $detalle['cantidad'] * $precioUnitario;
+                $precioRecibido  = (float) $detalle['precio_unitario'];
+                $incluyeIgv      = (bool)  ($detalle['incluye_igv'] ?? false);
+                $qty             = (int)   $detalle['cantidad'];
+
+                $precioSinIgv    = $incluyeIgv ? round($precioRecibido / 1.18, 2) : $precioRecibido;
+                $precioConIgv    = $incluyeIgv ? $precioRecibido : round($precioRecibido * 1.18, 2);
+                $subtotalDetalle = round($precioSinIgv * $qty, 2);
                 $subtotal       += $subtotalDetalle;
+                $totalExact     += round($precioConIgv * $qty, 2);
 
                 DetalleVenta::create([
                     'venta_id'        => $venta->id,
                     'producto_id'     => $detalle['producto_id'],
                     'variante_id'     => $detalle['variante_id'] ?? null,
-                    'cantidad'        => $detalle['cantidad'],
-                    'precio_unitario' => $precioUnitario,
+                    'cantidad'        => $qty,
+                    'precio_unitario' => $precioSinIgv,
                     'subtotal'        => $subtotalDetalle,
                 ]);
             }
 
-            $igv   = $subtotal * 0.18;
-            $total = $subtotal + $igv;
+            $total = round($totalExact, 2);
+            $igv   = round($total - $subtotal, 2);
 
             $venta->update(['subtotal' => $subtotal, 'igv' => $igv, 'total' => $total]);
 

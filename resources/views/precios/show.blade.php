@@ -58,7 +58,7 @@
 
         {{-- ====== COLUMNA IZQUIERDA: info + calculadora + formulario ====== --}}
         <div class="space-y-5"
-             @precarga-precio.window="precargarPrecio($event.detail.varianteId, $event.detail.precioCompra, $event.detail.precioVenta, $event.detail.margen)"
+             @precarga-precio.window="precargarPrecio($event.detail.varianteId, $event.detail.precioCompra, $event.detail.precioVenta, $event.detail.margen, $event.detail.precioMayorista, $event.detail.margenMayor)"
              x-data="{
                  proveedorId: '',
                  precioCompra: '',
@@ -67,6 +67,10 @@
                  incluyeIgv: false,
                  modoCalculo: 'margen',
                  resultado: null,
+                 margenMayor: 10,
+                 precioMayorista: '',
+                 modoCalculoMayor: 'margen',
+                 resultadoMayor: null,
                  busquedaProv: '',
                  resultadosProv: [],
                  abiertoDropdown: false,
@@ -116,7 +120,7 @@
                      await this.fetchUltimaCompra();
                  },
 
-                 precargarPrecio(varianteId, precioCompra, precioVenta, margen) {
+                 precargarPrecio(varianteId, precioCompra, precioVenta, margen, precioMayorista, margenMayor) {
                      this.varianteId   = varianteId ? String(varianteId) : '';
                      this.precioCompra = precioCompra;
                      this.precioVenta  = precioVenta;
@@ -126,6 +130,15 @@
                          precio_final:   parseFloat(precioVenta),
                          precio_con_igv: Math.round(parseFloat(precioVenta) * 1.18 * 100) / 100,
                      };
+                     if (precioMayorista) {
+                         this.precioMayorista    = precioMayorista;
+                         this.margenMayor        = margenMayor || 10;
+                         this.modoCalculoMayor   = 'margen';
+                         this.resultadoMayor     = { precio_final: parseFloat(precioMayorista) };
+                     } else {
+                         this.precioMayorista  = '';
+                         this.resultadoMayor   = null;
+                     }
                      window.scrollTo({ top: 0, behavior: 'smooth' });
                  },
 
@@ -149,7 +162,6 @@
                      } else {
                          const venta = parseFloat(this.precioVenta) || 0;
                          if (!venta) return;
-                         // Margen siempre sobre precio base sin IGV
                          this.margen = Math.round(((venta - compra) / compra * 100) * 10) / 10;
                      }
 
@@ -158,6 +170,24 @@
                          precio_final:    precioFinal,
                          precio_con_igv:  Math.round(precioFinal * 1.18 * 100) / 100,
                      };
+                 },
+
+                 calcularMayorista() {
+                     const compra = parseFloat(this.precioCompra) || 0;
+
+                     if (this.modoCalculoMayor === 'margen') {
+                         if (!compra) return;
+                         const margen = parseFloat(this.margenMayor) || 0;
+                         this.precioMayorista = Math.round(compra * (1 + margen / 100) * 100) / 100;
+                     } else {
+                         const mayor = parseFloat(this.precioMayorista) || 0;
+                         if (!mayor) return;
+                         if (compra) {
+                             this.margenMayor = Math.round(((mayor - compra) / compra * 100) * 10) / 10;
+                         }
+                     }
+
+                     this.resultadoMayor = { precio_final: parseFloat(this.precioMayorista) || 0 };
                  }
              }">
 
@@ -369,13 +399,86 @@
                     {{-- Campo oculto precio_venta --}}
                     <input type="hidden" name="precio_venta" :value="precioVenta || ''">
 
-                    {{-- Precio mayorista --}}
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                            Precio Mayorista (S/) <span class="text-gray-400 normal-case font-normal">(opcional)</span>
-                        </label>
-                        <input type="number" name="precio_mayorista" step="0.01" min="0.01" placeholder="0.00"
-                               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+                    {{-- ── Sección Precio Mayorista ── --}}
+                    <div class="border-t border-dashed border-amber-200 pt-4 mt-2 space-y-3">
+                        <p class="text-xs font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
+                            <i class="fas fa-tags"></i> Precio Mayorista
+                            <span class="text-gray-400 normal-case font-normal">(opcional)</span>
+                        </p>
+
+                        {{-- Toggle modo mayorista --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Calcular desde</label>
+                            <div class="flex rounded-lg border border-gray-200 overflow-hidden">
+                                <button type="button"
+                                        @click="modoCalculoMayor='margen'; calcularMayorista()"
+                                        :class="modoCalculoMayor==='margen' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                        class="flex-1 py-2 text-xs font-semibold transition-colors border-r border-gray-200">
+                                    <i class="fas fa-percentage mr-1"></i> Margen %
+                                </button>
+                                <button type="button"
+                                        @click="modoCalculoMayor='precio'"
+                                        :class="modoCalculoMayor==='precio' ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                        class="flex-1 py-2 text-xs font-semibold transition-colors">
+                                    <i class="fas fa-tag mr-1"></i> Precio directo
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- Margen mayorista --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Margen Mayorista %</label>
+                            <input type="number" x-model="margenMayor"
+                                   @input="if(modoCalculoMayor==='margen') calcularMayorista()"
+                                   :readonly="modoCalculoMayor==='precio'"
+                                   :class="modoCalculoMayor==='precio' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
+                                   step="0.1" min="0" max="1000"
+                                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400">
+                            <p x-show="modoCalculoMayor==='precio'" class="text-xs text-gray-400 mt-1">Calculado según el precio ingresado</p>
+                        </div>
+
+                        {{-- Precio mayorista --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                Precio Mayorista (S/)
+                                <span x-show="modoCalculoMayor==='precio'" class="text-red-500">*</span>
+                            </label>
+                            <input type="number" x-model="precioMayorista"
+                                   @input="if(modoCalculoMayor==='precio') calcularMayorista()"
+                                   :readonly="modoCalculoMayor==='margen'"
+                                   :class="modoCalculoMayor==='margen' ? 'bg-gray-50 text-amber-700 font-semibold cursor-not-allowed' : 'text-amber-700 font-semibold'"
+                                   step="0.01" min="0.01" placeholder="0.00"
+                                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400">
+                            <p x-show="modoCalculoMayor==='margen'" class="text-xs text-gray-400 mt-1">Calculado según el margen</p>
+                        </div>
+
+                        {{-- Botón calcular mayorista --}}
+                        <button type="button" @click="calcularMayorista()"
+                                :disabled="(modoCalculoMayor==='margen' && !precioCompra) || (modoCalculoMayor==='precio' && !precioMayorista)"
+                                class="w-full py-2 bg-amber-50 text-amber-700 text-sm font-semibold rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-40 border border-amber-200">
+                            <i class="fas fa-calculator mr-1"></i> Calcular Mayorista
+                        </button>
+
+                        {{-- Preview resultado mayorista --}}
+                        <template x-if="resultadoMayor">
+                            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-600">Margen mayorista</span>
+                                    <span class="font-semibold text-amber-700" x-text="(parseFloat(margenMayor)||0).toFixed(1) + '%'"></span>
+                                </div>
+                                <div class="flex justify-between text-sm border-t border-amber-200 pt-2">
+                                    <span class="font-semibold text-gray-700">Precio mayorista</span>
+                                    <span class="font-bold text-amber-700 text-lg" x-text="'S/ ' + resultadoMayor.precio_final.toFixed(2)"></span>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-400 pt-1" x-show="resultado">
+                                    <span>vs. precio regular</span>
+                                    <span x-text="resultado ? 'S/ ' + resultado.precio_final.toFixed(2) : ''"></span>
+                                </div>
+                            </div>
+                        </template>
+
+                        <input type="hidden" name="precio_mayorista" :value="precioMayorista || ''">
+                        <input type="hidden" name="margen_mayorista" :value="resultadoMayor ? (parseFloat(margenMayor)||0) : ''">
                     </div>
 
                     {{-- Observaciones --}}
@@ -436,12 +539,15 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 {{ $porCapacidadGlobal->count() >= 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-2' }} gap-3">
                     @foreach($porCapacidadGlobal as $cap => $vars)
                         @php
-                            $varRep     = $vars->first();
-                            $pCap       = $preciosGlobalesActivos[$varRep->id] ?? null;
-                            $esActual   = $varianteActual && $vars->contains('id', $varianteActual->id);
+                            $varRep  = $vars->first();
+                            $pCap    = $preciosGlobalesActivos[$varRep->id] ?? null;
+                            $pMay    = $preciosMayoristasActivos[$varRep->id] ?? null;
+                            $esActual = $varianteActual && $vars->contains('id', $varianteActual->id);
+                            $pmVal   = $pMay?->precio ?? 'null';
+                            $pmMrg   = $pMay?->margen ?? 10;
                         @endphp
                         <div class="bg-white rounded-xl border {{ $esActual ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-100' }} shadow-sm p-4 cursor-pointer hover:border-blue-300 transition-all"
-                             onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: {{ $varRep->id }}, precioCompra: {{ $pCap?->precio_compra ?? 0 }}, precioVenta: {{ $pCap?->precio ?? 0 }}, margen: {{ $pCap?->margen ?? 0 }} } }))">
+                             onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: {{ $varRep->id }}, precioCompra: {{ $pCap?->precio_compra ?? 0 }}, precioVenta: {{ $pCap?->precio ?? 0 }}, margen: {{ $pCap?->margen ?? 0 }}, precioMayorista: {{ $pmVal }}, margenMayor: {{ $pmMrg }} } }))">
                             <div class="flex items-center justify-between mb-3">
                                 <span class="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
                                     <i class="fas fa-microchip text-blue-500 text-xs"></i>
@@ -469,6 +575,19 @@
                                             {{ $pCap->margen ? $pCap->margen . '%' : '—' }}
                                         </span>
                                     </div>
+                                    @if($pMay)
+                                        <div class="flex justify-between items-center border-t border-amber-100 pt-1.5 mt-1.5 bg-amber-50 -mx-1 px-1 rounded">
+                                            <span class="flex items-center gap-1 text-xs text-amber-700 font-semibold">
+                                                <i class="fas fa-tags text-[9px]"></i> Mayorista
+                                            </span>
+                                            <div class="text-right">
+                                                <span class="text-sm font-bold text-amber-700">S/ {{ number_format($pMay->precio, 2) }}</span>
+                                                @if($pMay->margen)
+                                                    <span class="block text-[10px] text-amber-500">{{ $pMay->margen }}% mg.</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             @else
                                 <div class="flex items-center justify-center py-3">
@@ -481,10 +600,11 @@
                     @endforeach
                 </div>
             @else
-                {{-- Producto sin variantes: 3 KPIs clásicos --}}
-                <div class="grid grid-cols-3 gap-4">
+                {{-- Producto sin variantes: KPIs + mayorista --}}
+                @php $precioMayoristaGlobal = $preciosMayoristasActivos[null] ?? $preciosMayoristasActivos->first(); @endphp
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-                        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Venta Global</p>
+                        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Venta</p>
                         <p class="text-xl font-bold text-blue-700">
                             {{ $precioGlobal ? 'S/ ' . number_format($precioGlobal->precio, 2) : '—' }}
                         </p>
@@ -500,6 +620,17 @@
                         <p class="text-xl font-bold {{ ($precioGlobal?->margen ?? 0) >= 20 ? 'text-green-700' : 'text-yellow-600' }}">
                             {{ $precioGlobal ? $precioGlobal->margen . '%' : '—' }}
                         </p>
+                    </div>
+                    <div class="bg-white rounded-xl border {{ $precioMayoristaGlobal ? 'border-amber-200 bg-amber-50' : 'border-gray-100' }} shadow-sm p-4 text-center">
+                        <p class="text-xs {{ $precioMayoristaGlobal ? 'text-amber-600' : 'text-gray-500' }} uppercase tracking-wide mb-1 flex items-center justify-center gap-1">
+                            <i class="fas fa-tags text-[9px]"></i> Mayorista
+                        </p>
+                        <p class="text-xl font-bold {{ $precioMayoristaGlobal ? 'text-amber-700' : 'text-gray-400' }}">
+                            {{ $precioMayoristaGlobal ? 'S/ ' . number_format($precioMayoristaGlobal->precio, 2) : '—' }}
+                        </p>
+                        @if($precioMayoristaGlobal?->margen)
+                            <p class="text-xs text-amber-500 mt-1">{{ $precioMayoristaGlobal->margen }}% mg.</p>
+                        @endif
                     </div>
                 </div>
             @endif
@@ -539,8 +670,11 @@
                                 {{-- Producto con variantes: una fila por capacidad --}}
                                 @foreach($porCapacidadGlobal as $capacidad => $variantes)
                                     @php
-                                        $varRep  = $variantes->first();
-                                        $precio  = $preciosGlobalesActivos[$varRep->id] ?? null;
+                                        $varRep   = $variantes->first();
+                                        $precio   = $preciosGlobalesActivos[$varRep->id] ?? null;
+                                        $pMayHist = $preciosMayoristasActivos[$varRep->id] ?? null;
+                                        $pmHVal   = $pMayHist?->precio ?? 'null';
+                                        $pmHMrg   = $pMayHist?->margen ?? 10;
                                     @endphp
                                     <tr class="hover:bg-blue-50/30 transition-colors {{ $precio ? '' : 'bg-amber-50/30' }}">
                                         <td class="px-4 py-3 text-sm">
@@ -592,7 +726,7 @@
                                             <div class="flex items-center justify-center gap-1.5 flex-wrap">
                                                 @if($precio)
                                                     <button type="button"
-                                                            onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: {{ $varRep->id }}, precioCompra: {{ $precio->precio_compra ?? 0 }}, precioVenta: {{ $precio->precio }}, margen: {{ $precio->margen ?? 0 }} } }))"
+                                                            onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: {{ $varRep->id }}, precioCompra: {{ $precio->precio_compra ?? 0 }}, precioVenta: {{ $precio->precio }}, margen: {{ $precio->margen ?? 0 }}, precioMayorista: {{ $pmHVal }}, margenMayor: {{ $pmHMrg }} } }))"
                                                             class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-100 transition-colors">
                                                         <i class="fas fa-sync-alt"></i> Actualizar
                                                     </button>
@@ -634,7 +768,7 @@
                                         <td class="px-4 py-3 text-center">
                                             <div class="flex items-center justify-center gap-1.5">
                                                 <button type="button"
-                                                        onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: null, precioCompra: {{ $precioBase->precio_compra ?? 0 }}, precioVenta: {{ $precioBase->precio }}, margen: {{ $precioBase->margen ?? 0 }} } }))"
+                                                        onclick="window.dispatchEvent(new CustomEvent('precarga-precio', { detail: { varianteId: null, precioCompra: {{ $precioBase->precio_compra ?? 0 }}, precioVenta: {{ $precioBase->precio }}, margen: {{ $precioBase->margen ?? 0 }}, precioMayorista: {{ $precioMayoristaGlobal?->precio ?? 'null' }}, margenMayor: {{ $precioMayoristaGlobal?->margen ?? 10 }} } }))"
                                                         class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-100 transition-colors">
                                                     <i class="fas fa-sync-alt"></i> Actualizar
                                                 </button>

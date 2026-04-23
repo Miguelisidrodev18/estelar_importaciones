@@ -119,13 +119,21 @@ class PrecioController extends Controller
             ->where('activo', true)
             ->keyBy('variante_id');
 
+        // Precios mayoristas globales activos
+        $preciosMayoristasActivos = $producto->precios
+            ->whereNull('almacen_id')
+            ->where('tipo_precio', 'venta_mayorista')
+            ->where('activo', true)
+            ->keyBy('variante_id');
+
         // Para el historial/tabla completa (incluye inactivos)
         $preciosGlobales  = $producto->precios->whereNull('almacen_id')->where('tipo_precio', 'venta_regular');
         $preciosPorTienda = $producto->precios->whereNotNull('almacen_id')->where('tipo_precio', 'venta_regular');
 
         return view('precios.show', compact(
             'producto', 'proveedores', 'almacenes',
-            'preciosGlobales', 'preciosGlobalesActivos', 'preciosPorTienda'
+            'preciosGlobales', 'preciosGlobalesActivos', 'preciosPorTienda',
+            'preciosMayoristasActivos'
         ));
     }
 
@@ -173,6 +181,7 @@ class PrecioController extends Controller
             'precio_venta'    => 'required|numeric|min:0.01',
             'precio_mayorista'=> 'nullable|numeric|min:0.01',
             'margen'          => 'required|numeric|min:0|max:1000',
+            'margen_mayorista'=> 'nullable|numeric|min:0|max:1000',
             'observaciones'   => 'nullable|string|max:500',
             'incluye_igv'     => 'nullable|boolean',
             'replicar_tiendas'=> 'nullable|boolean',
@@ -243,6 +252,10 @@ class PrecioController extends Controller
                         ->where('activo', true)
                         ->update(['activo' => false]);
 
+                    $margenMay = isset($validated['margen_mayorista']) && $validated['margen_mayorista'] !== ''
+                        ? $validated['margen_mayorista']
+                        : round((($validated['precio_mayorista'] - $validated['precio_compra']) / $validated['precio_compra']) * 100, 2);
+
                     ProductoPrecio::create([
                         'producto_id'   => $producto->id,
                         'variante_id'   => $vid,
@@ -250,7 +263,7 @@ class PrecioController extends Controller
                         'tipo_precio'   => 'venta_mayorista',
                         'precio'        => $validated['precio_mayorista'],
                         'precio_compra' => $validated['precio_compra'],
-                        'margen'        => $validated['margen'],
+                        'margen'        => $margenMay,
                         'proveedor_id'  => $validated['proveedor_id'] ?? null,
                         'activo'        => true,
                         'creado_por'    => auth()->id(),

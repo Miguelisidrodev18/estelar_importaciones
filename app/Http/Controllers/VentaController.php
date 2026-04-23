@@ -74,7 +74,7 @@ class VentaController extends Controller
             ->with(['categoria', 'variantesActivas.color', 'precios' => function ($q) {
                 $q->where('activo', true)
                   ->whereNull('almacen_id')
-                  ->where('tipo_precio', 'venta_regular')
+                  ->whereIn('tipo_precio', ['venta_regular', 'venta_mayorista'])
                   ->latest();
             }])
             ->orderBy('nombre')
@@ -118,16 +118,22 @@ class VentaController extends Controller
         $productos = $productos->map(function($p) use ($stockPorAlmacen, $imeisPorAlmacen, $imeisPorVarianteId, $imeisPorColor) {
             $esSerie = $p->tipo_inventario === 'serie';
 
+            // Separar precios por tipo
+            $preciosRegulares  = $p->precios->where('tipo_precio', 'venta_regular');
+            $preciosMayoristas = $p->precios->where('tipo_precio', 'venta_mayorista');
             // Indexar precios por variante_id para lookup O(1)
-            $preciosPorVariante = $p->precios->whereNotNull('variante_id')->keyBy('variante_id');
+            $preciosPorVariante          = $preciosRegulares->whereNotNull('variante_id')->keyBy('variante_id');
+            $preciosMayoristaPorVariante = $preciosMayoristas->whereNotNull('variante_id')->keyBy('variante_id');
             // Precio base del producto (sin variante) — fallback
-            $precioBase   = $p->precios->first(fn($pr) => is_null($pr->variante_id));
+            $precioBase          = $preciosRegulares->first(fn($pr) => is_null($pr->variante_id));
+            $precioMayoristaBase = $preciosMayoristas->first(fn($pr) => is_null($pr->variante_id));
             // Para incluye_igv usamos el primer precio activo (configuración global del producto)
-            $precioActivo = $p->precios->first();
+            $precioActivo = $preciosRegulares->first();
 
-            $variantes = $p->variantesActivas->map(function($v) use ($esSerie, $imeisPorVarianteId, $imeisPorColor, $p, $preciosPorVariante) {
+            $variantes = $p->variantesActivas->map(function($v) use ($esSerie, $imeisPorVarianteId, $imeisPorColor, $p, $preciosPorVariante, $preciosMayoristaPorVariante, $precioMayoristaBase) {
                 // 1) precio manual en el campo nuevo del variante (override), 2) Gestión de Precios, 3) null
-                $precioGestion = $preciosPorVariante->get($v->id);
+                $precioGestion   = $preciosPorVariante->get($v->id);
+                $precioMayorista = $preciosMayoristaPorVariante->get($v->id) ?? $precioMayoristaBase;
                 $precioVenta = $v->precio_venta !== null
                     ? (float)$v->precio_venta
                     : ($precioGestion ? (float)$precioGestion->precio : null);
@@ -141,6 +147,7 @@ class VentaController extends Controller
                 'capacidad'         => $v->capacidad,
                 'sobreprecio'       => (float)$v->sobreprecio,
                 'precio_venta'      => $precioVenta,
+                'precio_mayorista'  => $precioMayorista ? (float)$precioMayorista->precio : null,
                 'incluye_igv'       => $precioGestion ? (bool)$precioGestion->incluye_igv : null,
                 'stock_actual'      => $esSerie
                     ? (function() use ($imeisPorVarianteId, $imeisPorColor, $v, $p) {
@@ -177,6 +184,7 @@ class VentaController extends Controller
                 'stock_actual'     => (int) $p->stock_actual,
                 'stock_por_almacen'=> $stockMap,  // {almacen_id: qty}
                 'precio_venta'     => (float) ($precioBase?->precio ?? $precioActivo?->precio ?? $p->precio_venta),
+                'precio_mayorista' => $precioMayoristaBase ? (float)$precioMayoristaBase->precio : null,
                 'incluye_igv'      => (bool) ($precioActivo?->incluye_igv ?? false),
                 'imagen'           => $p->imagen_url ?? null,
                 'tiene_variantes'  => $variantes->isNotEmpty(),

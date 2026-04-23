@@ -398,7 +398,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/series',      [\App\Http\Controllers\FacturacionElectronicaController::class, 'storeSerie'])->name('series.store');
         Route::put('/series/{serie}',   [\App\Http\Controllers\FacturacionElectronicaController::class, 'updateSerie'])->name('series.update');
         Route::delete('/series/{serie}',[\App\Http\Controllers\FacturacionElectronicaController::class, 'destroySerie'])->name('series.destroy');
-        Route::post('/{venta}/reenviar', [\App\Http\Controllers\FacturacionElectronicaController::class, 'reenviar'])->name('reenviar');
+        Route::post('/{venta}/reenviar',    [\App\Http\Controllers\FacturacionElectronicaController::class, 'reenviar'])->name('reenviar');
+        Route::get('/{venta}/xml',          [\App\Http\Controllers\FacturacionElectronicaController::class, 'downloadXml'])->name('xml');
         Route::get('/configuracion', [\App\Http\Controllers\FacturacionElectronicaController::class, 'configuracion'])->name('configuracion');
     });
 
