@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <title>Guía de Remisión - {{ $venta->codigo }}</title>
 <style>
-@page { size: A4; margin: 8mm 10mm; }
+@page { size: A4; margin: 14mm 14mm 14mm 14mm; }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'DejaVu Sans',sans-serif; font-size:7.5pt; color:#000; background:#fff; }
+body { font-family:'DejaVu Sans',sans-serif; font-size:7.5pt; color:#000; background:#fff; margin: 14mm 14mm 14mm 14mm; }
 
 /* ── layout helpers ── */
 .tbl   { display:table; width:100%; border-collapse:collapse; }
@@ -391,7 +391,7 @@ table.items tfoot td { background:#e8edf5; font-weight:bold; padding:2px 4px;
                             <div class="td" style="width:50%; padding-right:4px">
                                 @foreach(['VENTA'=>'Venta','VENTA_CONFIRMACION'=>'Venta sujeta a confirmación del comprador','COMPRA'=>'Compra','CONSIGNACION'=>'Consignación','DEVOLUCION'=>'Devolución','TRASLADO_ENTRE_ALMACENES'=>'Traslado entre establecimientos de la misma empresa'] as $k => $lbl)
                                 <div class="motivo-item">
-                                    <span class="chk {{ $motivoActual === $k ? 'marked' : '' }}">{{ $motivoActual === $k ? '✓' : '&nbsp;' }}</span>
+                                    <span class="chk {{ $motivoActual === $k ? 'marked' : '' }}">{{ $motivoActual === $k ? 'X' : ' ' }}</span>
                                     {{ $lbl }}
                                 </div>
                                 @endforeach
@@ -399,7 +399,7 @@ table.items tfoot td { background:#e8edf5; font-weight:bold; padding:2px 4px;
                             <div class="td" style="width:50%">
                                 @foreach(['BIENES_TRANSFORMADOS'=>'Traslado de bienes transformados','RECOJO_BIENES'=>'Recojo de bienes transformados','EMISOR_ITINERANTE'=>'Traslado por emisor itinerante de comprobante de pago','IMPORTACION'=>'Importación','EXPORTACION'=>'Exportación','OTRO'=>'Otro no incluido en los puntos anteriores'] as $k => $lbl)
                                 <div class="motivo-item">
-                                    <span class="chk {{ $motivoActual === $k ? 'marked' : '' }}">{{ $motivoActual === $k ? '✓' : '&nbsp;' }}</span>
+                                    <span class="chk {{ $motivoActual === $k ? 'marked' : '' }}">{{ $motivoActual === $k ? 'X' : ' ' }}</span>
                                     {{ $lbl }}
                                 </div>
                                 @endforeach
