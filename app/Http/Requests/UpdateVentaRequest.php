@@ -36,16 +36,40 @@ class UpdateVentaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'observaciones' => 'nullable|string|max:500',
-            'metodo_pago'   => 'nullable|in:efectivo,transferencia,yape,plin,mixto',
-            'fecha'         => 'nullable|date|before_or_equal:today',
+            // Campos base
+            'observaciones'     => 'nullable|string|max:500',
+            'metodo_pago'       => 'nullable|in:efectivo,transferencia,yape,plin,mixto',
+            'fecha'             => 'nullable|date|before_or_equal:today',
+            'tipo_comprobante'  => 'nullable|in:boleta,factura,ticket,cotizacion',
+
+            // Datos de envío (campos en ventas)
+            'guia_remision'     => 'nullable|string|max:20',
+            'transportista'     => 'nullable|string|max:200',
+            'placa_vehiculo'    => 'nullable|string|max:10',
+
+            // Guía de remisión (modelo GuiaRemision)
+            'guia.motivo_traslado'       => 'nullable|string|max:50',
+            'guia.modalidad'             => 'nullable|in:privado,publico',
+            'guia.fecha_traslado'        => 'nullable|date',
+            'guia.peso_total'            => 'nullable|numeric|min:0',
+            'guia.bultos'               => 'nullable|integer|min:0',
+            'guia.direccion_partida'     => 'nullable|string|max:300',
+            'guia.ubigeo_partida'        => 'nullable|string|max:6',
+            'guia.direccion_llegada'     => 'nullable|string|max:300',
+            'guia.ubigeo_llegada'        => 'nullable|string|max:6',
+            'guia.transportista_tipo_doc'=> 'nullable|string|max:10',
+            'guia.transportista_doc'     => 'nullable|string|max:15',
+            'guia.transportista_nombre'  => 'nullable|string|max:200',
         ];
     }
 
     public function messages(): array
     {
         return [
-            'fecha.before_or_equal' => 'La fecha no puede ser futura.',
+            'fecha.before_or_equal'     => 'La fecha no puede ser futura.',
+            'tipo_comprobante.in'       => 'Tipo de comprobante no válido.',
+            'guia.modalidad.in'         => 'La modalidad debe ser privado o público.',
+            'guia.fecha_traslado.date'  => 'La fecha de traslado no es válida.',
         ];
     }
 }

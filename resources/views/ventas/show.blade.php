@@ -74,6 +74,67 @@
         </div>
         @endif
 
+        {{-- Modal de confirmación de edición --}}
+        @if(request()->has('actualizado'))
+        <div x-data="{ show: true }" x-show="show" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="show = false"></div>
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100">
+                {{-- Header --}}
+                <div class="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-6 text-center">
+                    <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-check-double text-white text-3xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">¡Cambios guardados!</h3>
+                    <p class="text-blue-100 text-sm mt-1">{{ $venta->codigo }}</p>
+                </div>
+                {{-- Body --}}
+                <div class="p-6">
+                    {{-- Resumen de datos actualizados --}}
+                    <div class="space-y-2 mb-5">
+                        <div class="flex items-center justify-between text-sm py-2 border-b border-gray-100">
+                            <span class="text-gray-500 flex items-center gap-2"><i class="fas fa-file-invoice w-4 text-center text-blue-400"></i> Tipo</span>
+                            <span class="font-semibold text-gray-800 capitalize">{{ $venta->tipo_comprobante }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm py-2 border-b border-gray-100">
+                            <span class="text-gray-500 flex items-center gap-2"><i class="fas fa-calendar w-4 text-center text-blue-400"></i> Fecha</span>
+                            <span class="font-semibold text-gray-800">{{ $venta->fecha->format('d/m/Y') }}</span>
+                        </div>
+                        @if($venta->metodo_pago)
+                        <div class="flex items-center justify-between text-sm py-2 border-b border-gray-100">
+                            <span class="text-gray-500 flex items-center gap-2"><i class="fas fa-credit-card w-4 text-center text-blue-400"></i> Pago</span>
+                            <span class="font-semibold text-gray-800 capitalize">{{ $venta->metodo_pago }}</span>
+                        </div>
+                        @endif
+                        @if($venta->guia_remision)
+                        <div class="flex items-center justify-between text-sm py-2 border-b border-gray-100">
+                            <span class="text-gray-500 flex items-center gap-2"><i class="fas fa-truck w-4 text-center text-blue-400"></i> Guía</span>
+                            <span class="font-semibold text-gray-800">{{ $venta->guia_remision }}</span>
+                        </div>
+                        @endif
+                        <div class="flex items-center justify-between text-sm py-2">
+                            <span class="text-gray-500 flex items-center gap-2"><i class="fas fa-money-bill w-4 text-center text-blue-400"></i> Total</span>
+                            <span class="font-bold text-blue-600 text-base">S/ {{ number_format($venta->total, 2) }}</span>
+                        </div>
+                    </div>
+                    {{-- Acciones --}}
+                    <div class="flex gap-3">
+                        <a href="{{ route('ventas.pdf', [$venta, 'formato' => 'a4']) }}" target="_blank"
+                           class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </a>
+                        <button @click="show = false"
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2">
+                            <i class="fas fa-check"></i> Aceptar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- Flash --}}
         @if(session('success'))
             <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl mb-6 flex items-center gap-2 shadow-sm">

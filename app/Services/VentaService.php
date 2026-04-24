@@ -267,12 +267,29 @@ class VentaService
             throw new \Exception("Solo se pueden editar comprobantes dentro de las {$ventanaMaxima} horas de su emisión.");
         }
 
-        $camposPermitidos = ['observaciones', 'metodo_pago', 'fecha'];
-        $actualizacion    = array_intersect_key($datos, array_flip($camposPermitidos));
+        $camposPermitidos = ['observaciones', 'metodo_pago', 'fecha', 'guia_remision', 'transportista', 'placa_vehiculo'];
 
+        // Permitir cambio de tipo_comprobante solo si aún no fue enviado a SUNAT
+        if (!in_array($venta->estado_sunat, ['aceptado', 'enviado']) && isset($datos['tipo_comprobante'])) {
+            $camposPermitidos[] = 'tipo_comprobante';
+        }
+
+        $actualizacion   = array_intersect_key($datos, array_flip($camposPermitidos));
         $datosAnteriores = $venta->only($camposPermitidos);
 
         $venta->update($actualizacion);
+
+        // Actualizar guía de remisión si se enviaron datos
+        if (!empty($datos['guia'])) {
+            $guiaData = array_filter($datos['guia'], fn($v) => $v !== null && $v !== '');
+            if (!empty($guiaData)) {
+                if ($venta->guiaRemision) {
+                    $venta->guiaRemision->update($guiaData);
+                } else {
+                    $venta->guiaRemision()->create(array_merge($guiaData, ['venta_id' => $venta->id]));
+                }
+            }
+        }
 
         $this->registrarAuditoria($venta, 'editar', $datosAnteriores, $venta->fresh()->only($camposPermitidos), $requirioClave);
 

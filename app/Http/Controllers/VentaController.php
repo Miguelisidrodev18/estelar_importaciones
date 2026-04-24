@@ -352,7 +352,7 @@ class VentaController extends Controller
 
     public function guiaPdf(Venta $venta)
     {
-        $venta->load('cliente', 'almacen', 'detalles.producto', 'detalles.variante', 'guiaRemision');
+        $venta->load('cliente', 'almacen', 'detalles.producto.unidadMedida', 'detalles.variante', 'detalles.imei', 'imeis', 'guiaRemision');
 
         $guia = $venta->guiaRemision;
 
@@ -479,6 +479,8 @@ class VentaController extends Controller
                 ->with('error', "Solo se pueden editar comprobantes dentro de las {$ventanaMaxima} horas de emisión.");
         }
 
+        $venta->load('guiaRemision', 'cliente');
+
         return view('ventas.edit', compact('venta', 'ventanaMaxima'));
     }
 
@@ -488,7 +490,7 @@ class VentaController extends Controller
 
         try {
             app(VentaService::class)->editarVenta($venta, $request->validated(), $requirioClave);
-            return redirect()->route('ventas.show', $venta)->with('success', 'Comprobante actualizado correctamente.');
+            return redirect()->route('ventas.show', [$venta, 'actualizado' => 1]);
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
