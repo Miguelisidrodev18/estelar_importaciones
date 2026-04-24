@@ -780,75 +780,94 @@
             <div class="overflow-x-auto">
                 <table class="min-w-full">
                     <thead>
-                        <tr class="bg-gray-50 border-b border-gray-100">
-                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
-                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Producto</th>
-                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">IMEI / Serie</th>
-                            <th class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Cant.</th>
-                            <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Precio unit.</th>
-                            <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Subtotal</th>
+                        <tr style="background-color: #1e3a5f; color: #fff;">
+                            <th class="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider">ITEM</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">CÓDIGO</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">DESCRIPCIÓN</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider">UNID.</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider">CANTIDAD</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider">P.UNITARIO</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider">TOTAL</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50">
+                    <tbody class="divide-y divide-gray-100">
+                        @php
+                            $igvFactor = $venta->subtotal > 0 ? ($venta->total / $venta->subtotal) : 1.18;
+                        @endphp
                         @foreach($venta->detalles as $i => $detalle)
-                        <tr class="hover:bg-gray-50/60 transition-colors">
-                            <td class="px-6 py-5 text-sm text-gray-400 font-medium">{{ $i + 1 }}</td>
-                            <td class="px-6 py-5">
+                        @php
+                            $imeisDetalle = $venta->imeis->filter(fn($imei) =>
+                                $imei->producto_id == $detalle->producto_id &&
+                                ($detalle->variante_id ? $imei->variante_id == $detalle->variante_id : true)
+                            );
+                            if ($imeisDetalle->isEmpty() && $detalle->imei) {
+                                $imeisDetalle = collect([$detalle->imei]);
+                            }
+                            $precioFinal = $detalle->precio_unitario * $igvFactor;
+                            $totalFinal  = $detalle->subtotal * $igvFactor;
+                        @endphp
+                        <tr class="{{ $i % 2 === 0 ? 'bg-white' : 'bg-gray-50' }} hover:bg-blue-50/20 transition-colors">
+                            <td class="px-4 py-4 text-center text-sm text-gray-500 font-medium">{{ $i + 1 }}</td>
+                            <td class="px-4 py-4 text-sm font-mono text-gray-700">{{ $detalle->producto->codigo ?? '—' }}</td>
+                            <td class="px-4 py-4">
                                 <span class="font-semibold text-gray-900">{{ $detalle->producto->nombre }}</span>
-                                {{-- Variante (color + capacidad) --}}
                                 @if($detalle->variante)
-                                    <span class="flex items-center gap-1.5 mt-1">
+                                    <div class="flex items-center gap-1.5 mt-0.5">
                                         @if($detalle->variante->color?->codigo_hex)
-                                            <span class="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                            <span class="w-2.5 h-2.5 rounded-full border border-gray-300 shrink-0"
                                                   style="background-color: {{ $detalle->variante->color->codigo_hex }}"></span>
                                         @endif
                                         <span class="text-xs text-indigo-600 font-medium">{{ $detalle->variante->nombre_completo }}</span>
                                         <span class="text-xs text-gray-400 font-mono">({{ $detalle->variante->sku }})</span>
-                                    </span>
+                                    </div>
                                 @elseif($detalle->producto->categoria)
-                                    <span class="block text-xs text-gray-400 mt-0.5">{{ $detalle->producto->categoria->nombre }}</span>
+                                    <div class="text-xs text-gray-400 mt-0.5">{{ $detalle->producto->categoria->nombre }}</div>
                                 @endif
+                                @foreach($imeisDetalle as $imei)
+                                    <div class="mt-0.5">
+                                        <span class="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded font-mono">
+                                            <i class="fas fa-microchip" style="font-size:9px"></i>
+                                            {{ $imei->codigo_imei }}
+                                        </span>
+                                    </div>
+                                @endforeach
                             </td>
-                            <td class="px-6 py-5">
-                                @if($detalle->imei)
-                                    <span class="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-sm px-3 py-1 rounded-full font-mono font-semibold">
-                                        <i class="fas fa-microchip text-xs"></i>
-                                        {{ $detalle->imei->codigo_imei }}
-                                    </span>
-                                @else
-                                    <span class="text-gray-400">—</span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-5 text-center">
-                                <span class="font-bold text-gray-700">{{ $detalle->cantidad }}</span>
-                            </td>
-                            <td class="px-6 py-5 text-right">
-                                <span class="text-gray-700">S/ {{ number_format($detalle->precio_unitario, 2) }}</span>
-                            </td>
-                            <td class="px-6 py-5 text-right">
-                                <span class="font-bold text-gray-900">S/ {{ number_format($detalle->subtotal, 2) }}</span>
-                            </td>
+                            <td class="px-4 py-4 text-center text-sm text-gray-600">{{ $detalle->producto->unidadMedida?->abreviatura ?? 'UNID.' }}</td>
+                            <td class="px-4 py-4 text-center font-bold text-gray-700">{{ $detalle->cantidad }}</td>
+                            <td class="px-4 py-4 text-right text-sm text-gray-700">S/ {{ number_format($precioFinal, 2) }}</td>
+                            <td class="px-4 py-4 text-right font-bold text-gray-900">S/ {{ number_format($totalFinal, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
-                    <tfoot class="bg-gray-50 border-t-2 border-gray-100">
-                        <tr>
-                            <td colspan="4" class="px-6 py-4"></td>
-                            <td class="px-6 py-4 text-right text-sm font-semibold text-gray-500">Subtotal</td>
-                            <td class="px-6 py-4 text-right font-bold text-gray-700">S/ {{ number_format($venta->subtotal, 2) }}</td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="px-6 py-1"></td>
-                            <td class="px-6 py-1 text-right text-sm font-semibold text-gray-500">IGV (18%)</td>
-                            <td class="px-6 py-1 text-right font-bold text-gray-700">S/ {{ number_format($venta->igv, 2) }}</td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="px-6 py-4"></td>
-                            <td class="px-6 py-4 text-right text-lg font-bold text-gray-900">Total</td>
-                            <td class="px-6 py-4 text-right text-2xl font-bold text-blue-600">S/ {{ number_format($venta->total, 2) }}</td>
-                        </tr>
-                    </tfoot>
                 </table>
+            </div>
+
+            {{-- Son + Totales --}}
+            <div class="flex flex-col md:flex-row justify-between items-start gap-4 px-6 py-5 border-t border-gray-200 bg-gray-50">
+                <div class="flex-1">
+                    <div class="border border-gray-300 rounded-lg p-3 bg-white">
+                        <div class="text-xs font-bold text-gray-400 uppercase mb-1">Son:</div>
+                        <div class="text-sm font-bold text-gray-800 uppercase">{{ montoEnLetras($venta->total) }}</div>
+                    </div>
+                </div>
+                <div class="w-full md:w-72 shrink-0">
+                    <div class="flex justify-between py-1.5 text-sm border-b border-gray-100">
+                        <span class="text-gray-500">Gravada</span>
+                        <span class="font-semibold text-gray-800">S/ {{ number_format($venta->subtotal, 2) }}</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 text-sm border-b border-gray-100">
+                        <span class="text-gray-500">IGV (18.00%)</span>
+                        <span class="font-semibold text-gray-800">S/ {{ number_format($venta->igv, 2) }}</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 text-sm border-b border-gray-100">
+                        <span class="text-gray-500">Descuento Total</span>
+                        <span class="font-semibold text-gray-800">S/ 0.00</span>
+                    </div>
+                    <div class="flex justify-between py-2 mt-1">
+                        <span class="font-bold text-gray-900 text-base">Total</span>
+                        <span class="font-bold text-blue-600 text-xl">S/ {{ number_format($venta->total, 2) }}</span>
+                    </div>
+                </div>
             </div>
         </div>
 

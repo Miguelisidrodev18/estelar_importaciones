@@ -103,6 +103,11 @@ class Venta extends Model
         return $this->hasMany(DetalleVenta::class);
     }
 
+    public function imeis()
+    {
+        return $this->hasMany(Imei::class);
+    }
+
     public function guiaRemision()
     {
         return $this->hasOne(GuiaRemision::class);

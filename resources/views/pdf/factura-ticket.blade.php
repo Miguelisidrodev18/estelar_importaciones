@@ -81,6 +81,15 @@ table.items th:last-child, table.items td:last-child { padding-right: 0; }
 .qr-wrap { text-align: center; margin: 6px 0; }
 .qr-img  { width: 70px; height: 70px; }
 
+/* ─── MÉTODOS DE PAGO ─── */
+.pagos-sec-t { margin-top: 5px; }
+.pagos-sec-titulo-t { font-size: 6pt; font-weight: bold; color: #555; text-transform: uppercase; text-align: center; border-top: 1px dashed #999; border-bottom: 1px dashed #999; padding: 2px 0; margin-bottom: 4px; }
+.pago-bloque { margin-bottom: 5px; text-align: center; }
+.logo-pill-t { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; color: #fff; letter-spacing: 0.5px; }
+.pago-dato-t { font-size: 6.5pt; color: #222; line-height: 1.5; margin-top: 1px; }
+.qr-pago-t { width: 60px; height: 60px; display: block; margin: 3px auto 0; }
+.card-badge-t { display: inline-block; font-size: 5.5pt; font-weight: bold; padding: 1px 4px; border-radius: 2px; margin: 1px; color: #fff; }
+
 /* ─── UTILIDADES ─── */
 .px-1 { padding-left: 1px; padding-right: 1px; }
 </style>
@@ -158,17 +167,29 @@ table.items th:last-child, table.items td:last-child { padding-right: 0; }
         </tr>
     </thead>
     <tbody>
+        @php $igvFactor = $venta->subtotal > 0 ? ($venta->total / $venta->subtotal) : 1.18; @endphp
         @foreach($venta->detalles as $d)
+        @php
+            $precioFinal = $d->precio_unitario * $igvFactor;
+            $totalFinal  = $d->subtotal * $igvFactor;
+            $imeisLinea  = $venta->imeis->filter(fn($imei) =>
+                $imei->producto_id == $d->producto_id &&
+                ($d->variante_id ? $imei->variante_id == $d->variante_id : true)
+            );
+            if ($imeisLinea->isEmpty() && $d->imei) {
+                $imeisLinea = collect([$d->imei]);
+            }
+        @endphp
         <tr>
             <td>{{ $d->producto?->codigo }}</td>
             <td>
                 {{ $d->producto?->nombre }}
                 @if($d->variante)<br><span style="font-size:6pt;color:#555">{{ $d->variante->nombre_completo }}</span>@endif
-                @if($d->imei)<br><span style="font-size:6pt;color:#555">S/N: {{ $d->imei->codigo_imei }}</span>@endif
+                @foreach($imeisLinea as $imei)<br><span style="font-size:6pt;color:#555">S/N: {{ $imei->codigo_imei }}</span>@endforeach
             </td>
             <td class="c">{{ $d->cantidad }}</td>
-            <td class="r">S/{{ number_format($d->precio_unitario, 2) }}</td>
-            <td class="r">S/{{ number_format($d->precio_unitario * $d->cantidad, 2) }}</td>
+            <td class="r">S/{{ number_format($precioFinal, 2) }}</td>
+            <td class="r">S/{{ number_format($totalFinal, 2) }}</td>
         </tr>
         @endforeach
     </tbody>
@@ -199,35 +220,46 @@ table.items th:last-child, table.items td:last-child { padding-right: 0; }
     <div class="total-val">S/ {{ number_format($venta->total, 2) }}</div>
 </div>
 
-{{-- ─── INFO PAGO DIGITAL ─── --}}
-@if(in_array($venta->metodo_pago, ['yape','plin']) && $pagos->get($venta->metodo_pago))
-    @php $pg = $pagos->get($venta->metodo_pago); @endphp
-    <div class="divider"></div>
-    <div class="center bold" style="font-size:7pt">{{ ucfirst($venta->metodo_pago) }}</div>
-    @if($pg->titular)<div class="center" style="font-size:6.5pt">{{ $pg->titular }}</div>@endif
-    @if($pg->numero) <div class="center bold" style="font-size:8pt">{{ $pg->numero }}</div>@endif
+{{-- ─── MÉTODOS DE PAGO CONFIGURADOS ─── --}}
+@if($pagos->count() > 0)
+<div class="pagos-sec-t">
+    <div class="pagos-sec-titulo-t">Formas de pago aceptadas</div>
+    @foreach($pagos as $tipo => $pg)
     @php
-        $qrPagoPath = $pg->qr_imagen_path ? storage_path('app/public/' . $pg->qr_imagen_path) : null;
-        $qrPagoSrc  = null;
-        if ($qrPagoPath && file_exists($qrPagoPath)) {
-            $qrExt    = strtolower(pathinfo($qrPagoPath, PATHINFO_EXTENSION));
-            $qrMime   = in_array($qrExt, ['jpg','jpeg']) ? 'image/jpeg' : "image/$qrExt";
-            $qrPagoSrc = 'data:' . $qrMime . ';base64,' . base64_encode(file_get_contents($qrPagoPath));
+        [$pillColor, $pillLabel] = match($tipo) {
+            'yape'          => ['#7c3aed', 'YAPE'],
+            'plin'          => ['#16a34a', 'PLIN'],
+            'transferencia' => ['#1d4ed8', 'TRANSFERENCIA'],
+            'pos'           => ['#b91c1c', 'POS / TARJETA'],
+            default         => ['#374151', strtoupper($tipo)],
+        };
+        $qrFilePath = $pg->qr_imagen_path ? storage_path('app/public/' . $pg->qr_imagen_path) : null;
+        $qrDataUri  = null;
+        if ($qrFilePath && file_exists($qrFilePath)) {
+            $ext       = strtolower(pathinfo($qrFilePath, PATHINFO_EXTENSION));
+            $mime      = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : "image/$ext";
+            $qrDataUri = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($qrFilePath));
         }
     @endphp
-    @if($qrPagoSrc)
-        <div class="qr-wrap">
-            <img src="{{ $qrPagoSrc }}" class="qr-img">
+    <div class="pago-bloque">
+        <span class="logo-pill-t" style="background:{{ $pillColor }}">{{ $pillLabel }}</span>
+        @if($tipo === 'pos')
+            <span class="card-badge-t" style="background:#1a1f71">VISA</span>
+            <span class="card-badge-t" style="background:#eb001b">MC</span>
+        @endif
+        <div class="pago-dato-t">
+            @if($pg->titular) {{ $pg->titular }}<br>@endif
+            @if($pg->numero)  <strong>{{ $pg->numero }}</strong><br>@endif
+            @if($pg->banco)   {{ strtoupper($pg->banco) }}<br>@endif
+            @if($pg->cci)     CCI: {{ $pg->cci }}@endif
         </div>
-    @endif
-@elseif($venta->metodo_pago === 'transferencia' && $pagos->get('transferencia'))
-    @php $pg = $pagos->get('transferencia'); @endphp
-    <div class="divider"></div>
-    <div class="center" style="font-size:6.5pt">
-        @if($pg->banco) BANCO: {{ strtoupper($pg->banco) }}<br>@endif
-        @if($pg->numero)CTA (SOLES): {{ $pg->numero }}<br>@endif
-        @if($pg->cci)   CCI: {{ $pg->cci }}<br>@endif
+        @if($qrDataUri)
+            <img src="{{ $qrDataUri }}" class="qr-pago-t" alt="QR {{ $pillLabel }}">
+        @endif
     </div>
+    @if(!$loop->last)<div class="divider"></div>@endif
+    @endforeach
+</div>
 @endif
 
 <div class="divider"></div>

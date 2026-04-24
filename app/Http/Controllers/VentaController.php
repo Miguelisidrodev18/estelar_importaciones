@@ -344,8 +344,8 @@ class VentaController extends Controller
     public function show(Venta $venta)
     {
         $venta->load('vendedor', 'confirmador', 'cliente', 'almacen', 'sucursal', 'serieComprobante',
-            'detalles.producto.categoria', 'detalles.variante.color', 'detalles.imei', 'guiaRemision',
-            'cuentaPorCobrar.cuotas');
+            'detalles.producto.categoria', 'detalles.producto.unidadMedida', 'detalles.variante.color',
+            'detalles.imei', 'imeis', 'guiaRemision', 'cuentaPorCobrar.cuotas');
 
         return view('ventas.show', compact('venta'));
     }
@@ -380,7 +380,7 @@ class VentaController extends Controller
         $formato = $request->get('formato', 'a4'); // a4 | ticket
 
         $venta->load('vendedor', 'cliente', 'almacen', 'sucursal', 'serieComprobante',
-            'detalles.producto', 'detalles.variante.color', 'detalles.imei');
+            'detalles.producto.unidadMedida', 'detalles.variante.color', 'detalles.imei', 'imeis');
 
         $empresa  = Empresa::first() ?? new Empresa(['razon_social' => config('app.name'), 'ruc' => '']);
         $sucursal = $venta->sucursal ?? Sucursal::where('almacen_id', $venta->almacen_id)->first();

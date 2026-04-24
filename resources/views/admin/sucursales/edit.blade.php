@@ -42,6 +42,16 @@
             <i class="fas fa-exclamation-circle"></i>{{ session('error') }}
         </div>
     @endif
+    @if($errors->any())
+        <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+            <div class="flex items-center gap-2 font-semibold mb-1"><i class="fas fa-exclamation-triangle"></i> Error de validación</div>
+            <ul class="list-disc list-inside text-sm space-y-0.5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     {{-- Tabs --}}
     <div class="bg-white rounded-xl shadow-md overflow-hidden">

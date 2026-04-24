@@ -148,19 +148,26 @@ class SucursalController extends Controller
 
     public function updatePagos(Request $request, Sucursal $sucursal)
     {
-        $validated = $request->validate([
-            'pagos'                       => 'nullable|array',
-            'pagos.*.tipo_pago'           => 'required|in:yape,plin,transferencia,pos',
-            'pagos.*.titular'             => 'nullable|string|max:150',
-            'pagos.*.numero'              => 'nullable|string|max:20',
-            'pagos.*.banco'               => 'nullable|string|max:100',
-            'pagos.*.numero_cuenta'       => 'nullable|string|max:50',
-            'pagos.*.cci'                 => 'nullable|string|max:30',
-            'pagos.*.activo'              => 'nullable|boolean',
-            'pagos.*.qr'                  => 'nullable|image|max:2048',
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'pagos'                 => 'nullable|array',
+            'pagos.*.tipo_pago'     => 'required|in:yape,plin,transferencia,pos',
+            'pagos.*.titular'       => 'nullable|string|max:150',
+            'pagos.*.numero'        => 'nullable|string|max:30',
+            'pagos.*.banco'         => 'nullable|string|max:100',
+            'pagos.*.numero_cuenta' => 'nullable|string|max:50',
+            'pagos.*.cci'           => 'nullable|string|max:30',
+            'pagos.*.activo'        => 'nullable|boolean',
+            'pagos.*.qr'            => 'nullable|image|max:2048',
         ]);
 
-        DB::transaction(function () use ($request, $sucursal) {
+        if ($validator->fails()) {
+            return redirect()->route('admin.sucursales.edit', $sucursal)
+                ->withErrors($validator)
+                ->withInput()
+                ->with('_tab', 'pagos');
+        }
+
+        try { DB::transaction(function () use ($request, $sucursal) {
             foreach (['yape', 'plin', 'transferencia', 'pos'] as $tipo) {
                 $datos = $request->input("pagos.{$tipo}", []);
                 $activo = $request->boolean("pagos.{$tipo}.activo");
@@ -188,10 +195,15 @@ class SucursalController extends Controller
 
                 $pago->save();
             }
-        });
+        }); } catch (\Exception $e) {
+            return redirect()->route('admin.sucursales.edit', $sucursal)
+                ->with('error', 'Error al guardar: ' . $e->getMessage())
+                ->with('_tab', 'pagos');
+        }
 
         return redirect()->route('admin.sucursales.edit', $sucursal)
-            ->with('success', 'Configuración de pagos guardada.');
+            ->with('success', 'Configuración de pagos guardada.')
+            ->with('_tab', 'pagos');
     }
 
     // ── HU-03: Generar series estándar faltantes ───────────────────────────────

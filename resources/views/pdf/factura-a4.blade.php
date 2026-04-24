@@ -65,6 +65,15 @@ table.items tfoot td { padding: 3px 6px; font-size: 7.5pt; }
 .pago-titulo { font-size: 7pt; font-weight: bold; color: #555; text-transform: uppercase; margin-bottom: 4px; }
 .pago-linea { font-size: 7pt; color: #333; margin-bottom: 1.5px; }
 
+/* ─── MÉTODOS DE PAGO ─── */
+.pagos-sec { margin-top: 6px; }
+.pagos-sec-titulo { font-size: 5.5pt; font-weight: bold; color: #777; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; margin-bottom: 4px; }
+.pago-metodo-row { margin-bottom: 5px; }
+.logo-pill { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 7.5pt; font-weight: bold; color: #fff; letter-spacing: 0.5px; }
+.pago-metodo-dato { font-size: 6pt; color: #333; line-height: 1.55; margin-top: 2px; }
+.pago-metodo-qr { width: 52px; height: 52px; float: right; margin-left: 4px; margin-bottom: 2px; }
+.card-badge { display: inline-block; font-size: 5.5pt; font-weight: bold; padding: 1px 4px; border-radius: 2px; margin-right: 2px; color: #fff; vertical-align: middle; }
+
 .totales-row { display: table; width: 100%; margin-bottom: 2px; }
 .totales-label { display: table-cell; font-size: 8pt; color: #444; padding: 2px 0; }
 .totales-val   { display: table-cell; font-size: 8pt; color: #1a1a1a; font-weight: bold;
@@ -189,7 +198,19 @@ table.items tfoot td { padding: 3px 6px; font-size: 7.5pt; }
         </tr>
     </thead>
     <tbody>
+        @php $igvFactor = $venta->subtotal > 0 ? ($venta->total / $venta->subtotal) : 1.18; @endphp
         @foreach($venta->detalles as $i => $d)
+        @php
+            $precioFinal = $d->precio_unitario * $igvFactor;
+            $totalFinal  = $d->subtotal * $igvFactor;
+            $imeisLinea  = $venta->imeis->filter(fn($imei) =>
+                $imei->producto_id == $d->producto_id &&
+                ($d->variante_id ? $imei->variante_id == $d->variante_id : true)
+            );
+            if ($imeisLinea->isEmpty() && $d->imei) {
+                $imeisLinea = collect([$d->imei]);
+            }
+        @endphp
         <tr>
             <td class="center">{{ $i + 1 }}</td>
             <td>{{ $d->producto?->codigo ?? '—' }}</td>
@@ -198,14 +219,14 @@ table.items tfoot td { padding: 3px 6px; font-size: 7.5pt; }
                 @if($d->variante)
                     <br><span style="color:#555;font-size:7pt">{{ $d->variante->nombre_completo }} · {{ $d->variante->sku }}</span>
                 @endif
-                @if($d->imei)
-                    <br><span style="color:#555;font-size:7pt">Serie: {{ $d->imei->codigo_imei }}</span>
-                @endif
+                @foreach($imeisLinea as $imei)
+                    <br><span style="color:#555;font-size:7pt">Serie: {{ $imei->codigo_imei }}</span>
+                @endforeach
             </td>
-            <td class="center">{{ $d->producto?->unidad?->abreviatura ?? 'UND' }}</td>
+            <td class="center">{{ $d->producto?->unidadMedida?->abreviatura ?? 'UND' }}</td>
             <td class="center">{{ $d->cantidad }}</td>
-            <td class="right">S/ {{ number_format($d->precio_unitario, 2) }}</td>
-            <td class="right">S/ {{ number_format($d->precio_unitario * $d->cantidad, 2) }}</td>
+            <td class="right">S/ {{ number_format($precioFinal, 2) }}</td>
+            <td class="right">S/ {{ number_format($totalFinal, 2) }}</td>
         </tr>
         @endforeach
     </tbody>
@@ -220,23 +241,46 @@ table.items tfoot td { padding: 3px 6px; font-size: 7.5pt; }
             <div class="son-texto">{{ montoEnLetras($venta->total) }}</div>
         </div>
 
-        {{-- Info de pago si hay transferencia --}}
-        @if($venta->metodo_pago === 'transferencia' && $pagos->get('transferencia'))
-            @php $pg = $pagos->get('transferencia'); @endphp
-            <div class="pago-info">
-                <div class="pago-titulo">Usted puede hacer pagos en:</div>
-                @if($pg->banco)  <div class="pago-linea">BANCO: {{ strtoupper($pg->banco) }}</div>@endif
-                @if($pg->numero) <div class="pago-linea">NRO CUENTA (SOLES): {{ $pg->numero }}</div>@endif
-                @if($pg->cci)    <div class="pago-linea">CCI: {{ $pg->cci }}</div>@endif
-                @if($pg->titular)<div class="pago-linea">A NOMBRE DE: {{ strtoupper($pg->titular) }}</div>@endif
+        {{-- Métodos de pago configurados --}}
+        @if($pagos->count() > 0)
+        <div class="pagos-sec">
+            <div class="pagos-sec-titulo">Formas de pago aceptadas</div>
+            @foreach($pagos as $tipo => $pg)
+            @php
+                [$pillColor, $pillLabel] = match($tipo) {
+                    'yape'          => ['#7c3aed', 'YAPE'],
+                    'plin'          => ['#16a34a', 'PLIN'],
+                    'transferencia' => ['#1d4ed8', 'TRANSFERENCIA'],
+                    'pos'           => ['#b91c1c', 'POS / TARJETA'],
+                    default         => ['#374151', strtoupper($tipo)],
+                };
+                $qrFilePath = $pg->qr_imagen_path ? storage_path('app/public/' . $pg->qr_imagen_path) : null;
+                $qrDataUri  = null;
+                if ($qrFilePath && file_exists($qrFilePath)) {
+                    $ext       = strtolower(pathinfo($qrFilePath, PATHINFO_EXTENSION));
+                    $mime      = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : "image/$ext";
+                    $qrDataUri = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($qrFilePath));
+                }
+            @endphp
+            <div class="pago-metodo-row">
+                @if($qrDataUri)
+                    <img src="{{ $qrDataUri }}" class="pago-metodo-qr" alt="QR">
+                @endif
+                <span class="logo-pill" style="background:{{ $pillColor }}">{{ $pillLabel }}</span>
+                @if($tipo === 'pos')
+                    <span class="card-badge" style="background:#1a1f71">VISA</span>
+                    <span class="card-badge" style="background:#eb001b">MC</span>
+                    <span class="card-badge" style="background:#ff5f00">&#9679;</span>
+                @endif
+                <div class="pago-metodo-dato">
+                    @if($pg->titular) {{ $pg->titular }}<br>@endif
+                    @if($pg->numero)  {{ $pg->numero }}<br>@endif
+                    @if($pg->banco)   {{ strtoupper($pg->banco) }}<br>@endif
+                    @if($pg->cci)     CCI: {{ $pg->cci }}@endif
+                </div>
             </div>
-        @elseif(in_array($venta->metodo_pago, ['yape','plin']) && $pagos->get($venta->metodo_pago))
-            @php $pg = $pagos->get($venta->metodo_pago); @endphp
-            <div class="pago-info">
-                <div class="pago-titulo">{{ ucfirst($venta->metodo_pago) }}</div>
-                @if($pg->titular)<div class="pago-linea">Titular: {{ $pg->titular }}</div>@endif
-                @if($pg->numero) <div class="pago-linea">Número: {{ $pg->numero }}</div>@endif
-            </div>
+            @endforeach
+        </div>
         @endif
     </div>
 

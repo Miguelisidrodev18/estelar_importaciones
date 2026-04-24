@@ -623,7 +623,7 @@
                                         </label>
                                         <input type="hidden" name="precio_incluye_igv" value="0">
                                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                            <input type="checkbox" id="precio_incluye_igv" name="precio_incluye_igv" value="1"
+                                            <input type="checkbox" id="precio_incluye_igv" name="precio_incluye_igv" value="1" checked
                                                    class="sr-only peer">
                                             <div class="w-9 h-5 bg-gray-300 peer-checked:bg-amber-500 rounded-full transition-colors"></div>
                                             <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
