@@ -14,6 +14,7 @@ class GuiaRemision extends Model
         'direccion_partida', 'ubigeo_partida',
         'direccion_llegada', 'ubigeo_llegada',
         'transportista_tipo_doc', 'transportista_doc', 'transportista_nombre',
+        'conductor_dni', 'conductor_nombre', 'conductor_licencia', 'placa_vehiculo',
     ];
 
     protected $casts = [

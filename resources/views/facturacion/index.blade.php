@@ -67,7 +67,7 @@
 
     {{-- Filtros --}}
     <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
-        <form method="GET" action="{{ route('facturacion.index') }}" class="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <form method="GET" action="{{ route('facturacion.index') }}" class="grid grid-cols-1 md:grid-cols-7 gap-3">
             <div class="md:col-span-2">
                 <input type="text" name="buscar" value="{{ request('buscar') }}"
                        placeholder="Buscar cliente, RUC, serie..."
@@ -88,6 +88,11 @@
                 <option value="boleta"     {{ request('tipo_comprobante') == 'boleta'     ? 'selected' : '' }}>Boleta</option>
                 <option value="nc_factura" {{ request('tipo_comprobante') == 'nc_factura' ? 'selected' : '' }}>Nota Crédito</option>
             </select>
+            <select name="con_guia" class="rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="">Con/Sin guía</option>
+                <option value="1" {{ request('con_guia') == '1' ? 'selected' : '' }}>Con Guía de Remisión</option>
+                <option value="0" {{ request('con_guia') == '0' ? 'selected' : '' }}>Sin Guía de Remisión</option>
+            </select>
             <div class="grid grid-cols-2 gap-2">
                 <input type="date" name="fecha_desde" value="{{ request('fecha_desde') }}"
                        class="rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500">
@@ -98,7 +103,7 @@
                 <button type="submit" class="flex-1 bg-blue-900 hover:bg-blue-800 text-white text-sm px-3 py-2 rounded-lg transition">
                     <i class="fas fa-search mr-1"></i>Filtrar
                 </button>
-                @if(request()->hasAny(['buscar','estado_sunat','tipo_comprobante','fecha_desde','fecha_hasta','sucursal_id']))
+                @if(request()->hasAny(['buscar','estado_sunat','tipo_comprobante','fecha_desde','fecha_hasta','sucursal_id','con_guia']))
                     <a href="{{ route('facturacion.index') }}"
                        class="flex-1 text-center text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-50 transition">
                         <i class="fas fa-times"></i>
@@ -164,6 +169,7 @@
                         'nc_boleta'  => 'NC Boleta',
                         default      => ucfirst($comp->tipo_comprobante),
                     };
+                    $tieneGuia = $comp->guiaRemision !== null;
                 @endphp
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3">
@@ -178,6 +184,11 @@
                     </td>
                     <td class="px-4 py-3">
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $tipoCss }}">{{ $tipoLabel }}</span>
+                        @if($tieneGuia)
+                            <span class="block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-700 w-fit">
+                                <i class="fas fa-truck mr-0.5"></i>Guía Rem.
+                            </span>
+                        @endif
                     </td>
                     <td class="px-4 py-3">
                         <p class="font-medium text-gray-900 truncate max-w-[200px]">{{ $comp->cliente?->nombre ?? 'Sin cliente' }}</p>
@@ -217,6 +228,12 @@
                                class="text-green-600 hover:text-green-800 transition" title="Descargar XML">
                                 <i class="fas fa-file-code"></i>
                             </a>
+                            @if($tieneGuia)
+                                <a href="{{ route('ventas.guia-pdf', $comp) }}" target="_blank"
+                                   class="text-teal-600 hover:text-teal-800 transition" title="Ver Guía de Remisión">
+                                    <i class="fas fa-truck"></i>
+                                </a>
+                            @endif
                         </div>
                     </td>
                 </tr>

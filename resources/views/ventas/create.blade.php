@@ -1247,7 +1247,74 @@
                 </div>
             </div>
 
-            {{-- 3. DATOS DEL TRANSPORTISTA --}}
+            {{-- 3a. DATOS DEL CONDUCTOR (transporte privado) --}}
+            <div x-show="orden.guia.modalidad === 'privado'">
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg flex items-center justify-center shrink-0">
+                        <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300">3</span>
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">
+                        Datos del Conductor
+                        <span class="text-indigo-500 text-xs font-medium normal-case ml-1">(transporte privado)</span>
+                    </h3>
+                    <button type="button"
+                            x-show="orden.guia.conductor_dni || orden.guia.conductor_nombre || orden.guia.placa_vehiculo"
+                            @click="orden.guia.conductor_dni=''; orden.guia.conductor_nombre=''; orden.guia.conductor_licencia=''; orden.guia.placa_vehiculo=''; localStorage.removeItem('pos_conductor_data'); errorDni=''"
+                            class="ml-auto text-[10px] text-gray-400 hover:text-red-500 transition flex items-center gap-1">
+                        <i class="fas fa-times-circle"></i> Limpiar
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {{-- DNI con búsqueda --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            DNI del Conductor
+                        </label>
+                        <div class="relative flex gap-2">
+                            <input type="text" x-model="orden.guia.conductor_dni"
+                                   maxlength="8" placeholder="12345678"
+                                   @keyup.enter="buscarDniConductor()"
+                                   class="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-mono">
+                            <button type="button" @click="buscarDniConductor()"
+                                    :disabled="buscandoDni || orden.guia.conductor_dni.length !== 8"
+                                    class="px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold transition flex items-center gap-1">
+                                <i class="fas" :class="buscandoDni ? 'fa-spinner fa-spin' : 'fa-search'"></i>
+                            </button>
+                        </div>
+                        <p x-show="errorDni" x-text="errorDni" class="text-red-500 text-[10px] mt-1"></p>
+                    </div>
+                    {{-- Nombre (auto-llenado) --}}
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Nombre del Conductor
+                        </label>
+                        <input type="text" x-model="orden.guia.conductor_nombre"
+                               placeholder="Se completa al buscar DNI o ingrese manualmente"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+                    </div>
+                    {{-- Placa --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Placa del Vehículo
+                        </label>
+                        <input type="text" x-model="orden.guia.placa_vehiculo"
+                               placeholder="Ej: ABC-123" maxlength="20"
+                               @input="orden.guia.placa_vehiculo = orden.guia.placa_vehiculo.toUpperCase()"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-mono tracking-widest">
+                    </div>
+                    {{-- Licencia --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                            Nro. Licencia de Conducir
+                        </label>
+                        <input type="text" x-model="orden.guia.conductor_licencia"
+                               placeholder="Ej: Q12345678" maxlength="20"
+                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-mono">
+                    </div>
+                </div>
+            </div>
+
+            {{-- 3b. DATOS DEL TRANSPORTISTA --}}
             <div x-show="orden.guia.modalidad === 'publico'">
                 <div class="flex items-center gap-2 mb-3">
                     <div class="w-6 h-6 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex items-center justify-center shrink-0">
@@ -1430,6 +1497,10 @@ function crearOrden(id) {
             transportista_tipo_doc:'RUC',
             transportista_doc:     '',
             transportista_nombre:  '',
+            conductor_dni:         '',
+            conductor_nombre:      '',
+            conductor_licencia:    '',
+            placa_vehiculo:        '',
         },
         carrito:          [],
         pagos:            [{ metodo: 'efectivo', monto: 0, referencia: '' }],
@@ -1460,6 +1531,8 @@ function posApp() {
         guardando:       false,
         showPago:        false,
         showModalGuia:   false,
+        buscandoDni:     false,
+        errorDni:        '',
         empresaDireccion: @json($empresa?->direccion ?? ''),
         empresaUbigeo:    @json($empresa?->ubigeo ?? ''),
         pagosConfig:     @json($pagosConfig),
@@ -1879,6 +1952,10 @@ function posApp() {
                             transportista_tipo_doc: this.orden.guia.transportista_tipo_doc || null,
                             transportista_doc:      this.orden.guia.transportista_doc || null,
                             transportista_nombre:   this.orden.guia.transportista_nombre || null,
+                            conductor_dni:          this.orden.guia.conductor_dni || null,
+                            conductor_nombre:       this.orden.guia.conductor_nombre || null,
+                            conductor_licencia:     this.orden.guia.conductor_licencia || null,
+                            placa_vehiculo:         this.orden.guia.placa_vehiculo || null,
                         } : null,
                         condicion_pago:   this.orden.condicionPago,
                         metodo_pago:      metodoPago,
@@ -2167,6 +2244,18 @@ function posApp() {
                 const cliente = this.clientes.find(c => String(c.id) === String(this.orden.clienteId));
                 if (cliente?.direccion) g.direccion_llegada = cliente.direccion;
             }
+            // Precargar datos del conductor desde sesión anterior (solo si están vacíos)
+            if (!g.conductor_dni && !g.conductor_nombre && !g.placa_vehiculo) {
+                try {
+                    const saved = JSON.parse(localStorage.getItem('pos_conductor_data') || 'null');
+                    if (saved) {
+                        g.conductor_dni      = saved.conductor_dni      || '';
+                        g.conductor_nombre   = saved.conductor_nombre   || '';
+                        g.conductor_licencia = saved.conductor_licencia || '';
+                        g.placa_vehiculo     = saved.placa_vehiculo     || '';
+                    }
+                } catch {}
+            }
             this.showModalGuia = true;
         },
 
@@ -2174,6 +2263,29 @@ function posApp() {
             this.showModalGuia = false;
             if (!this.orden.guia.guardada) {
                 this.orden.envioProvincia = false;
+            }
+        },
+
+        async buscarDniConductor() {
+            const dni = this.orden.guia.conductor_dni.trim();
+            if (dni.length !== 8) return;
+            this.buscandoDni = true;
+            this.errorDni   = '';
+            try {
+                const res  = await fetch(`/ventas/api/dni/${dni}`, {
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                });
+                const data = await res.json();
+                if (res.ok && data.nombre) {
+                    this.orden.guia.conductor_nombre = data.nombre;
+                    this.toast('success', 'Nombre cargado desde RENIEC');
+                } else {
+                    this.errorDni = data.error || 'DNI no encontrado. Ingrese el nombre manualmente.';
+                }
+            } catch {
+                this.errorDni = 'Sin conexión. Ingrese el nombre manualmente.';
+            } finally {
+                this.buscandoDni = false;
             }
         },
 
@@ -2187,6 +2299,17 @@ function posApp() {
             if (g.modalidad === 'publico' && !g.transportista_nombre) {
                 this.toast('error', 'Para transporte público ingrese los datos del transportista');
                 return;
+            }
+            // Guardar datos del conductor en localStorage para próximas ventas
+            if (g.modalidad === 'privado' && (g.conductor_dni || g.conductor_nombre || g.placa_vehiculo)) {
+                try {
+                    localStorage.setItem('pos_conductor_data', JSON.stringify({
+                        conductor_dni:      g.conductor_dni,
+                        conductor_nombre:   g.conductor_nombre,
+                        conductor_licencia: g.conductor_licencia,
+                        placa_vehiculo:     g.placa_vehiculo,
+                    }));
+                } catch {}
             }
             g.guardada = true;
             this.showModalGuia = false;

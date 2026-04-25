@@ -39,6 +39,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CuentaPorPagarController;
 use App\Http\Controllers\CuentaPorCobrarController;
 use App\Http\Controllers\ReporteVentasController;
+use App\Http\Controllers\DniLookupController;
 
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
@@ -352,6 +353,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [VentaController::class, 'store'])->name('store');
         Route::get('/cotizaciones', [VentaController::class, 'cotizaciones'])->name('cotizaciones');
         Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
+        Route::get('/api/dni/{dni}', [DniLookupController::class, 'buscar'])->name('dni.buscar');
         // Bitácora de auditoría (solo Admin) — debe ir antes del wildcard /{venta}
         Route::get('/auditoria', [VentaController::class, 'bitacora'])->middleware('role:Administrador')->name('auditoria');
         Route::get('/{venta}', [VentaController::class, 'show'])->name('show');

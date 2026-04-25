@@ -42,6 +42,10 @@ class StoreVentaRequest extends FormRequest
             'guia_data.transportista_tipo_doc'       => 'nullable|string|in:RUC,DNI',
             'guia_data.transportista_doc'            => 'nullable|string|max:15',
             'guia_data.transportista_nombre'         => 'nullable|string|max:200',
+            'guia_data.conductor_dni'                => 'nullable|string|digits:8',
+            'guia_data.conductor_nombre'             => 'nullable|string|max:200',
+            'guia_data.conductor_licencia'           => 'nullable|string|max:20',
+            'guia_data.placa_vehiculo'               => 'nullable|string|max:20',
 
             // Campos legado (se mantienen nullable por compatibilidad)
             'guia_remision'            => 'nullable|string|max:100',

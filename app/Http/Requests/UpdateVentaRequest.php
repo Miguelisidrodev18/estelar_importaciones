@@ -60,6 +60,10 @@ class UpdateVentaRequest extends FormRequest
             'guia.transportista_tipo_doc'=> 'nullable|string|max:10',
             'guia.transportista_doc'     => 'nullable|string|max:15',
             'guia.transportista_nombre'  => 'nullable|string|max:200',
+            'guia.conductor_dni'         => 'nullable|string|digits:8',
+            'guia.conductor_nombre'      => 'nullable|string|max:200',
+            'guia.conductor_licencia'    => 'nullable|string|max:20',
+            'guia.placa_vehiculo'        => 'nullable|string|max:20',
         ];
     }
 

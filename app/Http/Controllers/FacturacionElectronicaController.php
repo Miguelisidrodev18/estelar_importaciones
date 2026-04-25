@@ -17,7 +17,7 @@ class FacturacionElectronicaController extends Controller
 
     public function index(Request $request)
     {
-        $query = Venta::with(['cliente', 'serieComprobante', 'sucursal'])
+        $query = Venta::with(['cliente', 'serieComprobante', 'sucursal', 'guiaRemision'])
             ->whereNotIn('tipo_comprobante', ['cotizacion'])
             ->orderByDesc('fecha');
 
@@ -39,6 +39,14 @@ class FacturacionElectronicaController extends Controller
 
         if ($request->filled('fecha_hasta')) {
             $query->whereDate('fecha', '<=', $request->fecha_hasta);
+        }
+
+        if ($request->filled('con_guia')) {
+            if ($request->con_guia === '1') {
+                $query->whereHas('guiaRemision');
+            } else {
+                $query->whereDoesntHave('guiaRemision');
+            }
         }
 
         if ($request->filled('buscar')) {
