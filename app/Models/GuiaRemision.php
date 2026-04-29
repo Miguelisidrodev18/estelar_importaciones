@@ -9,7 +9,7 @@ class GuiaRemision extends Model
     protected $table = 'guias_remision';
 
     protected $fillable = [
-        'venta_id', 'motivo_traslado', 'modalidad',
+        'venta_id', 'numero_guia', 'motivo_traslado', 'modalidad',
         'fecha_traslado', 'peso_total', 'bultos',
         'direccion_partida', 'ubigeo_partida',
         'direccion_llegada', 'ubigeo_llegada',

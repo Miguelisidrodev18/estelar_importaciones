@@ -160,6 +160,222 @@
                 </div>
 
                 {{-- ══════════════════════════════════════════════════
+                     GUÍA DE REMISIÓN
+                ═══════════════════════════════════════════════════ --}}
+                <div class="bg-white rounded-2xl shadow-md overflow-hidden mb-5">
+
+                    <div class="bg-linear-to-r from-emerald-900 to-emerald-700 px-6 py-4 flex items-center gap-3">
+                        <div class="bg-white/20 rounded-xl p-2.5">
+                            <i class="fas fa-file-invoice text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-white">Guía de Remisión</h2>
+                            <p class="text-emerald-200 text-xs">Datos para el comprobante de traslado (SUNAT)</p>
+                        </div>
+                    </div>
+
+                    <div class="p-6 space-y-4">
+
+                        {{-- Motivo / Modalidad / Fecha --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-tag mr-1 text-emerald-500"></i>Motivo de Traslado *
+                                </label>
+                                <select name="guia[motivo_traslado]" required
+                                        class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                                    <option value="TRASLADO_ENTRE_ALMACENES" {{ old('guia.motivo_traslado','TRASLADO_ENTRE_ALMACENES')==='TRASLADO_ENTRE_ALMACENES' ? 'selected':'' }}>Traslado entre almacenes</option>
+                                    <option value="VENTA" {{ old('guia.motivo_traslado')==='VENTA' ? 'selected':'' }}>Venta</option>
+                                    <option value="COMPRA" {{ old('guia.motivo_traslado')==='COMPRA' ? 'selected':'' }}>Compra</option>
+                                    <option value="DEVOLUCION" {{ old('guia.motivo_traslado')==='DEVOLUCION' ? 'selected':'' }}>Devolución</option>
+                                    <option value="IMPORTACION" {{ old('guia.motivo_traslado')==='IMPORTACION' ? 'selected':'' }}>Importación</option>
+                                    <option value="EXPORTACION" {{ old('guia.motivo_traslado')==='EXPORTACION' ? 'selected':'' }}>Exportación</option>
+                                    <option value="OTRO" {{ old('guia.motivo_traslado')==='OTRO' ? 'selected':'' }}>Otro</option>
+                                </select>
+                                @error('guia.motivo_traslado')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-truck mr-1 text-emerald-500"></i>Modalidad de Transporte *
+                                </label>
+                                <select name="guia[modalidad]" required
+                                        class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                                    <option value="privado" {{ old('guia.modalidad','privado')==='privado' ? 'selected':'' }}>Transporte Privado</option>
+                                    <option value="publico" {{ old('guia.modalidad')==='publico' ? 'selected':'' }}>Transporte Público</option>
+                                </select>
+                                @error('guia.modalidad')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-calendar mr-1 text-emerald-500"></i>Fecha de Traslado *
+                                </label>
+                                <input type="date" name="guia[fecha_traslado]" required
+                                       value="{{ old('guia.fecha_traslado', now()->format('Y-m-d')) }}"
+                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                @error('guia.fecha_traslado')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+
+                        {{-- Dirección Partida / Llegada --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-map-marker-alt mr-1 text-orange-400"></i>Dirección de Partida (Origen)
+                                </label>
+                                <input type="text" name="guia[direccion_partida]"
+                                       value="{{ old('guia.direccion_partida') }}"
+                                       placeholder="Dirección del almacén origen"
+                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-map-marker-alt mr-1 text-green-500"></i>Dirección de Llegada (Destino)
+                                </label>
+                                <input type="text" name="guia[direccion_llegada]"
+                                       value="{{ old('guia.direccion_llegada') }}"
+                                       placeholder="Dirección del almacén destino"
+                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                        </div>
+
+                        {{-- Ubigeo Partida / Llegada --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    Ubigeo Partida
+                                </label>
+                                <input type="text" name="guia[ubigeo_partida]" maxlength="6"
+                                       value="{{ old('guia.ubigeo_partida') }}"
+                                       placeholder="Ej: 150101"
+                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    Ubigeo Llegada
+                                </label>
+                                <input type="text" name="guia[ubigeo_llegada]" maxlength="6"
+                                       value="{{ old('guia.ubigeo_llegada') }}"
+                                       placeholder="Ej: 150101"
+                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
+                            </div>
+                        </div>
+
+                        {{-- Peso / Bultos --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-weight-hanging mr-1 text-gray-400"></i>Peso Total (kg)
+                                </label>
+                                <input type="number" step="0.01" min="0" name="guia[peso_total]"
+                                       value="{{ old('guia.peso_total') }}"
+                                       placeholder="0.00"
+                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-boxes mr-1 text-gray-400"></i>N° de Bultos
+                                </label>
+                                <input type="number" min="1" name="guia[bultos]"
+                                       value="{{ old('guia.bultos') }}"
+                                       placeholder="1"
+                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                        </div>
+
+                        {{-- Transportista --}}
+                        <div class="border-t border-gray-100 pt-4">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                                <i class="fas fa-id-card mr-1 text-blue-400"></i>Datos del Transportista
+                            </p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                        Tipo Documento
+                                    </label>
+                                    <select name="guia[transportista_tipo_doc]"
+                                            class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                                        <option value="">— Tipo —</option>
+                                        <option value="RUC" {{ old('guia.transportista_tipo_doc')==='RUC' ? 'selected':'' }}>RUC</option>
+                                        <option value="DNI" {{ old('guia.transportista_tipo_doc')==='DNI' ? 'selected':'' }}>DNI</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                        N° Documento
+                                    </label>
+                                    <input type="text" name="guia[transportista_doc]" maxlength="15"
+                                           value="{{ old('guia.transportista_doc') }}"
+                                           placeholder="RUC o DNI"
+                                           class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                        Nombre / Razón Social
+                                    </label>
+                                    <input type="text" name="guia[transportista_nombre]" maxlength="200"
+                                           value="{{ old('guia.transportista_nombre') }}"
+                                           placeholder="Nombre del transportista"
+                                           class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Conductor --}}
+                        <div class="border-t border-gray-100 pt-4">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                                <i class="fas fa-user-tie mr-1 text-purple-400"></i>Datos del Conductor
+                            </p>
+                            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                        DNI Conductor
+                                    </label>
+                                    <input type="text" name="guia[conductor_dni]" maxlength="8"
+                                           value="{{ old('guia.conductor_dni') }}"
+                                           placeholder="DNI"
+                                           class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                        Nombre del Conductor
+                                    </label>
+                                    <input type="text" name="guia[conductor_nombre]" maxlength="200"
+                                           value="{{ old('guia.conductor_nombre') }}"
+                                           placeholder="Apellidos y nombres"
+                                           class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                        N° Licencia
+                                    </label>
+                                    <input type="text" name="guia[conductor_licencia]" maxlength="20"
+                                           value="{{ old('guia.conductor_licencia') }}"
+                                           placeholder="Licencia de conducir"
+                                           class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-car mr-1 text-gray-400"></i>Placa del Vehículo
+                                </label>
+                                <input type="text" name="guia[placa_vehiculo]" maxlength="20"
+                                       value="{{ old('guia.placa_vehiculo') }}"
+                                       placeholder="Ej: ABC-123"
+                                       oninput="this.value=this.value.toUpperCase()"
+                                       class="w-full sm:w-48 px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono uppercase">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                {{-- ══════════════════════════════════════════════════
                      PRODUCTOS (REPEATER)
                 ═══════════════════════════════════════════════════ --}}
                 <div class="bg-white rounded-2xl shadow-md overflow-hidden mb-5">

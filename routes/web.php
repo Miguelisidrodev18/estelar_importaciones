@@ -435,6 +435,7 @@ Route::middleware('auth')->group(function () {
 
         Route::middleware('role:Administrador,Almacenero')->group(function () {
             Route::get('/{traslado}', [TrasladoController::class, 'show'])->name('show');
+            Route::get('/{traslado}/guia-pdf', [TrasladoController::class, 'guiaPdf'])->name('guia-pdf');
         });
     });
 

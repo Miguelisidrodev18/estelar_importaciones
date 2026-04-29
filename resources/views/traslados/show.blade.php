@@ -30,6 +30,28 @@
             </span>
         </div>
 
+        {{-- Botón Guía de Remisión --}}
+        @if($guia)
+        <div class="flex items-center gap-3 mb-5 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <i class="fas fa-file-invoice text-emerald-600 text-lg"></i>
+            <div class="flex-1">
+                <p class="text-sm font-semibold text-emerald-800">Guía de Remisión registrada</p>
+                <p class="text-xs text-emerald-600">
+                    Motivo: {{ $guia->motivo_label }} · {{ $guia->modalidad_label }} · {{ $guia->fecha_traslado?->format('d/m/Y') }}
+                </p>
+            </div>
+            <a href="{{ route('traslados.guia-pdf', $traslado->id) }}" target="_blank"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold rounded-lg transition-colors">
+                <i class="fas fa-file-pdf"></i> Descargar PDF
+            </a>
+        </div>
+        @else
+        <div class="flex items-center gap-3 mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <i class="fas fa-exclamation-triangle text-amber-500 text-lg"></i>
+            <p class="text-sm text-amber-800">Este traslado no tiene guía de remisión registrada.</p>
+        </div>
+        @endif
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 
             {{-- Datos del traslado --}}

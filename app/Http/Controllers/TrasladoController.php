@@ -8,7 +8,10 @@ use App\Models\Almacen;
 use App\Models\Categoria;
 use App\Models\StockAlmacen;
 use App\Models\Imei;
+use App\Models\GuiaRemision;
+use App\Models\Empresa;
 use App\Services\TrasladoService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class TrasladoController extends Controller
@@ -66,23 +69,79 @@ class TrasladoController extends Controller
             'productos.*.cantidad'    => 'nullable|integer|min:1',
             'productos.*.imei_ids'    => 'nullable|array',
             'productos.*.imei_ids.*'  => 'nullable|exists:imeis,id',
+            // Guía de remisión
+            'guia.motivo_traslado'       => 'required|string|max:50',
+            'guia.modalidad'             => 'required|in:privado,publico',
+            'guia.fecha_traslado'        => 'required|date',
+            'guia.peso_total'            => 'nullable|numeric|min:0',
+            'guia.bultos'                => 'nullable|integer|min:1',
+            'guia.direccion_partida'     => 'nullable|string|max:300',
+            'guia.ubigeo_partida'        => 'nullable|string|max:6',
+            'guia.direccion_llegada'     => 'nullable|string|max:300',
+            'guia.ubigeo_llegada'        => 'nullable|string|max:6',
+            'guia.transportista_tipo_doc'=> 'nullable|string|max:10',
+            'guia.transportista_doc'     => 'nullable|string|max:15',
+            'guia.transportista_nombre'  => 'nullable|string|max:200',
+            'guia.conductor_dni'         => 'nullable|string|max:8',
+            'guia.conductor_nombre'      => 'nullable|string|max:200',
+            'guia.conductor_licencia'    => 'nullable|string|max:20',
+            'guia.placa_vehiculo'        => 'nullable|string|max:20',
         ], [
-            'almacen_destino_id.different' => 'El almacén destino debe ser diferente al origen.',
-            'productos.required'           => 'Debe agregar al menos un producto.',
-            'productos.min'                => 'Debe agregar al menos un producto.',
+            'almacen_destino_id.different'    => 'El almacén destino debe ser diferente al origen.',
+            'productos.required'              => 'Debe agregar al menos un producto.',
+            'productos.min'                   => 'Debe agregar al menos un producto.',
+            'guia.motivo_traslado.required'   => 'El motivo de traslado es obligatorio.',
+            'guia.modalidad.required'         => 'La modalidad de transporte es obligatoria.',
+            'guia.fecha_traslado.required'    => 'La fecha de traslado es obligatoria.',
         ]);
 
         try {
-            $guia = app(TrasladoService::class)->crearTraslado(
-                array_merge($validated, ['user_id' => auth()->id()])
+            $guiaData    = $validated['guia'] ?? null;
+            $trasladoData = $validated;
+            unset($trasladoData['guia']);
+
+            $numeroGuia = app(TrasladoService::class)->crearTraslado(
+                array_merge($trasladoData, ['user_id' => auth()->id()])
             );
+
+            if ($guiaData) {
+                GuiaRemision::create(array_merge(['numero_guia' => $numeroGuia], $guiaData));
+            }
 
             return redirect()
                 ->route('traslados.index')
-                ->with('success', "Traslado registrado. Guía: {$guia}");
+                ->with('success', "Traslado registrado. Guía: {$numeroGuia}");
         } catch (\Exception $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
+    }
+
+    public function guiaPdf(MovimientoInventario $traslado)
+    {
+        $guia = GuiaRemision::where('numero_guia', $traslado->numero_guia)->first();
+
+        if (!$guia) {
+            abort(404, 'Este traslado no tiene guía de remisión.');
+        }
+
+        $todosProductos = MovimientoInventario::with(['producto.unidadMedida', 'imeisTrasladados.imei', 'almacen', 'almacenDestino'])
+            ->where('numero_guia', $traslado->numero_guia)
+            ->where('tipo_movimiento', 'transferencia')
+            ->orderBy('id')
+            ->get();
+
+        $empresa = Empresa::first();
+
+        $pdf = Pdf::setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled'      => true,
+            'defaultFont'          => 'DejaVu Sans',
+            'chroot'               => public_path(),
+        ])->loadView('pdf.guia-remision-traslado', compact('traslado', 'todosProductos', 'guia', 'empresa'));
+
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->stream('guia-' . $traslado->numero_guia . '.pdf');
     }
 
     public function show(MovimientoInventario $traslado)
@@ -98,7 +157,11 @@ class TrasladoController extends Controller
                 ->get()
             : collect([$traslado]);
 
-        return view('traslados.show', compact('traslado', 'todosProductos'));
+        $guia = $traslado->numero_guia
+            ? GuiaRemision::where('numero_guia', $traslado->numero_guia)->first()
+            : null;
+
+        return view('traslados.show', compact('traslado', 'todosProductos', 'guia'));
     }
 
     public function pendientes()
