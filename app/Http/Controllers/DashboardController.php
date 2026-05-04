@@ -64,6 +64,25 @@ class DashboardController extends Controller
             ? round((($ventasMesActual - $ventasMesAnterior) / $ventasMesAnterior) * 100, 1)
             : 0;
 
+        // ── Boletas y Facturas ────────────────────────────────────────────────
+        $boletasTotal = Venta::where('tipo_comprobante', 'boleta')
+            ->where('estado_pago', 'pagado')
+            ->count();
+        $boletasMes = Venta::where('tipo_comprobante', 'boleta')
+            ->where('estado_pago', 'pagado')
+            ->whereMonth('fecha', $mesActual)
+            ->whereYear('fecha', $anioActual)
+            ->count();
+
+        $facturasTotal = Venta::where('tipo_comprobante', 'factura')
+            ->where('estado_pago', 'pagado')
+            ->count();
+        $facturasMes = Venta::where('tipo_comprobante', 'factura')
+            ->where('estado_pago', 'pagado')
+            ->whereMonth('fecha', $mesActual)
+            ->whereYear('fecha', $anioActual)
+            ->count();
+
         // Ventas por mes del año actual (para el gráfico)
         $ventasPorMes = Venta::where('estado_pago', 'pagado')
             ->whereYear('fecha', $anioActual)
@@ -185,6 +204,12 @@ class DashboardController extends Controller
             'variacion_ventas'      => $variacionVentas,
             'ventas_mensuales_chart'=> $ventasMensualesChart,
             'anio_chart'            => $anioActual,
+
+            // Boletas y Facturas
+            'boletas_total'    => $boletasTotal,
+            'boletas_mes'      => $boletasMes,
+            'facturas_total'   => $facturasTotal,
+            'facturas_mes'     => $facturasMes,
 
             // Compras
             'compras_mes_actual' => $comprasMesActual,

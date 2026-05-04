@@ -275,26 +275,28 @@
                     </div>
                 </div>
 
-                {{-- Stock Total --}}
+                {{-- Comprobantes Emitidos (Boletas y Facturas) --}}
                 <div class="bg-white rounded-xl shadow-lg p-6 hover-scale border-l-4 border-purple-600">
                     <div class="flex justify-between items-start">
                         <div>
-                            <p class="text-sm text-gray-500 font-medium">Stock Total</p>
-                            <p class="stat-value text-gray-900">{{ number_format($stock_total) }}</p>
-                            <p class="text-xs text-gray-500 mt-1">unidades en inventario</p>
+                            <p class="text-sm text-gray-500 font-medium">Comprobantes Emitidos</p>
+                            <p class="stat-value text-gray-900">{{ number_format($boletas_total + $facturas_total) }}</p>
+                            <p class="text-xs text-gray-500 mt-1">boletas y facturas</p>
                         </div>
                         <div class="bg-purple-100 p-3 rounded-lg">
-                            <i class="fas fa-boxes text-purple-600 text-2xl"></i>
+                            <i class="fas fa-file-invoice text-purple-600 text-2xl"></i>
                         </div>
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2 text-center">
-                        <div class="bg-gray-50 rounded-lg p-2">
-                            <p class="text-xs text-gray-500">Celulares</p>
-                            <p class="text-sm font-bold text-gray-900">{{ number_format($stock_celulares) }}</p>
+                        <div class="bg-blue-50 rounded-lg p-2">
+                            <p class="text-xs text-gray-500">Boletas</p>
+                            <p class="text-sm font-bold text-blue-700">{{ number_format($boletas_total) }}</p>
+                            <p class="text-[10px] text-gray-400">mes: {{ $boletas_mes }}</p>
                         </div>
-                        <div class="bg-gray-50 rounded-lg p-2">
-                            <p class="text-xs text-gray-500">Accesorios</p>
-                            <p class="text-sm font-bold text-gray-900">{{ number_format($stock_accesorios) }}</p>
+                        <div class="bg-indigo-50 rounded-lg p-2">
+                            <p class="text-xs text-gray-500">Facturas</p>
+                            <p class="text-sm font-bold text-indigo-700">{{ number_format($facturas_total) }}</p>
+                            <p class="text-[10px] text-gray-400">mes: {{ $facturas_mes }}</p>
                         </div>
                     </div>
                 </div>
