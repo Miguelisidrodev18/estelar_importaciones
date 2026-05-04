@@ -378,13 +378,13 @@
                         <!-- Punto de venta (obligatorio) -->
                         <div class="relative">
                             <label for="sucursal_sel" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                Punto de Venta <span class="text-red-500">*</span>
+                                Sucursal / Almacén <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
                                 <select id="sucursal_sel" required
                                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white"
                                         onchange="onSucursalChange(this.value)">
-                                    <option value="">— Seleccione un punto de venta —</option>
+                                    <option value="">— Seleccione una sucursal o almacén —</option>
                                     @foreach($sucursales as $suc)
                                         @php
                                             // Pre-seleccionar si venimos de un old('almacen_id')

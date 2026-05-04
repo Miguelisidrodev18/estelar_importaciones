@@ -1324,6 +1324,12 @@
                         Datos del Transportista
                         <span class="text-orange-500 text-xs font-medium normal-case ml-1">(requerido para transporte público)</span>
                     </h3>
+                    <button type="button"
+                            x-show="orden.guia.transportista_doc || orden.guia.transportista_nombre"
+                            @click="orden.guia.transportista_doc=''; orden.guia.transportista_nombre=''; localStorage.removeItem('pos_transportista_data'); errorTransportista=''"
+                            class="ml-auto text-[10px] text-gray-400 hover:text-red-500 transition flex items-center gap-1">
+                        <i class="fas fa-times-circle"></i> Limpiar
+                    </button>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -1336,8 +1342,17 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Nro. Documento</label>
-                        <input type="text" x-model="orden.guia.transportista_doc" placeholder="Nro. documento"
-                               class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        <div class="flex gap-2">
+                            <input type="text" x-model="orden.guia.transportista_doc" placeholder="Nro. documento"
+                                   @keydown.enter.prevent="buscarTransportistaGuia()"
+                                   class="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition font-mono">
+                            <button type="button" @click="buscarTransportistaGuia()"
+                                    :disabled="buscandoTransportista || !orden.guia.transportista_doc"
+                                    class="px-3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold transition flex items-center gap-1">
+                                <i class="fas" :class="buscandoTransportista ? 'fa-spinner fa-spin' : 'fa-search'"></i>
+                            </button>
+                        </div>
+                        <p x-show="errorTransportista" x-text="errorTransportista" class="text-red-500 text-[10px] mt-1" x-cloak></p>
                     </div>
                     <div class="md:col-span-1">
                         <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
@@ -1518,6 +1533,8 @@ function posApp() {
         // ── UI State ──
         darkMode:        JSON.parse(localStorage.getItem('pos_dark') ?? 'false'),
         sidebarCollapsed:JSON.parse(localStorage.getItem('pos_sidebar_collapsed') ?? 'false'),
+        buscandoTransportista: false,
+        errorTransportista:    '',
         formatoImpresion:localStorage.getItem('pos_formato')                      ?? 'ticket',
         hora:            new Date().toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', second:'2-digit' }),
 
@@ -2256,6 +2273,17 @@ function posApp() {
                     }
                 } catch {}
             }
+            // Precargar datos del transportista desde sesión anterior
+            if (!g.transportista_doc && !g.transportista_nombre) {
+                try {
+                    const savedT = JSON.parse(localStorage.getItem('pos_transportista_data') || 'null');
+                    if (savedT) {
+                        g.transportista_tipo_doc = savedT.transportista_tipo_doc || 'RUC';
+                        g.transportista_doc      = savedT.transportista_doc      || '';
+                        g.transportista_nombre   = savedT.transportista_nombre   || '';
+                    }
+                } catch {}
+            }
             this.showModalGuia = true;
         },
 
@@ -2289,6 +2317,35 @@ function posApp() {
             }
         },
 
+        async buscarTransportistaGuia() {
+            const doc = this.orden.guia.transportista_doc.trim();
+            if (!doc) return;
+            this.buscandoTransportista = true;
+            this.errorTransportista    = '';
+            try {
+                let url = '';
+                if (this.orden.guia.transportista_tipo_doc === 'RUC') {
+                    url = `/traslados/api/ruc/${doc}`;
+                } else {
+                    url = `/ventas/api/dni/${doc}`;
+                }
+                const res = await fetch(url, {
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                });
+                const data = await res.json();
+                if (res.ok && data.nombre) {
+                    this.orden.guia.transportista_nombre = data.nombre;
+                    this.toast('success', 'Nombre cargado correctamente');
+                } else {
+                    this.errorTransportista = data.error || 'No encontrado. Ingrese el nombre manualmente.';
+                }
+            } catch {
+                this.errorTransportista = 'Sin conexión. Ingrese el nombre manualmente.';
+            } finally {
+                this.buscandoTransportista = false;
+            }
+        },
+
         guardarGuia() {
             const g = this.orden.guia;
             if (!g.motivo_traslado)                           { this.toast('error', 'Seleccione el motivo de traslado'); return; }
@@ -2308,6 +2365,16 @@ function posApp() {
                         conductor_nombre:   g.conductor_nombre,
                         conductor_licencia: g.conductor_licencia,
                         placa_vehiculo:     g.placa_vehiculo,
+                    }));
+                } catch {}
+            }
+            // Guardar datos del transportista en localStorage para próximas ventas
+            if (g.modalidad === 'publico' && (g.transportista_doc || g.transportista_nombre)) {
+                try {
+                    localStorage.setItem('pos_transportista_data', JSON.stringify({
+                        transportista_tipo_doc: g.transportista_tipo_doc,
+                        transportista_doc:      g.transportista_doc,
+                        transportista_nombre:   g.transportista_nombre,
                     }));
                 } catch {}
             }
