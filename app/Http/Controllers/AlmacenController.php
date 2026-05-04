@@ -22,20 +22,14 @@ class AlmacenController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Almacen::with(['encargado', 'sucursal']);
-        
-        // Filtro por tipo
-        if ($request->filled('tipo')) {
-            $query->where('tipo', $request->tipo);
-        }
-        
-        // Filtro por estado
-        if ($request->filled('estado')) {
-            $query->where('estado', $request->estado);
-        }
-        
-        $almacenes = $query->orderBy('nombre')->paginate(15);
-        
+        $estado = $request->get('estado');
+
+        $base = fn() => Almacen::with(['encargado', 'sucursal'])
+            ->when($estado, fn($q) => $q->where('estado', $estado));
+
+        $tiendas  = $base()->where('tipo', 'tienda')->orderBy('nombre')->get();
+        $depositos = $base()->whereIn('tipo', ['principal', 'deposito', 'temporal'])->orderBy('nombre')->get();
+
         // Estadísticas
         $stats = [
             'total'    => Almacen::count(),
@@ -44,13 +38,12 @@ class AlmacenController extends Controller
             'tiendas'  => Almacen::tiendas()->count(),
             'depositos'=> Almacen::depositos()->count(),
         ];
-        
-        // Verificar permisos
+
         $canCreate = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
-        $canEdit = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
-        $canDelete = auth()->user()->role->nombre === 'Administrador';
-        
-        return view('inventario.almacenes.index', compact('almacenes', 'stats', 'canCreate', 'canEdit', 'canDelete'));
+        $canEdit   = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
+        $canDelete  = auth()->user()->role->nombre === 'Administrador';
+
+        return view('inventario.almacenes.index', compact('tiendas', 'depositos', 'stats', 'canCreate', 'canEdit', 'canDelete'));
     }
 
     /**

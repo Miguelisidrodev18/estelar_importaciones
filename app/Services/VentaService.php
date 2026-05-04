@@ -6,6 +6,7 @@ namespace App\Services;
 use App\Models\Venta;
 use App\Models\DetalleVenta;
 use App\Models\GuiaRemision;
+use App\Models\SerieComprobante;
 use App\Models\Imei;
 use App\Models\StockAlmacen;
 use App\Models\MovimientoInventario;
@@ -109,7 +110,24 @@ class VentaService
 
             // Crear guía de remisión si se proporcionaron datos
             if ($guiaData) {
-                GuiaRemision::create(array_merge(['venta_id' => $venta->id], $guiaData));
+                // Generar numero_guia desde la serie 09 de la sucursal (compartido con traslados)
+                $numeroGuia = null;
+                if ($venta->sucursal_id) {
+                    $serie09 = SerieComprobante::where('sucursal_id', $venta->sucursal_id)
+                        ->where('tipo_comprobante', '09')
+                        ->where('activo', true)
+                        ->first();
+
+                    if ($serie09) {
+                        $numeroGuia = $serie09->serie . '-' . str_pad($serie09->correlativo_actual, 8, '0', STR_PAD_LEFT);
+                        $serie09->increment('correlativo_actual');
+                    }
+                }
+
+                GuiaRemision::create(array_merge(
+                    ['venta_id' => $venta->id, 'numero_guia' => $numeroGuia],
+                    $guiaData
+                ));
             }
 
             if ($esCredito) {

@@ -11,8 +11,10 @@ use App\Models\Imei;
 use App\Models\GuiaRemision;
 use App\Models\Empresa;
 use App\Services\TrasladoService;
+use App\Services\SunatService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class TrasladoController extends Controller
 {
@@ -33,7 +35,22 @@ class TrasladoController extends Controller
     public function create(Request $request)
     {
         $productos = Producto::where('estado', 'activo')->orderBy('nombre')->get();
-        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
+
+        // Cargar almacenes con la serie de guía de remisión (tipo 09) de su sucursal
+        $almacenes = Almacen::where('estado', 'activo')
+            ->with(['sucursal.series' => fn($q) => $q->where('tipo_comprobante', '09')->where('activo', true)])
+            ->orderBy('nombre')
+            ->get();
+
+        // Mapa almacen_id → datos de la serie de guía para el JS
+        $guiaSeriesMap = $almacenes->mapWithKeys(function ($alm) {
+            $serie = $alm->sucursal?->series->first();
+            if (!$serie) return [$alm->id => null];
+            return [$alm->id => [
+                'serie_id' => $serie->id,
+                'numero'   => $serie->serie . '-' . str_pad($serie->correlativo_actual, 8, '0', STR_PAD_LEFT),
+            ]];
+        })->filter();
 
         // Stock por producto y almacén (productos accesorio)
         $stocksData = StockAlmacen::all()
@@ -51,8 +68,14 @@ class TrasladoController extends Controller
         // tipo_inventario por producto
         $tiposInventario = $productos->pluck('tipo_inventario', 'id');
 
+        // Último conductor registrado para pre-rellenar el formulario
+        $ultimoConductor = GuiaRemision::whereNotNull('conductor_dni')
+            ->whereNotNull('conductor_nombre')
+            ->latest()
+            ->first();
+
         return view('traslados.create', compact(
-            'productos', 'almacenes', 'stocksData', 'imeisData', 'tiposInventario'
+            'productos', 'almacenes', 'stocksData', 'imeisData', 'tiposInventario', 'ultimoConductor', 'guiaSeriesMap'
         ));
     }
 
@@ -62,6 +85,7 @@ class TrasladoController extends Controller
             'almacen_id'              => 'required|exists:almacenes,id',
             'almacen_destino_id'      => 'required|exists:almacenes,id|different:almacen_id',
             'numero_guia'             => 'nullable|string|max:50',
+            'guia_serie_id'           => 'nullable|exists:series_comprobantes,id',
             'transportista'           => 'nullable|string|max:255',
             'observaciones'           => 'nullable|string',
             'productos'               => 'required|array|min:1',
@@ -106,6 +130,11 @@ class TrasladoController extends Controller
 
             if ($guiaData) {
                 GuiaRemision::create(array_merge(['numero_guia' => $numeroGuia], $guiaData));
+            }
+
+            // Incrementar correlativo de la serie usada
+            if (!empty($validated['guia_serie_id'])) {
+                \App\Models\SerieComprobante::where('id', $validated['guia_serie_id'])->increment('correlativo_actual');
             }
 
             return redirect()
@@ -276,5 +305,18 @@ class TrasladoController extends Controller
                 'error' => 'Error al cargar IMEIs: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function buscarRuc(string $ruc): JsonResponse
+    {
+        $result = app(SunatService::class)->consultarRuc($ruc);
+
+        if (!($result['success'] ?? false)) {
+            return response()->json([
+                'error' => $result['message'] ?? 'RUC no encontrado. Ingrese el nombre manualmente.',
+            ], 404);
+        }
+
+        return response()->json(['nombre' => $result['data']['razon_social'] ?? null]);
     }
 }

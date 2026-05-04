@@ -119,32 +119,29 @@
                             </div>
                         </div>
 
-                        {{-- Guía / Transportista --}}
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                    <i class="fas fa-file-alt mr-1 text-blue-400"></i>N° Guía
-                                    <span class="text-gray-400 font-normal normal-case">(auto-generado si vacío)</span>
-                                </label>
-                                <input type="text" name="numero_guia"
-                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono uppercase"
-                                       placeholder="GR-00001"
-                                       value="{{ old('numero_guia') }}"
-                                       oninput="this.value=this.value.toUpperCase()">
-                                @error('numero_guia')
-                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                                @enderror
+                        {{-- N° Guía --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                <i class="fas fa-file-alt mr-1 text-blue-400"></i>N° Guía
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <input type="text" name="numero_guia" x-model="numeroGuia"
+                                       class="w-full sm:w-64 px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono uppercase"
+                                       placeholder="Seleccione almacén origen"
+                                       @input="numeroGuia = numeroGuia.toUpperCase()">
+                                <span x-show="guiaSerieId" x-cloak
+                                      class="text-xs text-emerald-600 font-medium flex items-center gap-1 whitespace-nowrap">
+                                    <i class="fas fa-check-circle"></i> Serie de sucursal
+                                </span>
+                                <span x-show="almacenId && !guiaSerieId" x-cloak
+                                      class="text-xs text-amber-500 font-medium flex items-center gap-1 whitespace-nowrap">
+                                    <i class="fas fa-exclamation-triangle"></i> Sin serie configurada
+                                </span>
                             </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                    <i class="fas fa-truck mr-1 text-gray-400"></i>Transportista
-                                    <span class="text-gray-400 font-normal normal-case">(opcional)</span>
-                                </label>
-                                <input type="text" name="transportista"
-                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Nombre del transportista"
-                                       value="{{ old('transportista') }}">
-                            </div>
+                            <input type="hidden" name="guia_serie_id" x-model="guiaSerieId">
+                            @error('numero_guia')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div>
@@ -200,10 +197,10 @@
                                 <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
                                     <i class="fas fa-truck mr-1 text-emerald-500"></i>Modalidad de Transporte *
                                 </label>
-                                <select name="guia[modalidad]" required
+                                <select name="guia[modalidad]" required x-model="modalidad"
                                         class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
-                                    <option value="privado" {{ old('guia.modalidad','privado')==='privado' ? 'selected':'' }}>Transporte Privado</option>
-                                    <option value="publico" {{ old('guia.modalidad')==='publico' ? 'selected':'' }}>Transporte Público</option>
+                                    <option value="privado">Transporte Privado (propio)</option>
+                                    <option value="publico">Transporte Público (tercero)</option>
                                 </select>
                                 @error('guia.modalidad')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -288,39 +285,42 @@
                             </div>
                         </div>
 
-                        {{-- Transportista --}}
-                        <div class="border-t border-gray-100 pt-4">
+                        {{-- Transportista (solo transporte público) --}}
+                        <div x-show="modalidad === 'publico'" x-cloak class="border-t border-gray-100 pt-4">
                             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                                 <i class="fas fa-id-card mr-1 text-blue-400"></i>Datos del Transportista
+                                <span class="ml-2 text-gray-400 font-normal normal-case text-[11px]">Empresa o persona que realiza el traslado</span>
                             </p>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                        Tipo Documento
-                                    </label>
-                                    <select name="guia[transportista_tipo_doc]"
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Tipo Documento</label>
+                                    <select name="guia[transportista_tipo_doc]" x-model="transpTipoDoc"
                                             class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
                                         <option value="">— Tipo —</option>
-                                        <option value="RUC" {{ old('guia.transportista_tipo_doc')==='RUC' ? 'selected':'' }}>RUC</option>
-                                        <option value="DNI" {{ old('guia.transportista_tipo_doc')==='DNI' ? 'selected':'' }}>DNI</option>
+                                        <option value="RUC">RUC (empresa)</option>
+                                        <option value="DNI">DNI (persona natural)</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                        N° Documento
-                                    </label>
-                                    <input type="text" name="guia[transportista_doc]" maxlength="15"
-                                           value="{{ old('guia.transportista_doc') }}"
-                                           placeholder="RUC o DNI"
-                                           class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">N° Documento</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" name="guia[transportista_doc]" x-model="transpDoc"
+                                               maxlength="11" placeholder="RUC o DNI"
+                                               class="flex-1 px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
+                                               @keydown.enter.prevent="buscarTransportista()">
+                                        <button type="button" @click="buscarTransportista()"
+                                                :disabled="transpBuscando || !transpDoc"
+                                                class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition disabled:opacity-50"
+                                                title="Buscar en SUNAT/RENIEC">
+                                            <i class="fas" :class="transpBuscando ? 'fa-spinner fa-spin' : 'fa-search'"></i>
+                                        </button>
+                                    </div>
+                                    <p x-show="transpError" x-text="transpError" x-cloak class="text-xs text-amber-600 mt-1"></p>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                        Nombre / Razón Social
-                                    </label>
-                                    <input type="text" name="guia[transportista_nombre]" maxlength="200"
-                                           value="{{ old('guia.transportista_nombre') }}"
-                                           placeholder="Nombre del transportista"
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Nombre / Razón Social</label>
+                                    <input type="text" name="guia[transportista_nombre]" x-model="transpNombre"
+                                           maxlength="200" placeholder="Se llena automático o escribe manualmente"
                                            class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                                 </div>
                             </div>
@@ -328,35 +328,63 @@
 
                         {{-- Conductor --}}
                         <div class="border-t border-gray-100 pt-4">
-                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                                <i class="fas fa-user-tie mr-1 text-purple-400"></i>Datos del Conductor
-                            </p>
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                    <i class="fas fa-user-tie mr-1 text-purple-400"></i>Datos del Conductor
+                                    <span class="ml-2 text-gray-400 font-normal normal-case text-[11px]">
+                                        (privado: conductor propio · público: conductor del transportista)
+                                    </span>
+                                </p>
+                                @if($ultimoConductor)
+                                    <button type="button" @click="restaurarUltimoConductor()"
+                                            class="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                                        <i class="fas fa-history"></i> Usar último conductor
+                                    </button>
+                                @endif
+                            </div>
+
+                            {{-- Banner último conductor --}}
+                            @if($ultimoConductor)
+                            <div class="mb-4 flex items-center gap-3 px-4 py-3 bg-purple-50 border border-purple-100 rounded-xl text-sm">
+                                <i class="fas fa-user-check text-purple-400 shrink-0"></i>
+                                <div class="flex-1 text-purple-800">
+                                    Último conductor registrado:
+                                    <strong>{{ $ultimoConductor->conductor_nombre }}</strong>
+                                    &middot; DNI <span class="font-mono">{{ $ultimoConductor->conductor_dni }}</span>
+                                    @if($ultimoConductor->placa_vehiculo)
+                                        &middot; Placa <span class="font-mono font-semibold">{{ $ultimoConductor->placa_vehiculo }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                            @endif
+
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                        DNI Conductor
-                                    </label>
-                                    <input type="text" name="guia[conductor_dni]" maxlength="8"
-                                           value="{{ old('guia.conductor_dni') }}"
-                                           placeholder="DNI"
-                                           class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">DNI Conductor</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" name="guia[conductor_dni]" x-model="condDni"
+                                               maxlength="8" placeholder="DNI"
+                                               class="flex-1 px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
+                                               @keydown.enter.prevent="buscarConductor()">
+                                        <button type="button" @click="buscarConductor()"
+                                                :disabled="condBuscando || condDni.length !== 8"
+                                                class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition disabled:opacity-50"
+                                                title="Buscar en RENIEC">
+                                            <i class="fas" :class="condBuscando ? 'fa-spinner fa-spin' : 'fa-search'"></i>
+                                        </button>
+                                    </div>
+                                    <p x-show="condError" x-text="condError" x-cloak class="text-xs text-amber-600 mt-1"></p>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                        Nombre del Conductor
-                                    </label>
-                                    <input type="text" name="guia[conductor_nombre]" maxlength="200"
-                                           value="{{ old('guia.conductor_nombre') }}"
-                                           placeholder="Apellidos y nombres"
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Nombre del Conductor</label>
+                                    <input type="text" name="guia[conductor_nombre]" x-model="condNombre"
+                                           maxlength="200" placeholder="Apellidos y nombres (se llena desde RENIEC)"
                                            class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                        N° Licencia
-                                    </label>
-                                    <input type="text" name="guia[conductor_licencia]" maxlength="20"
-                                           value="{{ old('guia.conductor_licencia') }}"
-                                           placeholder="Licencia de conducir"
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">N° Licencia</label>
+                                    <input type="text" name="guia[conductor_licencia]" x-model="condLicencia"
+                                           maxlength="20" placeholder="Licencia de conducir"
                                            class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
                                 </div>
                             </div>
@@ -364,10 +392,9 @@
                                 <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
                                     <i class="fas fa-car mr-1 text-gray-400"></i>Placa del Vehículo
                                 </label>
-                                <input type="text" name="guia[placa_vehiculo]" maxlength="20"
-                                       value="{{ old('guia.placa_vehiculo') }}"
-                                       placeholder="Ej: ABC-123"
-                                       oninput="this.value=this.value.toUpperCase()"
+                                <input type="text" name="guia[placa_vehiculo]" x-model="condPlaca"
+                                       maxlength="20" placeholder="Ej: ABC-123"
+                                       @input="condPlaca = condPlaca.toUpperCase()"
                                        class="w-full sm:w-48 px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono uppercase">
                             </div>
                         </div>
@@ -649,11 +676,46 @@ function trasladoForm() {
     const tipos  = @json($tiposInventario->toArray()); // {producto_id: 'serie'|'accesorio'}
     const imeisUrl = '{{ route('traslados.imeis-disponibles') }}';
 
+    const guiaSeriesMap = @json($guiaSeriesMap);   // { almacen_id: { serie_id, numero } }
+    const dniUrl  = '{{ route('ventas.dni.buscar', ['dni' => '__DNI__']) }}';
+    const rucUrl  = '{{ route('traslados.api.ruc', ['ruc' => '__RUC__']) }}';
+    @php
+        $conductorData = [
+            'dni'      => $ultimoConductor?->conductor_dni      ?? '',
+            'nombre'   => $ultimoConductor?->conductor_nombre   ?? '',
+            'licencia' => $ultimoConductor?->conductor_licencia ?? '',
+            'placa'    => $ultimoConductor?->placa_vehiculo     ?? '',
+        ];
+    @endphp
+    const ultimoConductor = @json($conductorData);
+
     return {
         almacenId:        '',
         almacenDestinoId: '',
         productos:        [],
         nextId:           1,
+
+        // N° Guía
+        numeroGuia:  '{{ old('numero_guia', '') }}',
+        guiaSerieId: '{{ old('guia_serie_id', '') }}',
+
+        // Modalidad de transporte
+        modalidad: '{{ old('guia.modalidad', 'privado') }}',
+
+        // Transportista (transporte público)
+        transpTipoDoc:  '{{ old('guia.transportista_tipo_doc', 'RUC') }}',
+        transpDoc:      '{{ old('guia.transportista_doc', '') }}',
+        transpNombre:   '{{ old('guia.transportista_nombre', '') }}',
+        transpBuscando: false,
+        transpError:    '',
+
+        // Conductor
+        condDni:      '{{ old('guia.conductor_dni', $ultimoConductor?->conductor_dni ?? '') }}',
+        condNombre:   '{{ old('guia.conductor_nombre', $ultimoConductor?->conductor_nombre ?? '') }}',
+        condLicencia: '{{ old('guia.conductor_licencia', $ultimoConductor?->conductor_licencia ?? '') }}',
+        condPlaca:    '{{ old('guia.placa_vehiculo', $ultimoConductor?->placa_vehiculo ?? '') }}',
+        condBuscando: false,
+        condError:    '',
 
         init() {
             this.agregarProducto();
@@ -694,6 +756,16 @@ function trasladoForm() {
         // ── Eventos de selección ─────────────────────────────────────
 
         onAlmacenOrigenChange() {
+            // Auto-fill N° Guía desde la serie de la sucursal del almacén origen
+            const serieData = guiaSeriesMap[this.almacenId];
+            if (serieData) {
+                this.numeroGuia  = serieData.numero;
+                this.guiaSerieId = String(serieData.serie_id);
+            } else {
+                this.numeroGuia  = '';
+                this.guiaSerieId = '';
+            }
+
             this.productos.forEach((p, idx) => {
                 p.imeisSeleccionados = [];
                 p.imeisDisponibles   = [];
@@ -798,6 +870,61 @@ function trasladoForm() {
         getImeiCodigo(idx, id) {
             const imei = this.productos[idx]?.imeisDisponibles.find(i => i.id === id);
             return imei ? imei.codigo_imei : String(id);
+        },
+
+        // ── Lookups RENIEC / SUNAT ───────────────────────────────────
+
+        async buscarConductor() {
+            if (this.condDni.length !== 8) return;
+            this.condBuscando = true;
+            this.condError    = '';
+            try {
+                const url  = dniUrl.replace('__DNI__', this.condDni);
+                const resp = await fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await resp.json();
+                if (resp.ok && data.nombre) {
+                    this.condNombre = data.nombre;
+                } else {
+                    this.condError = data.error ?? 'No encontrado. Ingrese el nombre manualmente.';
+                }
+            } catch {
+                this.condError = 'Sin conexión al servicio RENIEC.';
+            } finally {
+                this.condBuscando = false;
+            }
+        },
+
+        async buscarTransportista() {
+            if (!this.transpDoc) return;
+            this.transpBuscando = true;
+            this.transpError    = '';
+            try {
+                let url;
+                if (this.transpTipoDoc === 'RUC') {
+                    url = rucUrl.replace('__RUC__', this.transpDoc);
+                } else {
+                    url = dniUrl.replace('__DNI__', this.transpDoc);
+                }
+                const resp = await fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await resp.json();
+                if (resp.ok && data.nombre) {
+                    this.transpNombre = data.nombre;
+                } else {
+                    this.transpError = data.error ?? 'No encontrado. Ingrese el nombre manualmente.';
+                }
+            } catch {
+                this.transpError = 'Sin conexión al servicio SUNAT/RENIEC.';
+            } finally {
+                this.transpBuscando = false;
+            }
+        },
+
+        restaurarUltimoConductor() {
+            this.condDni      = ultimoConductor.dni;
+            this.condNombre   = ultimoConductor.nombre;
+            this.condLicencia = ultimoConductor.licencia;
+            this.condPlaca    = ultimoConductor.placa;
+            this.condError    = '';
         },
 
         // ── Validación global ────────────────────────────────────────

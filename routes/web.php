@@ -426,6 +426,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/create', [TrasladoController::class, 'create'])->name('create');
             Route::post('/', [TrasladoController::class, 'store'])->name('store');
             Route::get('/imeis-disponibles', [TrasladoController::class, 'imeisDisponibles'])->name('imeis-disponibles');
+            Route::get('/api/ruc/{ruc}', [TrasladoController::class, 'buscarRuc'])->name('api.ruc');
         });
 
         Route::middleware('role:Administrador,Almacenero,Tienda')->group(function () {
