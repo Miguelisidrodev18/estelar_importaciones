@@ -83,6 +83,7 @@
                                 @foreach($sucursales as $sucursal)
                                     <option value="{{ $sucursal->id }}" {{ old('sucursal_id') == $sucursal->id ? 'selected' : '' }}>
                                         {{ $sucursal->nombre }}
+                                        [{{ $sucursal->tipo === 'tienda' ? 'Tienda' : 'Almacén' }}]
                                     </option>
                                 @endforeach
                             </select>

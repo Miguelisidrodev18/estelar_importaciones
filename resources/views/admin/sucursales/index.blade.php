@@ -54,6 +54,15 @@
                                 <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">
                                     {{ $sucursal->codigo }}
                                 </span>
+                                @if($sucursal->tipo === 'tienda')
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200 flex items-center gap-1">
+                                        <i class="fas fa-store text-[10px]"></i> Tienda
+                                    </span>
+                                @else
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200 flex items-center gap-1">
+                                        <i class="fas fa-warehouse text-[10px]"></i> Almacén
+                                    </span>
+                                @endif
                                 @if($sucursal->es_principal)
                                     <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold flex items-center gap-1">
                                         <i class="fas fa-star text-[10px]"></i> Principal
@@ -77,19 +86,19 @@
                     <div class="p-5 space-y-2 text-sm">
                         @if($sucursal->direccion)
                             <div class="flex items-start gap-2 text-gray-600">
-                                <i class="fas fa-map-marker-alt text-gray-400 mt-0.5 w-4 text-center flex-shrink-0"></i>
+                                <i class="fas fa-map-marker-alt text-gray-400 mt-0.5 w-4 text-center shrink-0"></i>
                                 <span class="truncate">{{ $sucursal->direccion }}</span>
                             </div>
                         @endif
                         @if($sucursal->telefono)
                             <div class="flex items-center gap-2 text-gray-600">
-                                <i class="fas fa-phone text-gray-400 w-4 text-center flex-shrink-0"></i>
+                                <i class="fas fa-phone text-gray-400 w-4 text-center shrink-0"></i>
                                 <span>{{ $sucursal->telefono }}</span>
                             </div>
                         @endif
                         @if($sucursal->almacen)
                             <div class="flex items-center gap-2 text-gray-600">
-                                <i class="fas fa-warehouse text-gray-400 w-4 text-center flex-shrink-0"></i>
+                                <i class="fas fa-warehouse text-gray-400 w-4 text-center shrink-0"></i>
                                 <span>{{ $sucursal->almacen->nombre }}</span>
                             </div>
                         @endif

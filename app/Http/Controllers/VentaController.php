@@ -55,11 +55,12 @@ class VentaController extends Controller
         $clientes  = Cliente::activos()->orderBy('nombre')->get();
         $categorias = Categoria::activas()->orderBy('nombre')->get();
 
-        // Filtrar almacenes por rol: admin ve todos, el resto solo el suyo
+        // Ventas solo en tiendas (puntos de venta); admin ve todas, el resto solo la suya
         if ($user->role->nombre === 'Administrador') {
-            $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
+            $almacenes = Almacen::where('estado', 'activo')->where('tipo', 'tienda')->orderBy('nombre')->get();
         } else {
             $almacenes = Almacen::where('estado', 'activo')
+                ->where('tipo', 'tienda')
                 ->where('id', $user->almacen_id)
                 ->orderBy('nombre')
                 ->get();

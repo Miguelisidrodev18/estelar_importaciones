@@ -88,8 +88,9 @@ class CompraController extends Controller
         $categorias = Categoria::activas()->orderBy('nombre')->get();
         $unidades   = UnidadMedida::where('estado', 'activo')->orderBy('nombre')->get();
 
-        // Sucursales con sus almacenes activos para el selector en cascada
+        // Solo puntos de venta (tiendas) para registrar dónde se hizo la compra
         $sucursales = Sucursal::where('estado', 'activo')
+            ->where('tipo', 'tienda')
             ->with(['almacenes' => fn($q) => $q->where('estado', 'activo')->orderBy('nombre')])
             ->orderBy('nombre')
             ->get();

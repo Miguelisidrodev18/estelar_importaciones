@@ -283,11 +283,11 @@
                 </div>
             </div>
 
-            {{-- Almacén selector --}}
+            {{-- Punto de venta selector --}}
             <div class="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0">
                 <select x-model="orden.almacenId"
                         class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                    <option value="">— Seleccionar almacén —</option>
+                    <option value="">— Seleccionar punto de venta —</option>
                     @foreach($almacenes as $alm)
                         <option value="{{ $alm->id }}">{{ $alm->nombre }}</option>
                     @endforeach

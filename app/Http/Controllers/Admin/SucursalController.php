@@ -34,14 +34,16 @@ class SucursalController extends Controller
 
     public function create()
     {
-        $almacenes = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
-        return view('admin.sucursales.create', compact('almacenes'));
+        $almacenes  = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
+        $esPrimera  = Sucursal::count() === 0;
+        return view('admin.sucursales.create', compact('almacenes', 'esPrimera'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'nombre'        => 'required|string|max:150',
+            'tipo'          => 'required|in:tienda,almacen',
             'direccion'     => 'nullable|string|max:300',
             'departamento'  => 'nullable|string|max:100',
             'provincia'     => 'nullable|string|max:100',
@@ -79,6 +81,7 @@ class SucursalController extends Controller
     {
         $validated = $request->validate([
             'nombre'        => 'required|string|max:150',
+            'tipo'          => 'required|in:tienda,almacen',
             'direccion'     => 'nullable|string|max:300',
             'departamento'  => 'nullable|string|max:100',
             'provincia'     => 'nullable|string|max:100',

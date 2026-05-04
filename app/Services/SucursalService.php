@@ -21,14 +21,21 @@ class SucursalService
             // 1. Auto-código
             $datos['codigo'] = Sucursal::generarCodigo();
 
+            // Si es la primera sucursal, siempre es principal
+            if (Sucursal::count() === 0) {
+                $datos['es_principal'] = true;
+            }
+
             // 2. Crear sucursal (sin almacen_id aún)
             $sucursal = Sucursal::create($datos);
 
-            // 3. Crear almacén automático
+            // 3. Crear almacén automático con el tipo de la sucursal
+            $tipoAlmacen = $sucursal->tipo === 'tienda' ? 'tienda' : 'deposito';
             $almacen = Almacen::create([
-                'nombre'    => 'Almacén ' . $sucursal->nombre,
+                'nombre'    => ($sucursal->tipo === 'tienda' ? 'Tienda ' : 'Almacén ') . $sucursal->nombre,
                 'codigo'    => 'ALM-' . $sucursal->codigo,
                 'direccion' => $sucursal->direccion,
+                'tipo'      => $tipoAlmacen,
                 'estado'    => 'activo',
             ]);
 

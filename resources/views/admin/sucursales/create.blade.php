@@ -27,6 +27,41 @@
                 @csrf
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                    {{-- Tipo de sucursal --}}
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Sucursal *</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="relative flex cursor-pointer">
+                                <input type="radio" name="tipo" value="tienda" class="sr-only peer"
+                                    {{ old('tipo', 'tienda') === 'tienda' ? 'checked' : '' }}>
+                                <div class="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all">
+                                    <div class="w-10 h-10 rounded-lg bg-blue-100 peer-checked:bg-blue-200 flex items-center justify-center shrink-0">
+                                        <i class="fas fa-store text-blue-600 text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-800 text-sm">Tienda</p>
+                                        <p class="text-xs text-gray-500">Punto de venta / emisión de comprobantes</p>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="relative flex cursor-pointer">
+                                <input type="radio" name="tipo" value="almacen" class="sr-only peer"
+                                    {{ old('tipo') === 'almacen' ? 'checked' : '' }}>
+                                <div class="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
+                                    <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                                        <i class="fas fa-warehouse text-indigo-600 text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-800 text-sm">Almacén</p>
+                                        <p class="text-xs text-gray-500">Depósito / control de inventario</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        @error('tipo')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
+
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Nombre de la Sucursal *</label>
                         <input type="text" name="nombre" value="{{ old('nombre') }}" maxlength="150" required
@@ -80,9 +115,20 @@
                         </select>
                     </div>
                     <div class="flex items-center gap-3">
-                        <input type="checkbox" name="es_principal" id="es_principal" value="1" {{ old('es_principal') ? 'checked' : '' }}
-                            class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                        <label for="es_principal" class="text-sm font-medium text-gray-700">Marcar como Sucursal Principal</label>
+                        @if($esPrimera)
+                            <input type="checkbox" name="es_principal" id="es_principal" value="1" checked disabled
+                                class="w-4 h-4 text-yellow-500 border-gray-300 rounded cursor-not-allowed opacity-70">
+                            {{-- campo oculto para que el valor se envíe aunque el checkbox esté disabled --}}
+                            <input type="hidden" name="es_principal" value="1">
+                            <label for="es_principal" class="text-sm font-medium text-yellow-700 flex items-center gap-1.5">
+                                <i class="fas fa-star text-yellow-500 text-xs"></i>
+                                Primera sucursal — se marcará como Principal automáticamente
+                            </label>
+                        @else
+                            <input type="checkbox" name="es_principal" id="es_principal" value="1" {{ old('es_principal') ? 'checked' : '' }}
+                                class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="es_principal" class="text-sm font-medium text-gray-700">Marcar como Sucursal Principal</label>
+                        @endif
                     </div>
                 </div>
 
