@@ -77,9 +77,24 @@ class CompraService
                 // 3.2 Actualizar stock (variante o producto base)
                 $this->actualizarStock($productoBase, $compra, $detalle, $variante);
 
-                // 3.3 Registrar IMEIs si es serie/IMEI
+                // 3.3 Registrar IMEIs si es serie/IMEI y re-sincronizar stock desde IMEI count
                 if ($productoBase->tipo_inventario === 'serie') {
                     $this->registrarIMEIs($detalle, $productoBase, $compra, $variante, $detalleCompra);
+
+                    // Para productos serie la fuente de verdad es el conteo de IMEIs en_stock,
+                    // no StockAlmacen. Re-sincronizamos para corregir lo que actualizarStock() calculó.
+                    $imeiStock = \App\Models\Imei::where('producto_id', $productoBase->id)
+                        ->where('estado_imei', 'en_stock')
+                        ->count();
+                    $productoBase->update(['stock_actual' => $imeiStock]);
+
+                    if ($variante) {
+                        $varianteStock = \App\Models\Imei::where('producto_id', $productoBase->id)
+                            ->where('variante_id', $variante->id)
+                            ->where('estado_imei', 'en_stock')
+                            ->count();
+                        $variante->update(['stock_actual' => $varianteStock]);
+                    }
                 }
 
                 // 3.4 Registrar código de barras generado si existe

@@ -174,6 +174,10 @@ class TrasladoService
 
         // Descontar stock en origen inmediatamente (reserva)
         $stockOrigen->decrement('cantidad', $cantidad);
+
+        // Sincronizar stock_actual del producto con la suma real de almacenes
+        $totalStock = StockAlmacen::where('producto_id', $producto->id)->sum('cantidad');
+        $producto->update(['stock_actual' => $totalStock]);
     }
 
     // ───────────────────────────────────────────────────────────────────────
@@ -224,6 +228,12 @@ class TrasladoService
                         'estado_imei' => Imei::ESTADO_EN_STOCK,
                     ]);
 
+                    // Recalcular stock_actual desde conteo real de IMEIs en_stock
+                    $totalStock = Imei::where('producto_id', $movimiento->producto_id)
+                        ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+                        ->count();
+                    $movimiento->producto->update(['stock_actual' => $totalStock]);
+
                 } else {
                     // Acreditar stock en destino (ya fue descontado en origen al crear)
                     $stockDestino = StockAlmacen::firstOrCreate(
@@ -234,6 +244,10 @@ class TrasladoService
                         ['cantidad' => 0]
                     );
                     $stockDestino->increment('cantidad', $movimiento->cantidad);
+
+                    // Sincronizar stock_actual con la suma real de todos los almacenes
+                    $totalStock = StockAlmacen::where('producto_id', $movimiento->producto_id)->sum('cantidad');
+                    $movimiento->producto->update(['stock_actual' => $totalStock]);
                 }
 
                 $movimiento->update([

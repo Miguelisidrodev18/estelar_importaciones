@@ -161,6 +161,21 @@ class DevolucionController extends Controller
                             'estado_imei' => Imei::ESTADO_EN_STOCK,
                             'almacen_id'  => $almacenId,
                         ]);
+
+                        // Recalcular stock_actual del producto desde conteo real de IMEIs
+                        $totalStock = Imei::where('producto_id', $detalle->producto_id)
+                            ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+                            ->count();
+                        $detalle->producto->update(['stock_actual' => $totalStock]);
+
+                        // Sincronizar variante si existe
+                        if ($detalle->variante_id && $detalle->variante) {
+                            $varianteStock = Imei::where('producto_id', $detalle->producto_id)
+                                ->where('variante_id', $detalle->variante_id)
+                                ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+                                ->count();
+                            $detalle->variante->update(['stock_actual' => $varianteStock]);
+                        }
                     } else {
                         // Para productos por cantidad: incrementar stock en almacén
                         StockAlmacen::obtenerOCrear($detalle->producto_id, $almacenId)
