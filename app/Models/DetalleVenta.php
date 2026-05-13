@@ -16,13 +16,17 @@ class DetalleVenta extends Model
         'imei_id',
         'cantidad',
         'precio_unitario',
+        'precio_con_igv',
         'subtotal',
+        'subtotal_con_igv',
     ];
 
     protected $casts = [
-        'cantidad' => 'integer',
+        'cantidad'        => 'integer',
         'precio_unitario' => 'decimal:2',
-        'subtotal' => 'decimal:2',
+        'precio_con_igv'  => 'decimal:2',
+        'subtotal'        => 'decimal:2',
+        'subtotal_con_igv'=> 'decimal:2',
     ];
 
     public function venta()

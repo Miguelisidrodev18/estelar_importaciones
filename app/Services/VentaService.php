@@ -79,7 +79,9 @@ class VentaService
                     'variante_id'     => $detalle['variante_id'] ?? null,
                     'cantidad'        => $qty,
                     'precio_unitario' => $precioSinIgv,
+                    'precio_con_igv'  => $precioConIgv,
                     'subtotal'        => $subtotalDetalle,
+                    'subtotal_con_igv'=> round($precioConIgv * $qty, 2),
                 ]);
 
                 // Si es producto con IMEI, marcar los IMEIs como vendidos
@@ -459,7 +461,9 @@ class VentaService
                     'variante_id'     => $det->variante_id,
                     'cantidad'        => $det->cantidad,
                     'precio_unitario' => $det->precio_unitario,
+                    'precio_con_igv'  => $det->precio_con_igv,
                     'subtotal'        => $det->subtotal,
+                    'subtotal_con_igv'=> $det->subtotal_con_igv,
                 ]);
             }
 
@@ -859,7 +863,9 @@ class VentaService
                     'variante_id'     => $detalle['variante_id'] ?? null,
                     'cantidad'        => $qty,
                     'precio_unitario' => $precioSinIgv,
+                    'precio_con_igv'  => $precioConIgv,
                     'subtotal'        => $subtotalDetalle,
+                    'subtotal_con_igv'=> round($precioConIgv * $qty, 2),
                 ]);
             }
 
