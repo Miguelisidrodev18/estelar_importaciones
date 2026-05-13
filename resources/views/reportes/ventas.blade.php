@@ -346,18 +346,6 @@
                                         @include('reportes.info-tip', ['tip' => 'Lo que queda en el negocio por unidad después de descontar el IGV (18%) que se paga a SUNAT. = Precio sin IGV − Costo'])
                                     </span>
                                 </th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                                    <span class="flex items-center justify-center gap-1">
-                                        Margen %
-                                        @include('reportes.info-tip', ['tip' => 'Margen sobre el precio total con IGV. = (Precio con IGV − Costo) / Precio con IGV × 100'])
-                                    </span>
-                                </th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                                    <span class="flex items-center justify-center gap-1">
-                                        <span>Margen Bruto<span class="block text-gray-400 font-normal normal-case tracking-normal" style="font-size:9px">(s/ IGV)</span></span>
-                                        @include('reportes.info-tip', ['tip' => 'Margen real del negocio sobre la base imponible (sin IGV). = (Precio sin IGV − Costo) / Precio sin IGV × 100'])
-                                    </span>
-                                </th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Total Vendido</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                                     <span class="flex items-center justify-end gap-1">
@@ -406,23 +394,6 @@
                                         {{ $row->ganancia_real_unit >= 0 ? 'text-teal-600' : 'text-red-500' }}">
                                         S/ {{ number_format($row->ganancia_real_unit, 2) }}
                                     </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold {{ $margenColor }}">
-                                            {{ number_format($margen, 1) }}%
-                                        </span>
-                                    </td>
-                                    @php
-                                        $margenBruto = (float) $row->margen_bruto_sin_igv;
-                                        $margenBrutoColor = $margenBruto >= 30 ? 'bg-green-100 text-green-700'
-                                            : ($margenBruto >= 15 ? 'bg-yellow-100 text-yellow-700'
-                                            : ($margenBruto > 0  ? 'bg-orange-100 text-orange-700'
-                                            : 'bg-red-100 text-red-600'));
-                                    @endphp
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold {{ $margenBrutoColor }}">
-                                            {{ number_format($margenBruto, 1) }}%
-                                        </span>
-                                    </td>
                                     <td class="px-4 py-3 text-right font-semibold text-gray-800">S/ {{ number_format($row->total_vendido, 2) }}</td>
                                     <td class="px-4 py-3 text-right font-bold
                                         {{ $row->total_ganancia >= 0 ? 'text-green-700' : 'text-red-600' }}">
@@ -454,7 +425,7 @@
                                         TOTALES
                                     </td>
                                     <td class="px-4 py-3 text-right font-bold text-gray-800">{{ number_format($totalCantidad) }}</td>
-                                    <td colspan="6"></td>
+                                    <td colspan="4"></td>
                                     <td class="px-4 py-3 text-right font-bold text-gray-800">S/ {{ number_format($totalVendido, 2) }}</td>
                                     <td class="px-4 py-3 text-right font-bold text-green-700">S/ {{ number_format($totalGanancia, 2) }}</td>
                                     <td class="px-4 py-3 text-right font-bold text-teal-700">S/ {{ number_format($tablaProductos->sum('total_ganancia_real'), 2) }}</td>

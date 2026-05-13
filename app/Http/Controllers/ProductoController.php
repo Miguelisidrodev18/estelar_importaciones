@@ -91,8 +91,23 @@ class ProductoController extends Controller
             }
         }
 
+        // Filtro por almacén
+        if ($request->filled('almacen_id')) {
+            $almId = $request->almacen_id;
+            $query->where(function ($q) use ($almId) {
+                $q->where(function ($q2) use ($almId) {
+                    $q2->where('tipo_inventario', '!=', 'serie')
+                       ->whereHas('stockAlmacenes', fn($sa) => $sa->where('almacen_id', $almId)->where('cantidad', '>', 0));
+                })->orWhere(function ($q2) use ($almId) {
+                    $q2->where('tipo_inventario', 'serie')
+                       ->whereHas('imeis', fn($i) => $i->where('almacen_id', $almId)->where('estado_imei', 'en_stock'));
+                });
+            });
+        }
+
         $productos = $query->orderBy('nombre')->paginate(15);
         $categorias = Categoria::activas()->orderBy('nombre')->get();
+        $almacenes  = Almacen::activos()->orderBy('nombre')->get();
 
         // Productos inactivos/descontinuados — siempre se muestran al pie (sin paginación)
         $productosInactivos = Producto::with(['categoria'])
@@ -105,7 +120,7 @@ class ProductoController extends Controller
         $canEdit   = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
         $canDelete = auth()->user()->role->nombre === 'Administrador';
 
-        return view('inventario.productos.index', compact('productos', 'categorias', 'canCreate', 'canEdit', 'canDelete', 'productosInactivos'));
+        return view('inventario.productos.index', compact('productos', 'categorias', 'almacenes', 'canCreate', 'canEdit', 'canDelete', 'productosInactivos'));
     }
 
     /**

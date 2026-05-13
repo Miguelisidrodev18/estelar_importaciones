@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Nuevo Cliente - Sistema de Importaciones</title>
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -69,6 +70,18 @@
                             <input type="text" name="direccion" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" value="{{ old('direccion') }}">
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
+                            <input type="text" name="distrito" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" value="{{ old('distrito') }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                            <input type="text" name="provincia" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" value="{{ old('provincia') }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
+                            <input type="text" name="departamento" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" value="{{ old('departamento') }}">
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                             <input type="text" name="telefono" maxlength="20" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200" value="{{ old('telefono') }}">
                         </div>
@@ -108,12 +121,14 @@
                         body: JSON.stringify({ tipo: this.tipoBuscar, numero: this.numeroBuscar })
                     });
                     const data = await res.json();
-                    if (data.success) {
+                    if (data.error) {
+                        this.mensaje = data.error; this.exito = false;
+                    } else {
                         this.tipoDocumento = this.tipoBuscar;
-                        this.numeroDocumento = data.data.dni || data.data.ruc;
-                        this.nombre = data.data.nombre || data.data.razon_social;
+                        this.numeroDocumento = this.numeroBuscar;
+                        this.nombre = data.nombre || data.razon_social || '';
                         this.mensaje = 'Datos encontrados'; this.exito = true;
-                    } else { this.mensaje = data.message; this.exito = false; }
+                    }
                 } catch (e) { this.mensaje = 'Error de conexión'; this.exito = false; }
                 this.cargando = false;
             }

@@ -148,7 +148,7 @@
                     </div>
                 </div>
 
-                <!-- NUEVO: Filtro por tipo de inventario -->
+                <!-- Filtro por tipo de inventario y almacén -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Inventario</label>
@@ -158,7 +158,18 @@
                             <option value="serie" {{ request('tipo_inventario') == 'serie' ? 'selected' : '' }}>Stock por Serie/IMEI</option>
                         </select>
                     </div>
-                    <div class="md:col-span-3"></div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Almacén</label>
+                        <select name="almacen_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todos los almacenes</option>
+                            @foreach($almacenes as $alm)
+                                <option value="{{ $alm->id }}" {{ request('almacen_id') == $alm->id ? 'selected' : '' }}>
+                                    {{ $alm->nombre }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="md:col-span-2"></div>
                 </div>
 
                 <div class="flex items-center justify-between pt-4 border-t border-gray-200">
@@ -336,6 +347,13 @@
                                             <i class="fas fa-sim-card"></i>
                                         </a>
                                     @endif
+
+                                    <!-- Ver stock por almacén -->
+                                    <a href="{{ route('traslados.stock', ['buscar' => $producto->nombre]) }}"
+                                       class="text-teal-600 hover:text-teal-900"
+                                       title="Ver stock por almacén">
+                                        <i class="fas fa-boxes"></i>
+                                    </a>
 
                                     <!-- Botón para gestionar códigos de barras adicionales -->
                                     <a href="{{ route('inventario.productos.codigos-barras', $producto) }}"

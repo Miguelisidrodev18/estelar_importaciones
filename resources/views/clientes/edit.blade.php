@@ -53,6 +53,18 @@
                             <input type="text" name="direccion" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('direccion', $cliente->direccion) }}">
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
+                            <input type="text" name="distrito" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('distrito', $cliente->distrito) }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                            <input type="text" name="provincia" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('provincia', $cliente->provincia) }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
+                            <input type="text" name="departamento" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('departamento', $cliente->departamento) }}">
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                             <input type="text" name="telefono" maxlength="20" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('telefono', $cliente->telefono) }}">
                         </div>

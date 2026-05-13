@@ -74,8 +74,18 @@ class TrasladoController extends Controller
             ->latest()
             ->first();
 
+        // Mapa almacen_id → {direccion, ubigeo} para precargar en la guía de remisión
+        $almacenesAddressMap = $almacenes->mapWithKeys(function ($alm) {
+            $sucursal = $alm->sucursal;
+            return [$alm->id => [
+                'direccion' => $sucursal?->direccion,
+                'ubigeo'    => $sucursal?->ubigeo,
+            ]];
+        });
+
         return view('traslados.create', compact(
-            'productos', 'almacenes', 'stocksData', 'imeisData', 'tiposInventario', 'ultimoConductor', 'guiaSeriesMap'
+            'productos', 'almacenes', 'stocksData', 'imeisData', 'tiposInventario',
+            'ultimoConductor', 'guiaSeriesMap', 'almacenesAddressMap'
         ));
     }
 

@@ -77,7 +77,7 @@ class ReporteVentasController extends Controller
             fputcsv($f, [
                 'Código', 'Producto', 'Categoría',
                 'Cant. Vendida', 'Precio Prom. (S/)', 'Costo Unit. (S/)',
-                'Ganancia Unit. (S/)', 'Margen % (c/IGV)', 'Margen Bruto % (s/IGV)',
+                'Ganancia Unit. (S/)',
                 'Total Vendido (S/)', 'Total Ganancia (S/)',
             ]);
             foreach ($tabla as $row) {
@@ -89,8 +89,6 @@ class ReporteVentasController extends Controller
                     number_format($row->precio_promedio, 2),
                     number_format($row->costo_unitario, 2),
                     number_format($row->ganancia_unitaria, 2),
-                    number_format($row->margen_porcentaje, 2) . '%',
-                    number_format($row->margen_bruto_sin_igv, 2) . '%',
                     number_format($row->total_vendido, 2),
                     number_format($row->total_ganancia, 2),
                 ]);

@@ -40,6 +40,7 @@ use App\Http\Controllers\CuentaPorPagarController;
 use App\Http\Controllers\CuentaPorCobrarController;
 use App\Http\Controllers\ReporteVentasController;
 use App\Http\Controllers\DniLookupController;
+use App\Http\Controllers\DevolucionController;
 
 // ===================== MIDDLEWARE =====================
 use App\Http\Middleware\VerifyMasterPassword;
@@ -438,6 +439,16 @@ Route::middleware('auth')->group(function () {
             Route::get('/{traslado}', [TrasladoController::class, 'show'])->name('show');
             Route::get('/{traslado}/guia-pdf', [TrasladoController::class, 'guiaPdf'])->name('guia-pdf');
         });
+    });
+
+    // ========================================
+    // MÓDULO DE DEVOLUCIONES
+    // ========================================
+    Route::prefix('devoluciones')->name('devoluciones.')->middleware('role:Administrador,Almacenero,Vendedor')->group(function () {
+        Route::get('/', [DevolucionController::class, 'index'])->name('index');
+        Route::get('/create', [DevolucionController::class, 'create'])->name('create');
+        Route::post('/', [DevolucionController::class, 'store'])->name('store');
+        Route::get('/{devolucion}', [DevolucionController::class, 'show'])->name('show');
     });
 
     // ========================================

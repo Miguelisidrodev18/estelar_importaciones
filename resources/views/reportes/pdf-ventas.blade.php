@@ -111,17 +111,12 @@
                     <th>P.Venta Prom.</th>
                     <th>Costo Unit.</th>
                     <th>Gan. Unit.</th>
-                    <th>Margen %</th>
                     <th>Total Vendido</th>
                     <th>Total Ganancia</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($tablaProductos as $row)
-                    @php
-                        $m = (float) $row->margen_porcentaje;
-                        $badgeClass = $m >= 30 ? 'badge-green' : ($m >= 15 ? 'badge-yellow' : ($m > 0 ? 'badge-orange' : 'badge-red'));
-                    @endphp
                     <tr>
                         <td>
                             {{ $row->nombre }}<br>
@@ -133,9 +128,6 @@
                         <td>S/ {{ number_format($row->costo_unitario, 2) }}</td>
                         <td style="{{ $row->ganancia_unitaria >= 0 ? 'color:#065f46' : 'color:#991b1b' }}">
                             S/ {{ number_format($row->ganancia_unitaria, 2) }}
-                        </td>
-                        <td style="text-align:center">
-                            <span class="badge {{ $badgeClass }}">{{ number_format($m, 1) }}%</span>
                         </td>
                         <td>S/ {{ number_format($row->total_vendido, 2) }}</td>
                         <td style="{{ $row->total_ganancia >= 0 ? 'color:#065f46;font-weight:bold' : 'color:#991b1b;font-weight:bold' }}">
@@ -160,7 +152,7 @@
                     <tr>
                         <td colspan="2">TOTALES</td>
                         <td>{{ number_format($totCantidad) }}</td>
-                        <td></td><td></td><td></td><td></td>
+                        <td></td><td></td><td></td>
                         <td>S/ {{ number_format($totVendido, 2) }}</td>
                         <td>S/ {{ number_format($totGanancia, 2) }}</td>
                     </tr>

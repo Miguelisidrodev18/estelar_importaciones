@@ -347,6 +347,11 @@ class Producto extends Model
         return $this->hasMany(\App\Models\Imei::class)->where('estado_imei', 'en_stock');
     }
 
+    public function stockAlmacenes()
+    {
+        return $this->hasMany(StockAlmacen::class);
+    }
+
     /**
      * ¿Este producto tiene variantes definidas?
      */

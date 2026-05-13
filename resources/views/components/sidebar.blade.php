@@ -314,8 +314,15 @@
                             </li>
                         </ul>
                     </li>
-                    
 
+                    {{-- Devoluciones --}}
+                    <li>
+                        <a href="{{ route('devoluciones.index') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('devoluciones.*') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-undo-alt mr-3"></i>Devoluciones
+                            <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
+                        </a>
+                    </li>
 
                     {{-- Caja --}}
                     <li>
@@ -557,6 +564,15 @@
                         </ul>
                     </li>
 
+                    {{-- Devoluciones --}}
+                    <li>
+                        <a href="{{ route('devoluciones.index') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('devoluciones.*') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-undo-alt mr-3"></i>Devoluciones
+                            <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
+                        </a>
+                    </li>
+
                     {{-- Catálogo --}}
                     <li>
                         <button @click="catalogoOpen = !catalogoOpen"
@@ -750,6 +766,15 @@
                         <a href="{{ route('clientes.index') }}"
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('clientes.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-users mr-3"></i>Clientes
+                        </a>
+                    </li>
+
+                    {{-- Devoluciones --}}
+                    <li>
+                        <a href="{{ route('devoluciones.index') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('devoluciones.*') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-undo-alt mr-3"></i>Devoluciones
+                            <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
                         </a>
                     </li>
 

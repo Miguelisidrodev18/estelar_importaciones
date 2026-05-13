@@ -101,6 +101,7 @@
                                 </label>
                                 <select name="almacen_destino_id" required
                                         x-model="almacenDestinoId"
+                                        @change="onAlmacenDestinoChange()"
                                         class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
                                     <option value="">— Seleccione destino —</option>
                                     @foreach($almacenes as $alm)
@@ -676,7 +677,8 @@ function trasladoForm() {
     const tipos  = @json($tiposInventario->toArray()); // {producto_id: 'serie'|'accesorio'}
     const imeisUrl = '{{ route('traslados.imeis-disponibles') }}';
 
-    const guiaSeriesMap = @json($guiaSeriesMap);   // { almacen_id: { serie_id, numero } }
+    const guiaSeriesMap    = @json($guiaSeriesMap);      // { almacen_id: { serie_id, numero } }
+    const almacenesAddress = @json($almacenesAddressMap); // { almacen_id: { direccion, ubigeo } }
     const dniUrl  = '{{ route('ventas.dni.buscar', ['dni' => '__DNI__']) }}';
     const rucUrl  = '{{ route('traslados.api.ruc', ['ruc' => '__RUC__']) }}';
     @php
@@ -766,6 +768,15 @@ function trasladoForm() {
                 this.guiaSerieId = '';
             }
 
+            // Precargar dirección y ubigeo de partida
+            const addrOrigen = almacenesAddress[this.almacenId];
+            if (addrOrigen) {
+                const dirInput    = document.querySelector('input[name="guia[direccion_partida]"]');
+                const ubigeoInput = document.querySelector('input[name="guia[ubigeo_partida]"]');
+                if (dirInput    && !dirInput.dataset.userEdited)    dirInput.value    = addrOrigen.direccion ?? '';
+                if (ubigeoInput && !ubigeoInput.dataset.userEdited) ubigeoInput.value = addrOrigen.ubigeo   ?? '';
+            }
+
             this.productos.forEach((p, idx) => {
                 p.imeisSeleccionados = [];
                 p.imeisDisponibles   = [];
@@ -775,6 +786,16 @@ function trasladoForm() {
                     this.cargarImeis(idx);
                 }
             });
+        },
+
+        onAlmacenDestinoChange() {
+            const addrDestino = almacenesAddress[this.almacenDestinoId];
+            if (addrDestino) {
+                const dirInput    = document.querySelector('input[name="guia[direccion_llegada]"]');
+                const ubigeoInput = document.querySelector('input[name="guia[ubigeo_llegada]"]');
+                if (dirInput    && !dirInput.dataset.userEdited)    dirInput.value    = addrDestino.direccion ?? '';
+                if (ubigeoInput && !ubigeoInput.dataset.userEdited) ubigeoInput.value = addrDestino.ubigeo   ?? '';
+            }
         },
 
         onProductoChange(idx) {
