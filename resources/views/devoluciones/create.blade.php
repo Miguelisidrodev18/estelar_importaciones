@@ -46,11 +46,16 @@
         {{-- ══════════════════════════════════════════════════════
              PASO 1: BUSCAR CLIENTE (combobox con filtro live)
         ══════════════════════════════════════════════════════ --}}
+        <script>
+            window._devClientes   = @json($clientes->map(fn($c) => ['id' => $c->id, 'nombre' => $c->nombre, 'doc' => $c->numero_documento ?? '']));
+            window._devClienteNom = @json($clienteId ? ($clientes->firstWhere('id', $clienteId)?->nombre ?? '') : '');
+            window._devCreateUrl  = @json(route('devoluciones.create'));
+        </script>
         <div class="bg-white rounded-2xl shadow-md p-6 mb-6"
              x-data="{
-                 buscar: '{{ $clienteId ? $clientes->firstWhere('id', $clienteId)?->nombre : '' }}',
+                 buscar: window._devClienteNom,
                  open: false,
-                 clients: @json($clientes->map(fn($c) => ['id' => $c->id, 'nombre' => $c->nombre, 'doc' => $c->numero_documento ?? ''])),
+                 clients: window._devClientes,
                  get filtered() {
                      if (!this.buscar.trim()) return this.clients;
                      const q = this.buscar.toLowerCase();
@@ -61,7 +66,7 @@
                  select(client) {
                      this.buscar = client.nombre;
                      this.open = false;
-                     window.location.href = '{{ route('devoluciones.create') }}?cliente_id=' + client.id;
+                     window.location.href = window._devCreateUrl + '?cliente_id=' + client.id;
                  }
              }"
              @click.outside="open = false">
@@ -91,7 +96,7 @@
                         class="w-full pl-9 pr-10 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                         autocomplete="off"
                     />
-                    <button x-show="buscar" @click="buscar = ''; open = false; window.location.href='{{ route('devoluciones.create') }}'"
+                    <button x-show="buscar" @click="buscar = ''; open = false; window.location.href = window._devCreateUrl"
                             class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-red-500">
                         <i class="fas fa-times text-xs"></i>
                     </button>
