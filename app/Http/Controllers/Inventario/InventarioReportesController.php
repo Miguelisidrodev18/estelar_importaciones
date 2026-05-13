@@ -77,8 +77,10 @@ class InventarioReportesController extends Controller
             ->map(fn($v) => (float) $v);
 
         // ── Pre-cargar stock de IMEIs por variante (para productos tipo 'serie')
+        // Si hay almacén seleccionado, filtrar solo los IMEIs de ese almacén
         $imeisPorVariante = Imei::where('estado_imei', 'en_stock')
             ->whereNotNull('variante_id')
+            ->when($almacenId, fn($q) => $q->where('almacen_id', $almacenId))
             ->selectRaw('variante_id, COUNT(*) as total')
             ->groupBy('variante_id')
             ->pluck('total', 'variante_id')
@@ -114,8 +116,11 @@ class InventarioReportesController extends Controller
                         // Stock por variante
                         if ($p->tipo_inventario === 'serie') {
                             $stockDesdeImeis = (int) ($imeisPorVariante[$v->id] ?? 0);
-                            // Si no hay IMEIs registrados, usar el stock_actual de la variante.
-                            $stock = max($stockDesdeImeis, $v->stock_actual);
+                            // Si hay filtro de almacén: usar solo el conteo de IMEIs de ese almacén.
+                            // Sin filtro: fallback al stock_actual si no hay IMEIs registrados.
+                            $stock = $almacenId
+                                ? $stockDesdeImeis
+                                : max($stockDesdeImeis, $v->stock_actual);
                         } else {
                             // Para productos de cantidad: stock_actual de la variante
                             // (no hay desglose por almacén en stock_almacen para variantes)
