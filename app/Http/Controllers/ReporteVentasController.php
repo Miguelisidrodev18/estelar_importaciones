@@ -225,23 +225,12 @@ class ReporteVentasController extends Controller
                 END as nombre_variante,
                 COALESCE(c.nombre, "Sin categoría") as categoria,
                 SUM(dv.cantidad) as cantidad_vendida,
-                SUM(dv.subtotal * 1.18) / NULLIF(SUM(dv.cantidad), 0) as precio_promedio,
-                COALESCE(pv.costo_promedio, p.costo_promedio) as costo_unitario,
-                SUM(dv.subtotal * 1.18) / NULLIF(SUM(dv.cantidad), 0)
-                    - COALESCE(pv.costo_promedio, p.costo_promedio) as ganancia_unitaria,
-                CASE WHEN SUM(dv.subtotal * 1.18) > 0
-                    THEN (SUM(dv.subtotal * 1.18) / SUM(dv.cantidad) - COALESCE(pv.costo_promedio, p.costo_promedio))
-                         / (SUM(dv.subtotal * 1.18) / SUM(dv.cantidad)) * 100
-                    ELSE 0 END as margen_porcentaje,
-                CASE WHEN SUM(dv.subtotal) > 0
-                    THEN (SUM(dv.subtotal) / SUM(dv.cantidad) - COALESCE(pv.costo_promedio, p.costo_promedio))
-                         / (SUM(dv.subtotal) / SUM(dv.cantidad)) * 100
-                    ELSE 0 END as margen_bruto_sin_igv,
-                SUM(dv.subtotal * 1.18) as total_vendido,
-                SUM(dv.cantidad * (dv.precio_unitario * 1.18 - COALESCE(pv.costo_promedio, p.costo_promedio))) as total_ganancia,
-                SUM(dv.subtotal) / NULLIF(SUM(dv.cantidad), 0)
-                    - COALESCE(pv.costo_promedio, p.costo_promedio) as ganancia_real_unit,
-                SUM(dv.cantidad * (dv.precio_unitario - COALESCE(pv.costo_promedio, p.costo_promedio))) as total_ganancia_real
+                ROUND(SUM(dv.subtotal * 1.18) / NULLIF(SUM(dv.cantidad), 0), 2) as precio_promedio,
+                ROUND(COALESCE(pv.costo_promedio, p.costo_promedio), 2) as costo_unitario,
+                ROUND(SUM(dv.subtotal * 1.18) / NULLIF(SUM(dv.cantidad), 0)
+                    - COALESCE(pv.costo_promedio, p.costo_promedio), 2) as ganancia_unitaria,
+                ROUND(SUM(dv.subtotal * 1.18), 2) as total_vendido,
+                ROUND(SUM(dv.cantidad * (dv.precio_unitario * 1.18 - COALESCE(pv.costo_promedio, p.costo_promedio))), 2) as total_ganancia
             ')
             ->groupBy(
                 'p.id', 'p.codigo', 'p.nombre', 'c.nombre',
