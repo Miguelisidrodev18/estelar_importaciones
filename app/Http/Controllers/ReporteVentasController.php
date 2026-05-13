@@ -128,7 +128,8 @@ class ReporteVentasController extends Controller
             ->leftJoin('categorias as c', 'p.categoria_id', '=', 'c.id')
             ->leftJoin('producto_variantes as pv', 'dv.variante_id', '=', 'pv.id')
             ->leftJoin('colores as col', 'pv.color_id', '=', 'col.id')
-            ->where('v.estado_pago', 'pagado')
+            ->whereNotIn('v.estado_pago', ['anulado', 'cancelado', 'cotizacion'])
+            ->whereNull('v.deleted_at')
             ->whereBetween('v.fecha', [$desde, $hasta]);
 
         if ($almacenId) {
