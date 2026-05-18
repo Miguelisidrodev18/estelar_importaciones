@@ -132,9 +132,28 @@
                         Movimientos / Auditoría ({{ $caja->movimientos->count() }})
                     </h2>
                 </div>
-                <div class="divide-y divide-gray-50 max-h-[70vh] overflow-y-auto">
-                    @forelse($caja->movimientos->sortByDesc('created_at') as $mov)
-                        <div class="px-5 py-3 hover:bg-gray-50 transition-colors">
+                <div class="max-h-[70vh] overflow-y-auto">
+                    @forelse($movimientosPorFecha as $fecha => $movsDia)
+                        @php
+                            $ingresosDia = $movsDia->where('tipo', 'ingreso')->sum('monto');
+                            $egresosDia  = $movsDia->where('tipo', 'egreso')->sum('monto');
+                        @endphp
+                        {{-- Sticky date header --}}
+                        <div class="sticky top-0 z-10 bg-gray-50 border-y border-gray-200 px-5 py-2 flex items-center justify-between">
+                            <span class="text-xs font-bold text-gray-600 uppercase tracking-wide">
+                                <i class="fas fa-calendar-day mr-1 text-gray-400"></i>
+                                {{ \Carbon\Carbon::parse($fecha)->translatedFormat('l d \d\e F Y') }}
+                            </span>
+                            <div class="flex gap-3 text-xs">
+                                <span class="text-green-700 font-semibold">+S/ {{ number_format($ingresosDia, 2) }}</span>
+                                @if($egresosDia > 0)
+                                    <span class="text-red-600 font-semibold">-S/ {{ number_format($egresosDia, 2) }}</span>
+                                @endif
+                                <span class="text-gray-500">{{ $movsDia->count() }} mov.</span>
+                            </div>
+                        </div>
+                        @foreach($movsDia as $mov)
+                        <div class="px-5 py-3 hover:bg-gray-50 transition-colors divide-y divide-gray-50">
                             <div class="flex items-start justify-between gap-4">
                                 <div class="flex items-start gap-3 min-w-0">
                                     <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5
@@ -144,7 +163,7 @@
                                     <div class="min-w-0">
                                         <p class="text-sm font-medium text-gray-800 truncate">{{ $mov->concepto }}</p>
                                         <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-                                            <span class="text-xs text-gray-400">{{ $mov->created_at->format('d/m/Y H:i') }}</span>
+                                            <span class="text-xs text-gray-400">{{ $mov->created_at->format('H:i') }}</span>
                                             @if($mov->metodo_pago)
                                                 <span class="text-xs px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">{{ ucfirst($mov->metodo_pago) }}</span>
                                             @endif
@@ -167,6 +186,7 @@
                                 </div>
                             </div>
                         </div>
+                        @endforeach
                     @empty
                         <div class="px-5 py-10 text-center text-gray-400">
                             <i class="fas fa-inbox text-2xl mb-2 block"></i> Sin movimientos.

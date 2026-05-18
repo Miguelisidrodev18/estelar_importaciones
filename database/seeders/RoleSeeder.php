@@ -33,6 +33,10 @@ class RoleSeeder extends Seeder
                 'nombre'      => 'Tienda',
                 'descripcion' => 'Encargado de tienda - gestiona cobros y ventas del punto de venta.',
             ],
+            [
+                'nombre'      => 'Cajero',
+                'descripcion' => 'Cajero de POS. Ve la cola de ventas pendientes, confirma pagos, imprime y gestiona su caja. También puede crear ventas directamente.',
+            ],
         ];
 
         foreach ($roles as $rol) {

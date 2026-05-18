@@ -404,6 +404,89 @@
                 </div>
 
                 {{-- ══════════════════════════════════════════════════
+                     DESTINATARIO (PROVEEDOR / CLIENTE)
+                ═══════════════════════════════════════════════════ --}}
+                <div class="bg-white rounded-2xl shadow-md overflow-hidden mb-5">
+
+                    <div class="bg-linear-to-r from-teal-800 to-teal-600 px-6 py-4 flex items-center gap-3">
+                        <div class="bg-white/20 rounded-xl p-2.5">
+                            <i class="fas fa-address-card text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-white">Destinatario</h2>
+                            <p class="text-teal-200 text-xs">Opcional — asocia un proveedor o cliente en la guía de remisión</p>
+                        </div>
+                    </div>
+
+                    <div class="p-6 space-y-4">
+
+                        {{-- Tipo de destinatario --}}
+                        <div class="flex flex-wrap gap-2">
+                            @foreach(['ninguno' => ['fas fa-ban','Ninguno'], 'proveedor' => ['fas fa-industry','Proveedor'], 'cliente' => ['fas fa-user','Cliente']] as $val => $info)
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="destinatario_tipo" value="{{ $val }}"
+                                           x-model="destinatarioTipo"
+                                           @change="onDestinatarioTipoChange()"
+                                           class="sr-only">
+                                    <div class="px-4 py-2 border-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                                         :class="destinatarioTipo === '{{ $val }}' ? 'border-teal-600 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-600 hover:border-teal-300'">
+                                        <i class="{{ $info[0] }}"></i> {{ $info[1] }}
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
+
+                        {{-- Búsqueda --}}
+                        <div x-show="destinatarioTipo !== 'ninguno'" x-cloak class="relative">
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                <i class="fas fa-search mr-1 text-teal-500"></i>
+                                <span x-text="destinatarioTipo === 'proveedor' ? 'Buscar proveedor (RUC o razón social)' : 'Buscar cliente (documento o nombre)'"></span>
+                            </label>
+                            <div class="relative">
+                                <input type="text"
+                                       x-model="destinatarioBuscar"
+                                       @input="buscarDestinatarioAjax()"
+                                       @keydown.escape="destinatarioResultados = []"
+                                       placeholder="Mínimo 2 caracteres..."
+                                       class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 pr-8">
+                                <div x-show="destinatarioBuscando" class="absolute right-3 top-3">
+                                    <i class="fas fa-spinner fa-spin text-gray-400 text-xs"></i>
+                                </div>
+                            </div>
+
+                            {{-- Resultado seleccionado --}}
+                            <div x-show="destinatarioSeleccionado" x-cloak
+                                 class="mt-2 flex items-center gap-2 px-3 py-2 bg-teal-50 border border-teal-200 rounded-lg text-sm">
+                                <i class="fas fa-check-circle text-teal-500"></i>
+                                <span class="flex-1 font-medium text-teal-800" x-text="destinatarioSeleccionado?.nombre"></span>
+                                <button type="button" @click="destinatarioSeleccionado = null; destinatarioBuscar = ''; proveedorId = ''; clienteId = '';"
+                                        class="text-teal-400 hover:text-red-500 transition">
+                                    <i class="fas fa-times text-xs"></i>
+                                </button>
+                            </div>
+
+                            {{-- Dropdown resultados --}}
+                            <div x-show="destinatarioResultados.length > 0" x-cloak
+                                 class="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                                <template x-for="item in destinatarioResultados" :key="item.id">
+                                    <button type="button"
+                                            @click="seleccionarDestinatario(item)"
+                                            class="w-full text-left px-4 py-2.5 text-sm hover:bg-teal-50 transition-colors border-b border-gray-50 last:border-0">
+                                        <span class="font-medium text-gray-800" x-text="item.nombre"></span>
+                                        <span class="text-xs text-gray-400 ml-2 font-mono" x-show="item.ruc || item.documento" x-text="item.ruc ?? item.documento"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- Hidden inputs --}}
+                        <input type="hidden" name="proveedor_id" :value="proveedorId">
+                        <input type="hidden" name="cliente_id"   :value="clienteId">
+
+                    </div>
+                </div>
+
+                {{-- ══════════════════════════════════════════════════
                      PRODUCTOS (REPEATER)
                 ═══════════════════════════════════════════════════ --}}
                 <div class="bg-white rounded-2xl shadow-md overflow-hidden mb-5">
@@ -496,6 +579,37 @@
                                             <span x-show="producto.esSerie"> IMEIs</span>
                                             <span x-show="!producto.esSerie"> unid.</span>
                                         </span>
+                                    </div>
+
+                                    {{-- ── VARIANTE SELECTOR (accesorio con variantes) ── --}}
+                                    <div x-show="producto.productoId && !producto.esSerie && variantesMap[producto.productoId] && variantesMap[producto.productoId].length > 0" x-cloak>
+                                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                            <i class="fas fa-palette mr-1 text-pink-400"></i>Variante
+                                        </label>
+                                        <select :name="`productos[${idx}][variante_id]`"
+                                                x-model="producto.varianteId"
+                                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                            <option :value="null">— Sin variante específica —</option>
+                                            <template x-for="v in (variantesMap[producto.productoId] || [])" :key="v.id">
+                                                <option :value="v.id" x-text="v.nombre + (v.sku ? ' (' + v.sku + ')' : '')"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
+                                    {{-- ── VARIANTE FILTRO (serie con variantes) ── --}}
+                                    <div x-show="producto.productoId && producto.esSerie && variantesMap[producto.productoId] && variantesMap[producto.productoId].length > 0" x-cloak>
+                                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                            <i class="fas fa-palette mr-1 text-pink-400"></i>Filtrar por variante
+                                        </label>
+                                        <select x-model="producto.varianteId"
+                                                @change="recargarImeisConVariante(idx)"
+                                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                            <option :value="null">— Todas las variantes —</option>
+                                            <template x-for="v in (variantesMap[producto.productoId] || [])" :key="v.id">
+                                                <option :value="v.id" x-text="v.nombre + (v.sku ? ' (' + v.sku + ')' : '')"></option>
+                                            </template>
+                                        </select>
+                                        <input type="hidden" :name="`productos[${idx}][variante_id]`" :value="producto.varianteId ?? ''">
                                     </div>
 
                                     {{-- ── CANTIDAD (accesorio) ── --}}
@@ -689,13 +803,26 @@ function trasladoForm() {
             'placa'    => $ultimoConductor?->placa_vehiculo     ?? '',
         ];
     @endphp
-    const ultimoConductor = @json($conductorData);
+    const ultimoConductor         = @json($conductorData);
+    const variantesMap            = @json($variantesMap);          // {producto_id: [{id,nombre,sku},...]}
+    const buscarDestinatarioUrl   = '{{ route('traslados.buscar-destinatario') }}';
 
     return {
         almacenId:        '',
         almacenDestinoId: '',
         productos:        [],
         nextId:           1,
+        variantesMap:     variantesMap,
+
+        // Destinatario
+        destinatarioTipo:         '{{ old('destinatario_tipo', 'ninguno') }}',
+        destinatarioBuscar:       '',
+        destinatarioResultados:   [],
+        destinatarioSeleccionado: null,
+        destinatarioBuscando:     false,
+        destinatarioTimer:        null,
+        proveedorId:              '{{ old('proveedor_id', '') }}',
+        clienteId:                '{{ old('cliente_id', '') }}',
 
         // N° Guía
         numeroGuia:  '{{ old('numero_guia', '') }}',
@@ -732,6 +859,7 @@ function trasladoForm() {
                 esSerie:           false,
                 stockOrigen:       null,
                 cantidad:          1,
+                varianteId:        null,
                 imeisDisponibles:  [],
                 imeisSeleccionados: [],
                 imeiBusqueda:      '',
@@ -801,11 +929,12 @@ function trasladoForm() {
         onProductoChange(idx) {
             const p  = this.productos[idx];
             const pid = String(p.productoId);
-            p.esSerie           = !!(pid && tipos[pid] === 'serie');
+            p.esSerie            = !!(pid && tipos[pid] === 'serie');
             p.imeisSeleccionados = [];
             p.imeisDisponibles   = [];
             p.imeiBusqueda       = '';
             p.cantidad           = 1;
+            p.varianteId         = null;
             this.calcularStock(idx);
             if (p.esSerie && this.almacenId) {
                 this.cargarImeis(idx);
@@ -830,11 +959,22 @@ function trasladoForm() {
 
         // ── IMEI carga y gestión ─────────────────────────────────────
 
+        recargarImeisConVariante(idx) {
+            const p = this.productos[idx];
+            p.imeisSeleccionados = [];
+            p.imeisDisponibles   = [];
+            p.imeiBusqueda       = '';
+            if (p.esSerie && this.almacenId) {
+                this.cargarImeis(idx);
+            }
+        },
+
         async cargarImeis(idx) {
             const p = this.productos[idx];
             p.imeisLoading = true;
             try {
-                const url  = `${imeisUrl}?producto_id=${p.productoId}&almacen_id=${this.almacenId}`;
+                const varParam = p.varianteId ? `&variante_id=${p.varianteId}` : '';
+                const url  = `${imeisUrl}?producto_id=${p.productoId}&almacen_id=${this.almacenId}${varParam}`;
                 const resp = await fetch(url, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
@@ -946,6 +1086,49 @@ function trasladoForm() {
             this.condLicencia = ultimoConductor.licencia;
             this.condPlaca    = ultimoConductor.placa;
             this.condError    = '';
+        },
+
+        // ── Destinatario ─────────────────────────────────────────────
+
+        onDestinatarioTipoChange() {
+            this.destinatarioBuscar       = '';
+            this.destinatarioResultados   = [];
+            this.destinatarioSeleccionado = null;
+            this.proveedorId              = '';
+            this.clienteId                = '';
+        },
+
+        seleccionarDestinatario(item) {
+            this.destinatarioSeleccionado = item;
+            this.destinatarioBuscar       = item.nombre;
+            this.destinatarioResultados   = [];
+            if (this.destinatarioTipo === 'proveedor') {
+                this.proveedorId = item.id;
+                this.clienteId   = '';
+            } else {
+                this.clienteId   = item.id;
+                this.proveedorId = '';
+            }
+        },
+
+        async buscarDestinatarioAjax() {
+            if (this.destinatarioBuscar.length < 2) {
+                this.destinatarioResultados = [];
+                return;
+            }
+            clearTimeout(this.destinatarioTimer);
+            this.destinatarioTimer = setTimeout(async () => {
+                this.destinatarioBuscando = true;
+                try {
+                    const url = `${buscarDestinatarioUrl}?tipo=${this.destinatarioTipo}&buscar=${encodeURIComponent(this.destinatarioBuscar)}`;
+                    const resp = await fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                    this.destinatarioResultados = await resp.json();
+                } catch {
+                    this.destinatarioResultados = [];
+                } finally {
+                    this.destinatarioBuscando = false;
+                }
+            }, 350);
         },
 
         // ── Validación global ────────────────────────────────────────

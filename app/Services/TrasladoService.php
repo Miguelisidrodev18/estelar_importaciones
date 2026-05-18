@@ -163,8 +163,9 @@ class TrasladoService
             'user_id'            => $userId,
             'tipo_movimiento'    => 'transferencia',
             'cantidad'           => $cantidad,
+            'variante_id'        => $linea['variante_id'] ?? null,
             'stock_anterior'     => $stockOrigen->cantidad,
-            'stock_nuevo'        => $stockOrigen->cantidad - $cantidad,  // proyectado
+            'stock_nuevo'        => $stockOrigen->cantidad - $cantidad,
             'numero_guia'        => $guia,
             'fecha_traslado'     => now()->toDateString(),
             'transportista'      => $cabecera['transportista'] ?? null,

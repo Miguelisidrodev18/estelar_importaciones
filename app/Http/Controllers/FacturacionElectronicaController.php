@@ -49,6 +49,10 @@ class FacturacionElectronicaController extends Controller
             }
         }
 
+        if ($request->filled('estado_guia')) {
+            $query->whereHas('guiaRemision', fn($q) => $q->where('estado', $request->estado_guia));
+        }
+
         if ($request->filled('buscar')) {
             $buscar = $request->buscar;
             $query->where(function ($q) use ($buscar) {
@@ -150,6 +154,23 @@ class FacturacionElectronicaController extends Controller
 
         $serie->delete();
         return back()->with('success', 'Serie eliminada.');
+    }
+
+    public function updateEstadoGuia(Request $request, Venta $venta)
+    {
+        $request->validate([
+            'estado' => 'required|in:pendiente,en_transito,entregada,anulada',
+        ]);
+
+        $guia = $venta->guiaRemision;
+
+        if (!$guia) {
+            return back()->with('error', 'Esta venta no tiene guía de remisión asociada.');
+        }
+
+        $guia->update(['estado' => $request->estado]);
+
+        return back()->with('success', 'Estado de guía actualizado a «' . $guia->estado_label . '».');
     }
 
     public function reenviar(Venta $venta)

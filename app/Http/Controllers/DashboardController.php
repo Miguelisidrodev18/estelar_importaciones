@@ -33,7 +33,8 @@ class DashboardController extends Controller
     return match($rol) {
         'Administrador' => redirect()->route('admin.dashboard'),
         'Almacenero' => redirect()->route('almacenero.dashboard'),
-        'Tienda' => redirect()->route('tienda.dashboard'), // CAMBIAR DE 'Cajero'
+        'Tienda' => redirect()->route('tienda.dashboard'),
+        'Cajero' => redirect()->route('cajero.dashboard'),
         'Vendedor' => redirect()->route('vendedor.dashboard'),
         'Proveedor' => redirect()->route('proveedor.dashboard'),
         default => abort(403, 'Rol no autorizado'),
@@ -419,4 +420,31 @@ public function tienda()
         'creditos_vencidos'   => $creditosVencidos,
     ]);
 }
+
+    /**
+     * Dashboard del Cajero
+     */
+    public function cajero(): View
+    {
+        $user = auth()->user();
+        $hoy  = now()->toDateString();
+
+        $caja = Caja::where('user_id', $user->id)
+            ->where('estado', 'abierta')
+            ->whereDate('fecha', $hoy)
+            ->first();
+
+        $cajaAtrasada = $this->cajaService->cajaAtrasada($user->id);
+
+        $ventasHoy = Venta::where('estado_pago', 'pagado')
+            ->whereDate('fecha', $hoy)
+            ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+            ->sum('total');
+
+        $ventasPendientesCount = Venta::where('estado_pago', 'pendiente')
+            ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+            ->count();
+
+        return view('dashboards.cajero', compact('caja', 'cajaAtrasada', 'ventasHoy', 'ventasPendientesCount'));
+    }
 }

@@ -67,7 +67,7 @@
 
     {{-- Filtros --}}
     <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
-        <form method="GET" action="{{ route('facturacion.index') }}" class="grid grid-cols-1 md:grid-cols-7 gap-3">
+        <form method="GET" action="{{ route('facturacion.index') }}" class="grid grid-cols-1 md:grid-cols-8 gap-3">
             <div class="md:col-span-2">
                 <input type="text" name="buscar" value="{{ request('buscar') }}"
                        placeholder="Buscar cliente, RUC, serie..."
@@ -93,6 +93,13 @@
                 <option value="1" {{ request('con_guia') == '1' ? 'selected' : '' }}>Con Guía de Remisión</option>
                 <option value="0" {{ request('con_guia') == '0' ? 'selected' : '' }}>Sin Guía de Remisión</option>
             </select>
+            <select name="estado_guia" class="rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="">Estado Guía</option>
+                <option value="pendiente"   {{ request('estado_guia') == 'pendiente'   ? 'selected' : '' }}>Pendiente</option>
+                <option value="en_transito" {{ request('estado_guia') == 'en_transito' ? 'selected' : '' }}>En Tránsito</option>
+                <option value="entregada"   {{ request('estado_guia') == 'entregada'   ? 'selected' : '' }}>Entregada</option>
+                <option value="anulada"     {{ request('estado_guia') == 'anulada'     ? 'selected' : '' }}>Anulada</option>
+            </select>
             <div class="grid grid-cols-2 gap-2">
                 <input type="date" name="fecha_desde" value="{{ request('fecha_desde') }}"
                        class="rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500">
@@ -103,7 +110,7 @@
                 <button type="submit" class="flex-1 bg-blue-900 hover:bg-blue-800 text-white text-sm px-3 py-2 rounded-lg transition">
                     <i class="fas fa-search mr-1"></i>Filtrar
                 </button>
-                @if(request()->hasAny(['buscar','estado_sunat','tipo_comprobante','fecha_desde','fecha_hasta','sucursal_id','con_guia']))
+                @if(request()->hasAny(['buscar','estado_sunat','tipo_comprobante','fecha_desde','fecha_hasta','sucursal_id','con_guia','estado_guia']))
                     <a href="{{ route('facturacion.index') }}"
                        class="flex-1 text-center text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-50 transition">
                         <i class="fas fa-times"></i>
@@ -124,6 +131,7 @@
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado SUNAT</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Guía</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                 </tr>
             </thead>
@@ -206,6 +214,29 @@
                         </span>
                     </td>
                     <td class="px-4 py-3">
+                        @if($tieneGuia)
+                            <form action="{{ route('facturacion.guia-estado', $comp) }}" method="POST">
+                                @csrf @method('PATCH')
+                                <select name="estado" onchange="this.form.submit()"
+                                        class="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:ring-2 focus:ring-teal-500 cursor-pointer
+                                               {{ match($comp->guiaRemision->estado) {
+                                                   'pendiente'   => 'bg-amber-50 text-amber-700 border-amber-300',
+                                                   'en_transito' => 'bg-blue-50 text-blue-700 border-blue-300',
+                                                   'entregada'   => 'bg-green-50 text-green-700 border-green-300',
+                                                   'anulada'     => 'bg-gray-100 text-gray-500 border-gray-300',
+                                                   default       => '',
+                                               } }}">
+                                    <option value="pendiente"   {{ $comp->guiaRemision->estado === 'pendiente'   ? 'selected' : '' }}>Pendiente</option>
+                                    <option value="en_transito" {{ $comp->guiaRemision->estado === 'en_transito' ? 'selected' : '' }}>En Tránsito</option>
+                                    <option value="entregada"   {{ $comp->guiaRemision->estado === 'entregada'   ? 'selected' : '' }}>Entregada</option>
+                                    <option value="anulada"     {{ $comp->guiaRemision->estado === 'anulada'     ? 'selected' : '' }}>Anulada</option>
+                                </select>
+                            </form>
+                        @else
+                            <span class="text-xs text-gray-400">—</span>
+                        @endif
+                    </td>
+                    <td class="px-4 py-3">
                         <div class="flex items-center gap-2">
                             <a href="{{ route('ventas.show', $comp) }}" target="_blank"
                                class="text-blue-600 hover:text-blue-800 transition" title="Ver detalle">
@@ -239,7 +270,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="8" class="px-6 py-12 text-center text-gray-400">
                         <i class="fas fa-file-invoice text-4xl mb-3 block"></i>
                         <p class="font-medium">No se encontraron comprobantes</p>
                     </td>

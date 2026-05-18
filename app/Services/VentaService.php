@@ -27,6 +27,15 @@ class VentaService
         $this->precioRotativoService = $precioRotativoService;
     }
 
+    private function calcularComisiones(Venta $venta): void
+    {
+        try {
+            app(\App\Services\ComisionService::class)->calcularParaVenta($venta->load('detalles.producto'));
+        } catch (\Throwable $e) {
+            Log::warning('Comisiones no calculadas para venta #' . $venta->id . ': ' . $e->getMessage());
+        }
+    }
+
     /**
      * Crear una nueva venta
      */
@@ -109,6 +118,9 @@ class VentaService
                 'igv'      => $igv,
                 'total'    => $total,
             ]);
+
+            // Calcular comisiones por vendedor
+            $this->calcularComisiones($venta);
 
             // Crear guía de remisión si se proporcionaron datos
             if ($guiaData) {

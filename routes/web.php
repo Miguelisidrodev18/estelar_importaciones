@@ -65,6 +65,7 @@ Route::get('/dashboard', function () {
         'Almacenero'    => redirect()->route('almacenero.dashboard'),
         'Vendedor'      => redirect()->route('vendedor.dashboard'),
         'Tienda'        => redirect()->route('tienda.dashboard'),
+        'Cajero'        => redirect()->route('cajero.dashboard'),
         default         => redirect()->route('login'),
     };
 })->name('dashboard')->middleware('auth');
@@ -139,6 +140,11 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:Proveedor')->prefix('proveedor')->name('proveedor.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'proveedor'])->name('dashboard');
+    });
+
+    Route::middleware('role:Cajero')->prefix('cajero')->name('cajero.')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'cajero'])->name('dashboard');
+        Route::get('/cola', [\App\Http\Controllers\VentaController::class, 'colaCaja'])->name('cola');
     });
 
     // ========================================
@@ -348,7 +354,7 @@ Route::middleware('auth')->group(function () {
     // ========================================
     // MÓDULO DE VENTAS
     // ========================================
-    Route::prefix('ventas')->name('ventas.')->middleware('role:Administrador,Vendedor,Tienda')->group(function () {
+    Route::prefix('ventas')->name('ventas.')->middleware('role:Administrador,Vendedor,Tienda,Cajero')->group(function () {
         Route::get('/', [VentaController::class, 'index'])->name('index');
         Route::get('/create', [VentaController::class, 'create'])->name('create');
         Route::post('/', [VentaController::class, 'store'])->name('store');
@@ -360,7 +366,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/{venta}', [VentaController::class, 'show'])->name('show');
         Route::get('/{venta}/pdf', [VentaController::class, 'pdf'])->name('pdf');
         Route::get('/{venta}/guia-pdf', [VentaController::class, 'guiaPdf'])->name('guia-pdf');
-        Route::post('/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->middleware('role:Administrador,Tienda')->name('confirmar-pago');
+        Route::post('/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->middleware('role:Administrador,Tienda,Cajero')->name('confirmar-pago');
         Route::post('/{venta}/convertir', [VentaController::class, 'convertir'])->middleware('role:Administrador,Tienda')->name('convertir');
         // Crédito
         Route::get('/{venta}/credito', [VentaController::class, 'showCredito'])->name('credito.show');
@@ -401,8 +407,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/series',      [\App\Http\Controllers\FacturacionElectronicaController::class, 'storeSerie'])->name('series.store');
         Route::put('/series/{serie}',   [\App\Http\Controllers\FacturacionElectronicaController::class, 'updateSerie'])->name('series.update');
         Route::delete('/series/{serie}',[\App\Http\Controllers\FacturacionElectronicaController::class, 'destroySerie'])->name('series.destroy');
-        Route::post('/{venta}/reenviar',    [\App\Http\Controllers\FacturacionElectronicaController::class, 'reenviar'])->name('reenviar');
-        Route::get('/{venta}/xml',          [\App\Http\Controllers\FacturacionElectronicaController::class, 'downloadXml'])->name('xml');
+        Route::post('/{venta}/reenviar',       [\App\Http\Controllers\FacturacionElectronicaController::class, 'reenviar'])->name('reenviar');
+        Route::patch('/{venta}/guia-estado',   [\App\Http\Controllers\FacturacionElectronicaController::class, 'updateEstadoGuia'])->name('guia-estado');
+        Route::get('/{venta}/xml',             [\App\Http\Controllers\FacturacionElectronicaController::class, 'downloadXml'])->name('xml');
         Route::get('/configuracion', [\App\Http\Controllers\FacturacionElectronicaController::class, 'configuracion'])->name('configuracion');
     });
 
@@ -427,6 +434,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/create', [TrasladoController::class, 'create'])->name('create');
             Route::post('/', [TrasladoController::class, 'store'])->name('store');
             Route::get('/imeis-disponibles', [TrasladoController::class, 'imeisDisponibles'])->name('imeis-disponibles');
+            Route::get('/buscar-destinatario', [TrasladoController::class, 'buscarDestinatario'])->name('buscar-destinatario');
             Route::get('/api/ruc/{ruc}', [TrasladoController::class, 'buscarRuc'])->name('api.ruc');
         });
 
@@ -442,6 +450,33 @@ Route::middleware('auth')->group(function () {
     });
 
     // ========================================
+    // MÓDULO DE INVENTARIO FÍSICO (CONTEO)
+    // ========================================
+    Route::prefix('inventario-fisico')->name('inventario-fisico.')->middleware('role:Administrador,Almacenero')->group(function () {
+        Route::get('/',                                   [\App\Http\Controllers\InventarioFisicoController::class, 'index'])->name('index');
+        Route::get('/create',                             [\App\Http\Controllers\InventarioFisicoController::class, 'create'])->name('create');
+        Route::post('/',                                  [\App\Http\Controllers\InventarioFisicoController::class, 'store'])->name('store');
+        Route::get('/{conteo}',                           [\App\Http\Controllers\InventarioFisicoController::class, 'show'])->name('show');
+        Route::patch('/{conteo}/detalles/{detalle}',      [\App\Http\Controllers\InventarioFisicoController::class, 'updateDetalle'])->name('detalle.update');
+        Route::post('/{conteo}/reiniciar',                [\App\Http\Controllers\InventarioFisicoController::class, 'reiniciar'])->name('reiniciar');
+        Route::get('/{conteo}/pdf',                       [\App\Http\Controllers\InventarioFisicoController::class, 'exportPdf'])->name('pdf');
+        Route::get('/{conteo}/excel',                     [\App\Http\Controllers\InventarioFisicoController::class, 'exportExcel'])->name('excel');
+    });
+
+    // ========================================
+    // MÓDULO DE COMISIONES
+    // ========================================
+    Route::prefix('comisiones')->name('comisiones.')->middleware('role:Administrador')->group(function () {
+        Route::get('/',                [\App\Http\Controllers\ComisionController::class, 'index'])->name('index');
+        Route::post('/',               [\App\Http\Controllers\ComisionController::class, 'store'])->name('store');
+        Route::put('/{regla}',         [\App\Http\Controllers\ComisionController::class, 'update'])->name('update');
+        Route::delete('/{regla}',      [\App\Http\Controllers\ComisionController::class, 'destroy'])->name('destroy');
+        Route::patch('/{regla}/toggle',[\App\Http\Controllers\ComisionController::class, 'toggle'])->name('toggle');
+        Route::get('/reporte',         [\App\Http\Controllers\ComisionController::class, 'reporte'])->name('reporte');
+        Route::post('/marcar-pagado',  [\App\Http\Controllers\ComisionController::class, 'marcarPagado'])->name('marcar-pagado');
+    });
+
+    // ========================================
     // MÓDULO DE DEVOLUCIONES
     // ========================================
     Route::prefix('devoluciones')->name('devoluciones.')->middleware('role:Administrador,Almacenero,Vendedor')->group(function () {
@@ -454,7 +489,7 @@ Route::middleware('auth')->group(function () {
     // ========================================
     // MÓDULO DE CAJA
     // ========================================
-    Route::prefix('caja')->name('caja.')->middleware('role:Administrador,Tienda')->group(function () {
+    Route::prefix('caja')->name('caja.')->middleware('role:Administrador,Tienda,Cajero')->group(function () {
         Route::get('/', [CajaController::class, 'index'])->name('index');
         Route::get('/abrir', [CajaController::class, 'abrir'])->name('abrir');
         Route::post('/abrir', [CajaController::class, 'store'])->name('store');

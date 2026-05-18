@@ -276,6 +276,12 @@
                                     <i class="fas fa-chart-bar mr-3 text-sm"></i>Análisis ABC
                                 </a>
                             </li>
+                            <li>
+                                <a href="{{ route('inventario-fisico.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario-fisico.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-clipboard-check mr-3 text-sm"></i>Conteo Físico
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     {{-- Traslados --}}
@@ -321,6 +327,14 @@
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('devoluciones.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-undo-alt mr-3"></i>Devoluciones
                             <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
+                        </a>
+                    </li>
+
+                    {{-- Comisiones --}}
+                    <li>
+                        <a href="{{ route('comisiones.index') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('comisiones.*') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-percentage mr-3"></i>Comisiones
                         </a>
                     </li>
 
@@ -485,6 +499,12 @@
                                 <a href="{{ route('inventario.movimientos.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.movimientos.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-exchange-alt mr-3 text-sm"></i>Movimientos
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('inventario-fisico.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario-fisico.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-clipboard-check mr-3 text-sm"></i>Conteo Físico
                                 </a>
                             </li>
                         </ul>
@@ -775,6 +795,53 @@
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('devoluciones.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-undo-alt mr-3"></i>Devoluciones
                             <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
+                        </a>
+                    </li>
+
+                @elseif($role == 'Cajero')
+                    {{-- Dashboard --}}
+                    <li>
+                        <a href="{{ route('cajero.dashboard') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cajero.dashboard') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-tachometer-alt mr-3"></i>Dashboard
+                        </a>
+                    </li>
+
+                    {{-- Cola de Caja --}}
+                    <li>
+                        <a href="{{ route('cajero.cola') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cajero.cola') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-stream mr-3"></i>Cola de Caja
+                            @php
+                                try {
+                                    $colaPendientes = \App\Models\Venta::where('estado_pago', 'pendiente')
+                                        ->when(auth()->user()->almacen_id, fn($q) => $q->where('almacen_id', auth()->user()->almacen_id))
+                                        ->count();
+                                } catch (\Exception $e) {
+                                    $colaPendientes = 0;
+                                }
+                            @endphp
+                            @if($colaPendientes > 0)
+                                <span class="ml-auto bg-amber-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold shrink-0">
+                                    {{ $colaPendientes > 9 ? '9+' : $colaPendientes }}
+                                </span>
+                            @endif
+                        </a>
+                    </li>
+
+                    {{-- Nueva Venta --}}
+                    <li>
+                        <a href="{{ route('ventas.create') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('ventas.create') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-plus-circle mr-3"></i>Nueva Venta (POS)
+                        </a>
+                    </li>
+
+                    {{-- Mi Caja --}}
+                    <li>
+                        <a href="{{ route('caja.actual') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.actual') || request()->routeIs('caja.abrir') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-cash-register mr-3"></i>Mi Caja
                         </a>
                     </li>
 

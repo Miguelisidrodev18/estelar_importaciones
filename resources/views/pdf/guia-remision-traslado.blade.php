@@ -201,20 +201,32 @@ table.items tfoot td { background:#e8edf5; font-weight:bold; padding:2px 4px;
             <div class="box">
                 <div class="box-title">Destinatario</div>
                 <div class="box-body">
-                    <div class="fl">Almacén de Destino</div>
-                    <div class="fv bold">{{ $almacenDestino?->nombre ?? '—' }}</div>
-                    <div class="tbl" style="margin-top:2px">
-                        <div class="tr">
-                            <div class="td" style="width:28%">
-                                <div class="fl">R.U.C.</div>
-                                <div class="fv">{{ $empresa?->ruc ?? '—' }}</div>
-                            </div>
-                            <div class="td">
-                                <div class="fl">Razón Social</div>
-                                <div class="fv">{{ $empresa?->razon_social ?? '—' }}</div>
+                    @if($guia->proveedor)
+                        <div class="fl">Proveedor</div>
+                        <div class="fv bold">{{ $guia->proveedor->razon_social }}</div>
+                        <div class="fl">R.U.C.</div>
+                        <div class="fv">{{ $guia->proveedor->ruc }}</div>
+                    @elseif($guia->cliente)
+                        <div class="fl">Cliente</div>
+                        <div class="fv bold">{{ $guia->cliente->nombre }} {{ $guia->cliente->apellido }}</div>
+                        <div class="fl">Documento</div>
+                        <div class="fv">{{ $guia->cliente->documento }}</div>
+                    @else
+                        <div class="fl">Almacén de Destino</div>
+                        <div class="fv bold">{{ $almacenDestino?->nombre ?? '—' }}</div>
+                        <div class="tbl" style="margin-top:2px">
+                            <div class="tr">
+                                <div class="td" style="width:28%">
+                                    <div class="fl">R.U.C.</div>
+                                    <div class="fv">{{ $empresa?->ruc ?? '—' }}</div>
+                                </div>
+                                <div class="td">
+                                    <div class="fl">Razón Social</div>
+                                    <div class="fv">{{ $empresa?->razon_social ?? '—' }}</div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    @endif
                 </div>
             </div>
         </div>

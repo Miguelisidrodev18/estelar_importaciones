@@ -6,6 +6,8 @@ use App\Models\MovimientoInventario;
 use App\Models\Producto;
 use App\Models\Almacen;
 use App\Models\Categoria;
+use App\Models\Cliente;
+use App\Models\Proveedor;
 use App\Models\StockAlmacen;
 use App\Models\Imei;
 use App\Models\GuiaRemision;
@@ -34,7 +36,15 @@ class TrasladoController extends Controller
 
     public function create(Request $request)
     {
-        $productos = Producto::where('estado', 'activo')->orderBy('nombre')->get();
+        $productos = Producto::where('estado', 'activo')->with(['variantesActivas'])->orderBy('nombre')->get();
+
+        $variantesMap = $productos->mapWithKeys(fn($p) => [
+            $p->id => $p->variantesActivas->map(fn($v) => [
+                'id'     => $v->id,
+                'nombre' => $v->nombre_completo,
+                'sku'    => $v->sku ?? '',
+            ])->values()->toArray(),
+        ]);
 
         // Cargar almacenes con la serie de guía de remisión (tipo 09) de su sucursal
         $almacenes = Almacen::where('estado', 'activo')
@@ -85,7 +95,7 @@ class TrasladoController extends Controller
 
         return view('traslados.create', compact(
             'productos', 'almacenes', 'stocksData', 'imeisData', 'tiposInventario',
-            'ultimoConductor', 'guiaSeriesMap', 'almacenesAddressMap'
+            'ultimoConductor', 'guiaSeriesMap', 'almacenesAddressMap', 'variantesMap'
         ));
     }
 
@@ -101,8 +111,13 @@ class TrasladoController extends Controller
             'productos'               => 'required|array|min:1',
             'productos.*.producto_id' => 'required|exists:productos,id',
             'productos.*.cantidad'    => 'nullable|integer|min:1',
+            'productos.*.variante_id' => 'nullable|exists:producto_variantes,id',
             'productos.*.imei_ids'    => 'nullable|array',
             'productos.*.imei_ids.*'  => 'nullable|exists:imeis,id',
+            // Destinatario
+            'destinatario_tipo'       => 'nullable|in:proveedor,cliente',
+            'proveedor_id'            => 'nullable|exists:proveedores,id',
+            'cliente_id'              => 'nullable|exists:clientes,id',
             // Guía de remisión
             'guia.motivo_traslado'       => 'required|string|max:50',
             'guia.modalidad'             => 'required|in:privado,publico',
@@ -132,14 +147,19 @@ class TrasladoController extends Controller
         try {
             $guiaData    = $validated['guia'] ?? null;
             $trasladoData = $validated;
-            unset($trasladoData['guia']);
+            unset($trasladoData['guia'], $trasladoData['destinatario_tipo'], $trasladoData['proveedor_id'], $trasladoData['cliente_id']);
 
             $numeroGuia = app(TrasladoService::class)->crearTraslado(
                 array_merge($trasladoData, ['user_id' => auth()->id()])
             );
 
             if ($guiaData) {
-                GuiaRemision::create(array_merge(['numero_guia' => $numeroGuia], $guiaData));
+                $destinatarioTipo = $validated['destinatario_tipo'] ?? null;
+                $guiaExtra = [
+                    'proveedor_id' => $destinatarioTipo === 'proveedor' ? ($validated['proveedor_id'] ?? null) : null,
+                    'cliente_id'   => $destinatarioTipo === 'cliente'   ? ($validated['cliente_id']   ?? null) : null,
+                ];
+                GuiaRemision::create(array_merge(['numero_guia' => $numeroGuia], $guiaData, $guiaExtra));
             }
 
             // Incrementar correlativo de la serie usada
@@ -157,7 +177,7 @@ class TrasladoController extends Controller
 
     public function guiaPdf(MovimientoInventario $traslado)
     {
-        $guia = GuiaRemision::where('numero_guia', $traslado->numero_guia)->first();
+        $guia = GuiaRemision::with(['proveedor', 'cliente'])->where('numero_guia', $traslado->numero_guia)->first();
 
         if (!$guia) {
             abort(404, 'Este traslado no tiene guía de remisión.');
@@ -295,13 +315,15 @@ class TrasladoController extends Controller
             $request->validate([
                 'producto_id' => 'required|exists:productos,id',
                 'almacen_id'  => 'required|exists:almacenes,id',
+                'variante_id' => 'nullable|exists:producto_variantes,id',
             ]);
 
             $imeis = Imei::where('producto_id', $request->producto_id)
                 ->where('almacen_id', $request->almacen_id)
                 ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+                ->when($request->filled('variante_id'), fn($q) => $q->where('variante_id', $request->variante_id))
                 ->orderBy('codigo_imei')
-                ->get(['id', 'codigo_imei', 'serie']);
+                ->get(['id', 'codigo_imei', 'serie', 'variante_id']);
 
             return response()->json($imeis);
 
@@ -315,6 +337,31 @@ class TrasladoController extends Controller
                 'error' => 'Error al cargar IMEIs: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function buscarDestinatario(Request $request): JsonResponse
+    {
+        $termino = trim($request->input('buscar', ''));
+        $tipo    = $request->input('tipo', 'proveedor');
+
+        if (strlen($termino) < 2) {
+            return response()->json([]);
+        }
+
+        if ($tipo === 'proveedor') {
+            $results = Proveedor::where('ruc', 'like', "%{$termino}%")
+                ->orWhere('razon_social', 'like', "%{$termino}%")
+                ->limit(8)
+                ->get(['id', 'ruc', 'razon_social as nombre']);
+        } else {
+            $results = Cliente::where('documento', 'like', "%{$termino}%")
+                ->orWhere('nombre', 'like', "%{$termino}%")
+                ->orWhere('apellido', 'like', "%{$termino}%")
+                ->limit(8)
+                ->get(['id', 'documento', \Illuminate\Support\Facades\DB::raw("CONCAT(nombre, ' ', COALESCE(apellido,'')) as nombre")]);
+        }
+
+        return response()->json($results);
     }
 
     public function buscarRuc(string $ruc): JsonResponse

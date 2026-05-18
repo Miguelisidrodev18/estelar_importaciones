@@ -409,6 +409,19 @@ class VentaController extends Controller
         return $pdf->stream($filename);
     }
 
+    public function colaCaja(Request $request)
+    {
+        $user = auth()->user();
+
+        $ventas = Venta::with(['cliente', 'detalles.producto', 'usuario'])
+            ->where('estado_pago', 'pendiente')
+            ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+            ->orderBy('created_at')
+            ->get();
+
+        return view('cajero.cola', compact('ventas'));
+    }
+
     public function confirmarPago(Request $request, Venta $venta)
     {
         $validated = $request->validate([

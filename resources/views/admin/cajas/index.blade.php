@@ -121,6 +121,10 @@
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cierre</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">M. Inicial</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Ventas</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-green-700 uppercase">Efectivo</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-purple-700 uppercase">Yape</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-blue-700 uppercase">Plin</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-teal-700 uppercase">Transfer</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Diferencia</th>
                             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
                             <th class="px-4 py-3"></th>
@@ -140,6 +144,10 @@
                                 </td>
                                 <td class="px-4 py-3 text-right text-gray-700">S/ {{ number_format($caja->monto_inicial, 2) }}</td>
                                 <td class="px-4 py-3 text-right text-gray-700">S/ {{ number_format($caja->total_ventas, 2) }}</td>
+                                <td class="px-4 py-3 text-right text-green-700 text-xs">S/ {{ number_format($caja->arqueo['ventas_efectivo'] ?? 0, 2) }}</td>
+                                <td class="px-4 py-3 text-right text-purple-700 text-xs">S/ {{ number_format($caja->arqueo['ventas_yape'] ?? 0, 2) }}</td>
+                                <td class="px-4 py-3 text-right text-blue-700 text-xs">S/ {{ number_format($caja->arqueo['ventas_plin'] ?? 0, 2) }}</td>
+                                <td class="px-4 py-3 text-right text-teal-700 text-xs">S/ {{ number_format($caja->arqueo['ventas_transferencia'] ?? 0, 2) }}</td>
                                 <td class="px-4 py-3 text-right">
                                     @if($caja->diferencia_cierre !== null)
                                         <span class="{{ $caja->diferencia_cierre < 0 ? 'text-red-600 font-semibold' : ($caja->diferencia_cierre > 0 ? 'text-green-600' : 'text-gray-400') }}">
@@ -167,7 +175,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="px-4 py-10 text-center text-gray-400">
+                                <td colspan="14" class="px-4 py-10 text-center text-gray-400">
                                     <i class="fas fa-inbox text-2xl mb-2 block"></i>
                                     No se encontraron cajas con los filtros aplicados.
                                 </td>
@@ -185,6 +193,18 @@
                             </td>
                             <td class="px-4 py-2 text-right text-xs font-semibold text-gray-700">
                                 S/ {{ number_format($cajas->sum('total_ventas'), 2) }}
+                            </td>
+                            <td class="px-4 py-2 text-right text-xs font-semibold text-green-700">
+                                S/ {{ number_format($cajas->sum(fn($c) => $c->arqueo['ventas_efectivo'] ?? 0), 2) }}
+                            </td>
+                            <td class="px-4 py-2 text-right text-xs font-semibold text-purple-700">
+                                S/ {{ number_format($cajas->sum(fn($c) => $c->arqueo['ventas_yape'] ?? 0), 2) }}
+                            </td>
+                            <td class="px-4 py-2 text-right text-xs font-semibold text-blue-700">
+                                S/ {{ number_format($cajas->sum(fn($c) => $c->arqueo['ventas_plin'] ?? 0), 2) }}
+                            </td>
+                            <td class="px-4 py-2 text-right text-xs font-semibold text-teal-700">
+                                S/ {{ number_format($cajas->sum(fn($c) => $c->arqueo['ventas_transferencia'] ?? 0), 2) }}
                             </td>
                             <td class="px-4 py-2 text-right text-xs font-semibold {{ $cajas->sum('diferencia_cierre') < 0 ? 'text-red-600' : 'text-gray-700' }}">
                                 S/ {{ number_format($cajas->sum('diferencia_cierre'), 2) }}

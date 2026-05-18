@@ -136,6 +136,10 @@ class AdminCajaController extends Controller
         $usuarios  = User::orderBy('name')->get();
         $alertasCount = $this->contarAlertas();
 
+        // Cargar movimientos y computar arqueo por caja para las columnas de método de pago
+        $cajas->load('movimientos');
+        $cajas->each(fn($c) => $c->arqueo = $this->cajaService->getArqueo($c));
+
         return view('admin.cajas.index', compact('cajas', 'sucursales', 'usuarios', 'alertasCount'));
     }
 
@@ -148,7 +152,11 @@ class AdminCajaController extends Controller
         $arqueo = $this->cajaService->getArqueo($caja);
         $alertasCount = $this->contarAlertas();
 
-        return view('admin.cajas.show', compact('caja', 'arqueo', 'alertasCount'));
+        $movimientosPorFecha = $caja->movimientos
+            ->sortBy('created_at')
+            ->groupBy(fn($m) => $m->created_at->toDateString());
+
+        return view('admin.cajas.show', compact('caja', 'arqueo', 'alertasCount', 'movimientosPorFecha'));
     }
 
     public function forzarCierre(Request $request, Caja $caja)
