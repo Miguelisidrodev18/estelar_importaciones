@@ -119,7 +119,6 @@ class TrasladoService
             'stock_nuevo'        => $stockAnterior - $cantidad,
             'numero_guia'        => $guia,
             'fecha_traslado'     => now()->toDateString(),
-            'transportista'      => $cabecera['transportista'] ?? null,
             'observaciones'      => $cabecera['observaciones'] ?? null,
             'estado'             => 'pendiente',
         ]);
@@ -168,7 +167,6 @@ class TrasladoService
             'stock_nuevo'        => $stockOrigen->cantidad - $cantidad,
             'numero_guia'        => $guia,
             'fecha_traslado'     => now()->toDateString(),
-            'transportista'      => $cabecera['transportista'] ?? null,
             'observaciones'      => $cabecera['observaciones'] ?? null,
             'estado'             => 'pendiente',
         ]);
@@ -266,7 +264,7 @@ class TrasladoService
     private function generarNumeroGuia(): string
     {
         $ultimo = MovimientoInventario::where('tipo_movimiento', 'transferencia')
-            ->whereNotNull('numero_guia')
+            ->where('numero_guia', 'like', 'GR-%')
             ->latest('id')
             ->value('numero_guia');
 

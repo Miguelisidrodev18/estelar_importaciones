@@ -229,6 +229,7 @@
                                 <input type="text" name="guia[direccion_partida]"
                                        value="{{ old('guia.direccion_partida') }}"
                                        placeholder="Dirección del almacén origen"
+                                       @input="$el.dataset.userEdited = '1'"
                                        class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                             </div>
                             <div>
@@ -238,6 +239,7 @@
                                 <input type="text" name="guia[direccion_llegada]"
                                        value="{{ old('guia.direccion_llegada') }}"
                                        placeholder="Dirección del almacén destino"
+                                       @input="$el.dataset.userEdited = '1'"
                                        class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                             </div>
                         </div>
@@ -251,6 +253,7 @@
                                 <input type="text" name="guia[ubigeo_partida]" maxlength="6"
                                        value="{{ old('guia.ubigeo_partida') }}"
                                        placeholder="Ej: 150101"
+                                       @input="$el.dataset.userEdited = '1'"
                                        class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
                             </div>
                             <div>
@@ -260,6 +263,7 @@
                                 <input type="text" name="guia[ubigeo_llegada]" maxlength="6"
                                        value="{{ old('guia.ubigeo_llegada') }}"
                                        placeholder="Ej: 150101"
+                                       @input="$el.dataset.userEdited = '1'"
                                        class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono">
                             </div>
                         </div>

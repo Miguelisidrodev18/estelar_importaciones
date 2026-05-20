@@ -106,7 +106,6 @@ class TrasladoController extends Controller
             'almacen_destino_id'      => 'required|exists:almacenes,id|different:almacen_id',
             'numero_guia'             => 'nullable|string|max:50',
             'guia_serie_id'           => 'nullable|exists:series_comprobantes,id',
-            'transportista'           => 'nullable|string|max:255',
             'observaciones'           => 'nullable|string',
             'productos'               => 'required|array|min:1',
             'productos.*.producto_id' => 'required|exists:productos,id',

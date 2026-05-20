@@ -280,6 +280,7 @@
                                 <a href="{{ route('inventario-fisico.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario-fisico.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-clipboard-check mr-3 text-sm"></i>Conteo Físico
+                                    <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
                                 </a>
                             </li>
                         </ul>
@@ -335,6 +336,7 @@
                         <a href="{{ route('comisiones.index') }}"
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('comisiones.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-percentage mr-3"></i>Comisiones
+                            <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
                         </a>
                     </li>
 
@@ -505,6 +507,7 @@
                                 <a href="{{ route('inventario-fisico.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario-fisico.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-clipboard-check mr-3 text-sm"></i>Conteo Físico
+                                    <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
                                 </a>
                             </li>
                         </ul>
@@ -811,7 +814,11 @@
                     <li>
                         <a href="{{ route('cajero.cola') }}"
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cajero.cola') ? 'bg-blue-700' : '' }}">
-                            <i class="fas fa-stream mr-3"></i>Cola de Caja
+                            <i class="fas fa-stream mr-3"></i>
+                            <span class="flex items-center gap-2">
+                                Cola de Caja
+                                <span class="text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
+                            </span>
                             @php
                                 try {
                                     $colaPendientes = \App\Models\Venta::where('estado_pago', 'pendiente')
