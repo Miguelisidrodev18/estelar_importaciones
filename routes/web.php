@@ -434,6 +434,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/create', [TrasladoController::class, 'create'])->name('create');
             Route::post('/', [TrasladoController::class, 'store'])->name('store');
             Route::get('/imeis-disponibles', [TrasladoController::class, 'imeisDisponibles'])->name('imeis-disponibles');
+            Route::get('/buscar-productos', [TrasladoController::class, 'buscarProductos'])->name('buscar-productos');
             Route::get('/buscar-destinatario', [TrasladoController::class, 'buscarDestinatario'])->name('buscar-destinatario');
             Route::get('/api/ruc/{ruc}', [TrasladoController::class, 'buscarRuc'])->name('api.ruc');
         });

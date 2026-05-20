@@ -36,23 +36,11 @@ class TrasladoController extends Controller
 
     public function create(Request $request)
     {
-        $productos = Producto::where('estado', 'activo')->with(['variantesActivas'])->orderBy('nombre')->get();
-
-        $variantesMap = $productos->mapWithKeys(fn($p) => [
-            $p->id => $p->variantesActivas->map(fn($v) => [
-                'id'     => $v->id,
-                'nombre' => $v->nombre_completo,
-                'sku'    => $v->sku ?? '',
-            ])->values()->toArray(),
-        ]);
-
-        // Cargar almacenes con la serie de guía de remisión (tipo 09) de su sucursal
         $almacenes = Almacen::where('estado', 'activo')
             ->with(['sucursal.series' => fn($q) => $q->where('tipo_comprobante', '09')->where('activo', true)])
             ->orderBy('nombre')
             ->get();
 
-        // Mapa almacen_id → datos de la serie de guía para el JS
         $guiaSeriesMap = $almacenes->mapWithKeys(function ($alm) {
             $serie = $alm->sucursal?->series->first();
             if (!$serie) return [$alm->id => null];
@@ -62,29 +50,11 @@ class TrasladoController extends Controller
             ]];
         })->filter();
 
-        // Stock por producto y almacén (productos accesorio)
-        $stocksData = StockAlmacen::all()
-            ->groupBy('producto_id')
-            ->map(fn($rows) => $rows->pluck('cantidad', 'almacen_id'));
-
-        // Conteo de IMEIs en_stock por producto y almacén
-        $imeisData = Imei::where('estado_imei', Imei::ESTADO_EN_STOCK)
-            ->selectRaw('producto_id, almacen_id, COUNT(*) as total')
-            ->groupBy('producto_id', 'almacen_id')
-            ->get()
-            ->groupBy('producto_id')
-            ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
-
-        // tipo_inventario por producto
-        $tiposInventario = $productos->pluck('tipo_inventario', 'id');
-
-        // Último conductor registrado para pre-rellenar el formulario
         $ultimoConductor = GuiaRemision::whereNotNull('conductor_dni')
             ->whereNotNull('conductor_nombre')
             ->latest()
             ->first();
 
-        // Mapa almacen_id → {direccion, ubigeo} para precargar en la guía de remisión
         $almacenesAddressMap = $almacenes->mapWithKeys(function ($alm) {
             $sucursal = $alm->sucursal;
             return [$alm->id => [
@@ -94,8 +64,7 @@ class TrasladoController extends Controller
         });
 
         return view('traslados.create', compact(
-            'productos', 'almacenes', 'stocksData', 'imeisData', 'tiposInventario',
-            'ultimoConductor', 'guiaSeriesMap', 'almacenesAddressMap', 'variantesMap'
+            'almacenes', 'ultimoConductor', 'guiaSeriesMap', 'almacenesAddressMap'
         ));
     }
 
@@ -336,6 +305,65 @@ class TrasladoController extends Controller
                 'error' => 'Error al cargar IMEIs: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function buscarProductos(Request $request): JsonResponse
+    {
+        $q        = trim($request->get('q', ''));
+        $almacenId = (int) $request->get('almacen_id', 0);
+
+        $productos = Producto::with(['variantesActivas'])
+            ->where('estado', 'activo')
+            ->where(function ($query) use ($q) {
+                $query->where('nombre', 'like', "%{$q}%")
+                      ->orWhere('codigo', 'like', "%{$q}%");
+            })
+            ->limit(15)
+            ->get(['id', 'nombre', 'codigo', 'tipo_inventario']);
+
+        $productoIds = $productos->pluck('id');
+
+        $stocksMap = StockAlmacen::whereIn('producto_id', $productoIds)
+            ->when($almacenId, fn($q) => $q->where('almacen_id', $almacenId))
+            ->get()
+            ->groupBy('producto_id')
+            ->map(fn($rows) => $rows->pluck('cantidad', 'almacen_id'));
+
+        $imeisMap = Imei::whereIn('producto_id', $productoIds)
+            ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+            ->when($almacenId, fn($q) => $q->where('almacen_id', $almacenId))
+            ->selectRaw('producto_id, almacen_id, COUNT(*) as total')
+            ->groupBy('producto_id', 'almacen_id')
+            ->get()
+            ->groupBy('producto_id')
+            ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
+
+        $result = $productos->map(function ($p) use ($stocksMap, $imeisMap, $almacenId) {
+            $esSerie = $p->tipo_inventario === 'serie';
+            $stock   = null;
+
+            if ($almacenId) {
+                $stock = $esSerie
+                    ? (int) ($imeisMap[$p->id][$almacenId] ?? 0)
+                    : (int) ($stocksMap[$p->id][$almacenId] ?? 0);
+            }
+
+            return [
+                'id'              => $p->id,
+                'nombre'          => $p->nombre,
+                'codigo'          => $p->codigo,
+                'tipo_inventario' => $p->tipo_inventario,
+                'es_serie'        => $esSerie,
+                'stock_origen'    => $stock,
+                'variantes'       => $p->variantesActivas->map(fn($v) => [
+                    'id'     => $v->id,
+                    'nombre' => $v->nombre_completo,
+                    'sku'    => $v->sku ?? '',
+                ])->values(),
+            ];
+        });
+
+        return response()->json($result);
     }
 
     public function buscarDestinatario(Request $request): JsonResponse

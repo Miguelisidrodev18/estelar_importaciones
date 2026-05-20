@@ -544,27 +544,75 @@
 
                                 <div class="p-4 space-y-3">
 
-                                    {{-- Select producto --}}
+                                    {{-- Buscador dinámico de producto --}}
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
                                             <i class="fas fa-box mr-1 text-blue-400"></i>Producto *
                                         </label>
-                                        <select :name="`productos[${idx}][producto_id]`"
-                                                x-model="producto.productoId"
-                                                @change="onProductoChange(idx)"
-                                                required
-                                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                            <option value="">— Seleccione un producto —</option>
-                                            @foreach($productos as $prod)
-                                                <option value="{{ $prod->id }}"
-                                                        :disabled="estaUsado({{ $prod->id }}, idx)"
-                                                        {{ old("productos.{$loop->index}.producto_id") == $prod->id ? 'selected' : '' }}>
-                                                    {{ $prod->nombre }}
-                                                    @if($prod->tipo_inventario === 'serie') (IMEI) @endif
-                                                    — {{ $prod->codigo }}
-                                                </option>
-                                            @endforeach
-                                        </select>
+
+                                        {{-- Chip del producto seleccionado --}}
+                                        <div x-show="producto.productoId" x-cloak
+                                             class="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                            <i class="fas fa-check-circle text-blue-500 text-xs shrink-0"></i>
+                                            <span class="flex-1 text-sm font-medium text-blue-800" x-text="producto.nombre"></span>
+                                            <span class="text-[10px] text-blue-400 font-mono" x-text="producto.codigo"></span>
+                                            <span x-show="producto.esSerie"
+                                                  class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">IMEI</span>
+                                            <button type="button" @click="limpiarProducto(idx)"
+                                                    class="text-blue-300 hover:text-red-500 transition ml-1">
+                                                <i class="fas fa-times text-xs"></i>
+                                            </button>
+                                        </div>
+
+                                        {{-- Buscador (visible cuando no hay producto seleccionado) --}}
+                                        <div x-show="!producto.productoId" class="relative">
+                                            <div class="relative">
+                                                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-xs pointer-events-none"></i>
+                                                <input type="text"
+                                                       x-model="producto.busqueda"
+                                                       @input="buscarProducto(idx)"
+                                                       @keydown.escape="producto.resultados = []"
+                                                       :placeholder="almacenId ? 'Buscar por nombre o código...' : 'Selecciona almacén origen primero'"
+                                                       :disabled="!almacenId"
+                                                       class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                                <div x-show="producto.buscando" class="absolute right-3 top-2.5">
+                                                    <i class="fas fa-spinner fa-spin text-gray-400 text-xs"></i>
+                                                </div>
+                                            </div>
+
+                                            {{-- Dropdown resultados --}}
+                                            <div x-show="producto.resultados.length > 0" x-cloak
+                                                 class="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto">
+                                                <template x-for="item in producto.resultados" :key="item.id">
+                                                    <button type="button"
+                                                            @click="seleccionarProducto(idx, item)"
+                                                            :disabled="estaUsado(item.id, idx)"
+                                                            class="w-full text-left px-4 py-2.5 text-sm transition-colors border-b border-gray-50 last:border-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                            :class="estaUsado(item.id, idx) ? 'bg-gray-50' : 'hover:bg-blue-50'">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="flex-1 font-medium text-gray-800" x-text="item.nombre"></span>
+                                                            <span class="text-[10px] font-mono text-gray-400" x-text="item.codigo"></span>
+                                                            <span x-show="item.es_serie"
+                                                                  class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold shrink-0">IMEI</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-1 mt-0.5">
+                                                            <span class="text-[10px]"
+                                                                  :class="item.stock_origen > 0 ? 'text-green-600' : 'text-red-500'"
+                                                                  x-text="'Stock: ' + item.stock_origen + (item.es_serie ? ' IMEIs' : ' unid.')"></span>
+                                                            <span x-show="estaUsado(item.id, idx)"
+                                                                  class="text-[10px] text-amber-500 ml-2">ya agregado</span>
+                                                        </div>
+                                                    </button>
+                                                </template>
+                                                <div x-show="producto.resultados.length === 0 && producto.busqueda.length >= 2 && !producto.buscando"
+                                                     class="px-4 py-3 text-center text-xs text-gray-400">
+                                                    Sin resultados para "<span x-text="producto.busqueda"></span>"
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <input type="hidden" :name="`productos[${idx}][producto_id]`" :value="producto.productoId">
+
                                         <p x-show="esDuplicado(idx)" x-cloak
                                            class="text-xs text-red-500 mt-1 flex items-center gap-1">
                                             <i class="fas fa-exclamation-triangle"></i> Este producto ya está en otra fila.
@@ -586,7 +634,7 @@
                                     </div>
 
                                     {{-- ── VARIANTE SELECTOR (accesorio con variantes) ── --}}
-                                    <div x-show="producto.productoId && !producto.esSerie && variantesMap[producto.productoId] && variantesMap[producto.productoId].length > 0" x-cloak>
+                                    <div x-show="producto.productoId && !producto.esSerie && producto.variantes.length > 0" x-cloak>
                                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
                                             <i class="fas fa-palette mr-1 text-pink-400"></i>Variante
                                         </label>
@@ -594,14 +642,14 @@
                                                 x-model="producto.varianteId"
                                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
                                             <option :value="null">— Sin variante específica —</option>
-                                            <template x-for="v in (variantesMap[producto.productoId] || [])" :key="v.id">
+                                            <template x-for="v in producto.variantes" :key="v.id">
                                                 <option :value="v.id" x-text="v.nombre + (v.sku ? ' (' + v.sku + ')' : '')"></option>
                                             </template>
                                         </select>
                                     </div>
 
                                     {{-- ── VARIANTE FILTRO (serie con variantes) ── --}}
-                                    <div x-show="producto.productoId && producto.esSerie && variantesMap[producto.productoId] && variantesMap[producto.productoId].length > 0" x-cloak>
+                                    <div x-show="producto.productoId && producto.esSerie && producto.variantes.length > 0" x-cloak>
                                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
                                             <i class="fas fa-palette mr-1 text-pink-400"></i>Filtrar por variante
                                         </label>
@@ -609,7 +657,7 @@
                                                 @change="recargarImeisConVariante(idx)"
                                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
                                             <option :value="null">— Todas las variantes —</option>
-                                            <template x-for="v in (variantesMap[producto.productoId] || [])" :key="v.id">
+                                            <template x-for="v in producto.variantes" :key="v.id">
                                                 <option :value="v.id" x-text="v.nombre + (v.sku ? ' (' + v.sku + ')' : '')"></option>
                                             </template>
                                         </select>
@@ -790,15 +838,12 @@
 
 <script>
 function trasladoForm() {
-    const stocks = @json($stocksData->toArray());   // {producto_id: {almacen_id: cantidad}}
-    const imeis  = @json($imeisData->toArray());    // {producto_id: {almacen_id: total}}
-    const tipos  = @json($tiposInventario->toArray()); // {producto_id: 'serie'|'accesorio'}
-    const imeisUrl = '{{ route('traslados.imeis-disponibles') }}';
-
-    const guiaSeriesMap    = @json($guiaSeriesMap);      // { almacen_id: { serie_id, numero } }
-    const almacenesAddress = @json($almacenesAddressMap); // { almacen_id: { direccion, ubigeo } }
-    const dniUrl  = '{{ route('ventas.dni.buscar', ['dni' => '__DNI__']) }}';
-    const rucUrl  = '{{ route('traslados.api.ruc', ['ruc' => '__RUC__']) }}';
+    const imeisUrl            = '{{ route('traslados.imeis-disponibles') }}';
+    const buscarProductosUrl  = '{{ route('traslados.buscar-productos') }}';
+    const guiaSeriesMap       = @json($guiaSeriesMap);
+    const almacenesAddress    = @json($almacenesAddressMap);
+    const dniUrl              = '{{ route('ventas.dni.buscar', ['dni' => '__DNI__']) }}';
+    const rucUrl              = '{{ route('traslados.api.ruc', ['ruc' => '__RUC__']) }}';
     @php
         $conductorData = [
             'dni'      => $ultimoConductor?->conductor_dni      ?? '',
@@ -807,16 +852,14 @@ function trasladoForm() {
             'placa'    => $ultimoConductor?->placa_vehiculo     ?? '',
         ];
     @endphp
-    const ultimoConductor         = @json($conductorData);
-    const variantesMap            = @json($variantesMap);          // {producto_id: [{id,nombre,sku},...]}
-    const buscarDestinatarioUrl   = '{{ route('traslados.buscar-destinatario') }}';
+    const ultimoConductor       = @json($conductorData);
+    const buscarDestinatarioUrl = '{{ route('traslados.buscar-destinatario') }}';
 
     return {
         almacenId:        '',
         almacenDestinoId: '',
         productos:        [],
         nextId:           1,
-        variantesMap:     variantesMap,
 
         // Destinatario
         destinatarioTipo:         '{{ old('destinatario_tipo', 'ninguno') }}',
@@ -860,14 +903,21 @@ function trasladoForm() {
             this.productos.push({
                 _id:               this.nextId++,
                 productoId:        '',
+                nombre:            '',
+                codigo:            '',
                 esSerie:           false,
                 stockOrigen:       null,
+                variantes:         [],
                 cantidad:          1,
                 varianteId:        null,
                 imeisDisponibles:  [],
                 imeisSeleccionados: [],
                 imeiBusqueda:      '',
                 imeisLoading:      false,
+                busqueda:          '',
+                resultados:        [],
+                buscando:          false,
+                timer:             null,
             });
         },
 
@@ -890,7 +940,6 @@ function trasladoForm() {
         // ── Eventos de selección ─────────────────────────────────────
 
         onAlmacenOrigenChange() {
-            // Auto-fill N° Guía desde la serie de la sucursal del almacén origen
             const serieData = guiaSeriesMap[this.almacenId];
             if (serieData) {
                 this.numeroGuia  = serieData.numero;
@@ -900,7 +949,6 @@ function trasladoForm() {
                 this.guiaSerieId = '';
             }
 
-            // Precargar dirección y ubigeo de partida
             const addrOrigen = almacenesAddress[this.almacenId];
             if (addrOrigen) {
                 const dirInput    = document.querySelector('input[name="guia[direccion_partida]"]');
@@ -909,15 +957,8 @@ function trasladoForm() {
                 if (ubigeoInput && !ubigeoInput.dataset.userEdited) ubigeoInput.value = addrOrigen.ubigeo   ?? '';
             }
 
-            this.productos.forEach((p, idx) => {
-                p.imeisSeleccionados = [];
-                p.imeisDisponibles   = [];
-                p.imeiBusqueda       = '';
-                this.calcularStock(idx);
-                if (p.esSerie && p.productoId && this.almacenId) {
-                    this.cargarImeis(idx);
-                }
-            });
+            // Al cambiar almacén origen, limpiar productos seleccionados (stock cambió)
+            this.productos.forEach(p => this.limpiarProducto(this.productos.indexOf(p)));
         },
 
         onAlmacenDestinoChange() {
@@ -930,35 +971,61 @@ function trasladoForm() {
             }
         },
 
-        onProductoChange(idx) {
-            const p  = this.productos[idx];
-            const pid = String(p.productoId);
-            p.esSerie            = !!(pid && tipos[pid] === 'serie');
+        // ── Búsqueda dinámica de productos ───────────────────────────
+
+        buscarProducto(idx) {
+            const p = this.productos[idx];
+            clearTimeout(p.timer);
+            if (p.busqueda.length < 2) { p.resultados = []; return; }
+            p.timer = setTimeout(async () => {
+                p.buscando = true;
+                try {
+                    const url  = `${buscarProductosUrl}?q=${encodeURIComponent(p.busqueda)}&almacen_id=${this.almacenId}`;
+                    const resp = await fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                    p.resultados = await resp.json();
+                } catch {
+                    p.resultados = [];
+                } finally {
+                    p.buscando = false;
+                }
+            }, 300);
+        },
+
+        seleccionarProducto(idx, item) {
+            const p              = this.productos[idx];
+            p.productoId         = item.id;
+            p.nombre             = item.nombre;
+            p.codigo             = item.codigo;
+            p.esSerie            = item.es_serie;
+            p.stockOrigen        = item.stock_origen;
+            p.variantes          = item.variantes ?? [];
+            p.varianteId         = null;
+            p.cantidad           = 1;
             p.imeisSeleccionados = [];
             p.imeisDisponibles   = [];
             p.imeiBusqueda       = '';
-            p.cantidad           = 1;
-            p.varianteId         = null;
-            this.calcularStock(idx);
+            p.resultados         = [];
+            p.busqueda           = '';
             if (p.esSerie && this.almacenId) {
                 this.cargarImeis(idx);
             }
         },
 
-        calcularStock(idx) {
-            const p   = this.productos[idx];
-            const pid = String(p.productoId);
-            const aid = String(this.almacenId);
-
-            if (!pid || !aid) { p.stockOrigen = null; return; }
-
-            if (p.esSerie) {
-                p.stockOrigen = (imeis[pid] && imeis[pid][aid] !== undefined)
-                    ? parseInt(imeis[pid][aid]) : 0;
-            } else {
-                p.stockOrigen = (stocks[pid] && stocks[pid][aid] !== undefined)
-                    ? parseInt(stocks[pid][aid]) : 0;
-            }
+        limpiarProducto(idx) {
+            const p              = this.productos[idx];
+            p.productoId         = '';
+            p.nombre             = '';
+            p.codigo             = '';
+            p.esSerie            = false;
+            p.stockOrigen        = null;
+            p.variantes          = [];
+            p.varianteId         = null;
+            p.cantidad           = 1;
+            p.imeisSeleccionados = [];
+            p.imeisDisponibles   = [];
+            p.imeiBusqueda       = '';
+            p.resultados         = [];
+            p.busqueda           = '';
         },
 
         // ── IMEI carga y gestión ─────────────────────────────────────
