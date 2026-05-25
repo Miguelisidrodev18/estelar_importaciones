@@ -55,16 +55,23 @@ class VentaController extends Controller
         $clientes  = Cliente::activos()->orderBy('nombre')->get();
         $categorias = Categoria::activas()->orderBy('nombre')->get();
 
-        // Ventas solo en tiendas (puntos de venta); admin ve todas, el resto solo la suya
-        if ($user->role->nombre === 'Administrador') {
+        // Ventas solo en tiendas (puntos de venta)
+        // Admin: todas | usuario con tienda asignada: solo la suya | sin asignación: todas
+        $rolNombre = $user->role->nombre;
+        if ($rolNombre === 'Administrador') {
             $almacenes = Almacen::where('estado', 'activo')->where('tipo', 'tienda')->orderBy('nombre')->get();
-        } else {
+        } elseif ($user->almacen_id) {
             $almacenes = Almacen::where('estado', 'activo')
                 ->where('tipo', 'tienda')
                 ->where('id', $user->almacen_id)
                 ->orderBy('nombre')
                 ->get();
+        } else {
+            // Vendedor/Cajero sin tienda asignada: ve todas las tiendas activas
+            $almacenes = Almacen::where('estado', 'activo')->where('tipo', 'tienda')->orderBy('nombre')->get();
         }
+
+        $esVendedor = $rolNombre === 'Vendedor';
 
         // Preseleccionar si solo hay un almacén disponible
         $almacenPredeterminado = $almacenes->count() === 1
@@ -216,9 +223,19 @@ class VentaController extends Controller
         $cajaAbierta    = (bool) $cajaActual;
         $cajaDiaAnterior = $cajaActual && $cajaActual->fecha->lt(today());
 
+        // Ventas pendientes de cobro para Vendedor
+        $misPendientes = $esVendedor
+            ? Venta::with(['cliente', 'detalles.producto', 'detalles.variante.color'])
+                ->where('user_id', $user->id)
+                ->where('estado_pago', 'pendiente')
+                ->orderBy('created_at', 'desc')
+                ->take(20)
+                ->get()
+            : collect();
+
         return view('ventas.create', compact(
             'clientes', 'productos', 'almacenes', 'categorias', 'almacenPredeterminado', 'pagosConfig', 'empresa',
-            'cajaAbierta', 'cajaDiaAnterior', 'cajaActual'
+            'cajaAbierta', 'cajaDiaAnterior', 'cajaActual', 'esVendedor', 'misPendientes'
         ));
     }
 
@@ -229,10 +246,17 @@ class VentaController extends Controller
         $subtotal        = collect($validated['detalles'])->sum(fn($d) => $d['cantidad'] * $d['precio_unitario']);
         $tipoComprobante = $validated['tipo_comprobante'] ?? 'boleta';
         $condicionPago   = $validated['condicion_pago'] ?? 'contado';
-        $esCredito       = $condicionPago === 'credito';
-        $metodoPago      = $validated['metodo_pago'] ?? null;
-        $pago            = ($metodoPago && !$esCredito) ? ['metodo_pago' => $metodoPago] : null;
-        $creditoData     = $esCredito ? ($validated['credito'] ?? []) : null;
+
+        // Vendedor siempre genera venta pendiente de cobro
+        if (auth()->user()->role->nombre === 'Vendedor') {
+            $condicionPago = 'pendiente_cobro';
+        }
+
+        $esPendienteCobro = $condicionPago === 'pendiente_cobro';
+        $esCredito        = $condicionPago === 'credito';
+        $metodoPago       = $validated['metodo_pago'] ?? null;
+        $pago             = ($metodoPago && !$esCredito && !$esPendienteCobro) ? ['metodo_pago' => $metodoPago] : null;
+        $creditoData      = $esCredito ? ($validated['credito'] ?? []) : null;
 
         // Resolver sucursal del almacén seleccionado
         $sucursalId = Sucursal::where('almacen_id', $validated['almacen_id'])->value('id');
@@ -263,6 +287,11 @@ class VentaController extends Controller
             } elseif ($esCredito) {
                 $venta = $service->crearVenta($datosVenta, $validated['detalles'], null, $creditoData);
                 $msg   = 'Venta a crédito registrada exitosamente. Se han generado las cuotas de pago.';
+            } elseif ($esPendienteCobro) {
+                $datosVenta['estado_pago']    = 'pendiente';
+                $datosVenta['condicion_pago'] = 'contado';
+                $venta = $service->crearVenta($datosVenta, $validated['detalles'], null);
+                $msg   = 'Venta pendiente registrada. El cajero procesará el cobro.';
             } else {
                 $venta = $service->crearVenta($datosVenta, $validated['detalles'], $pago);
                 $msg   = 'Venta registrada exitosamente.';
@@ -270,6 +299,16 @@ class VentaController extends Controller
 
             if ($request->wantsJson()) {
                 return response()->json(['venta_id' => $venta->id]);
+            }
+
+            // Vendedor y Cajero permanecen en el POS con modal de éxito
+            if (in_array(auth()->user()->role->nombre, ['Vendedor', 'Cajero'])) {
+                return redirect()->route('ventas.create')->with('venta_exitosa', [
+                    'codigo' => $venta->codigo,
+                    'total'  => number_format($venta->total, 2),
+                    'id'     => $venta->id,
+                    'es_cotizacion' => $tipoComprobante === 'cotizacion',
+                ]);
             }
 
             return redirect()->route('ventas.show', $venta)->with('success', $msg);
@@ -413,7 +452,7 @@ class VentaController extends Controller
     {
         $user = auth()->user();
 
-        $ventas = Venta::with(['cliente', 'detalles.producto', 'usuario'])
+        $ventas = Venta::with(['cliente', 'detalles.producto', 'detalles.variante.color', 'vendedor'])
             ->where('estado_pago', 'pendiente')
             ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
             ->orderBy('created_at')
@@ -422,25 +461,94 @@ class VentaController extends Controller
         return view('cajero.cola', compact('ventas'));
     }
 
+    public function colaJson(Request $request)
+    {
+        $user = auth()->user();
+
+        $ventas = Venta::with(['cliente', 'detalles.producto', 'detalles.variante.color', 'vendedor'])
+            ->where('estado_pago', 'pendiente')
+            ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
+            ->orderBy('created_at')
+            ->get();
+
+        return response()->json($ventas->map(fn($v) => [
+            'id'            => $v->id,
+            'codigo'        => $v->codigo,
+            'total'         => round((float) $v->total, 2),
+            'cliente'       => $v->cliente ? trim($v->cliente->nombre . ' ' . ($v->cliente->apellido ?? '')) : null,
+            'vendedor'      => $v->vendedor?->name ?? '—',
+            'hora_creacion' => $v->created_at->format('H:i'),
+            'detalles'      => $v->detalles->map(fn($d) => [
+                'id'       => $d->id,
+                'cantidad' => $d->cantidad,
+                'producto' => trim(($d->producto?->nombre ?? '—') . ($d->variante ? ' · ' . $d->variante->nombre_completo : '')),
+                'subtotal' => round((float) $d->subtotal_con_igv, 2),
+            ])->values(),
+        ])->values());
+    }
+
     public function confirmarPago(Request $request, Venta $venta)
     {
         $validated = $request->validate([
-            'metodo_pago' => 'required|in:efectivo,transferencia,yape,plin,mixto',
+            'metodo_pago'              => 'required|in:efectivo,transferencia,yape,plin,mixto',
+            'pagos_detalle'            => 'nullable|array',
+            'pagos_detalle.*.metodo'   => 'required_with:pagos_detalle|in:efectivo,transferencia,yape,plin',
+            'pagos_detalle.*.monto'    => 'required_with:pagos_detalle|numeric|min:0.01',
+            'pagos_detalle.*.referencia' => 'nullable|string|max:100',
+            'formato_impresion'        => 'nullable|in:ticket,a4',
         ]);
 
         try {
             app(VentaService::class)->confirmarPago(
                 $venta->id,
                 $validated['metodo_pago'],
-                auth()->id()
+                auth()->id(),
+                ['pagos_detalle' => $validated['pagos_detalle'] ?? null]
             );
 
-            return redirect()
-                ->route('ventas.show', $venta)
-                ->with('success', 'Pago confirmado exitosamente');
+            $formato = $validated['formato_impresion'] ?? 'ticket';
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success'   => true,
+                    'venta_id'  => $venta->id,
+                    'print_url' => route('ventas.pdf', ['venta' => $venta->id, 'formato' => $formato]),
+                ]);
+            }
+
+            return redirect()->route('cajero.cola')->with('success', 'Pago confirmado — ' . $venta->codigo);
         } catch (\Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    public function misPendientes()
+    {
+        $ventas = Venta::with(['cliente', 'detalles.producto', 'detalles.variante.color'])
+            ->where('user_id', auth()->id())
+            ->where('estado_pago', 'pendiente')
+            ->orderBy('created_at', 'desc')
+            ->take(20)
+            ->get();
+
+        return response()->json($ventas->map(fn($v) => [
+            'id'          => $v->id,
+            'codigo'      => $v->codigo,
+            'total'       => $v->total,
+            'cliente'     => $v->cliente ? trim($v->cliente->nombre . ' ' . ($v->cliente->apellido ?? '')) : null,
+            'hora'        => $v->created_at->format('H:i'),
+            'hace'        => $v->created_at->diffForHumans(),
+            'items_count' => $v->detalles->count(),
+            'detalles'    => $v->detalles->map(fn($d) => [
+                'id'       => $d->id,
+                'producto' => trim(($d->producto?->nombre ?? '—') . ($d->variante ? ' · ' . $d->variante->nombre_completo : '')),
+                'cantidad' => $d->cantidad,
+                'subtotal' => (float) $d->subtotal_con_igv,
+            ])->values(),
+        ])->values());
     }
 
     public function imeisDisponibles(Request $request)

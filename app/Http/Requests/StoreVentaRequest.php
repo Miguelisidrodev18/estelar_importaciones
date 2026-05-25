@@ -15,12 +15,13 @@ class StoreVentaRequest extends FormRequest
 
     public function rules(): array
     {
-        $tipo         = $this->input('tipo_comprobante', 'boleta');
-        $esCotizacion = $tipo === 'cotizacion';
+        $tipo              = $this->input('tipo_comprobante', 'boleta');
+        $esCotizacion      = $tipo === 'cotizacion';
+        $esPendienteCobro  = $this->input('condicion_pago') === 'pendiente_cobro';
 
         return [
-            // Cliente: obligatorio para boleta/factura, opcional en cotización
-            'cliente_id'               => $esCotizacion
+            // Cliente: opcional en cotización y ventas pendientes de cobro
+            'cliente_id'               => ($esCotizacion || $esPendienteCobro)
                                             ? 'nullable|exists:clientes,id'
                                             : 'required|exists:clientes,id',
 
@@ -53,7 +54,7 @@ class StoreVentaRequest extends FormRequest
             'placa_vehiculo'           => 'nullable|string|max:20',
 
             // Pago y condición
-            'condicion_pago'           => 'nullable|in:contado,credito',
+            'condicion_pago'           => 'nullable|in:contado,credito,pendiente_cobro',
             'metodo_pago'              => 'nullable|in:efectivo,transferencia,yape,plin,mixto',
             'pagos_detalle'            => 'nullable|array',
             'pagos_detalle.*.metodo'    => 'required_with:pagos_detalle|in:efectivo,transferencia,yape,plin',

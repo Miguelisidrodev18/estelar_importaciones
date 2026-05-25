@@ -22,7 +22,13 @@ class UserController extends Controller
             ->orderBy('name')
             ->paginate(15);
 
-        return view('users.index', compact('users'));
+        $roles = Role::orderBy('nombre')->get();
+        $sucursales = Sucursal::where('estado', 'activo')
+            ->with(['almacenes' => fn($q) => $q->where('estado', 'activo')->orderBy('nombre')])
+            ->orderBy('nombre')
+            ->get();
+
+        return view('users.index', compact('users', 'roles', 'sucursales'));
     }
 
     /**

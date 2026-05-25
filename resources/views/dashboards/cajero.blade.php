@@ -94,7 +94,7 @@
                 <i class="fas fa-chevron-right ml-auto text-gray-400 group-hover:text-gray-600"></i>
             </a>
 
-            <a href="{{ route('cajas.index') }}"
+            <a href="{{ route('caja.actual') }}"
                class="flex items-center gap-4 bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition group">
                 <div class="w-14 h-14 rounded-2xl bg-{{ $caja ? 'green' : 'gray' }}-100 flex items-center justify-center group-hover:bg-{{ $caja ? 'green' : 'gray' }}-200 transition">
                     <i class="fas fa-cash-register text-{{ $caja ? 'green' : 'gray' }}-600 text-2xl"></i>

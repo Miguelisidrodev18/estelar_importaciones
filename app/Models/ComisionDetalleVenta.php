@@ -10,12 +10,13 @@ class ComisionDetalleVenta extends Model
 
     protected $fillable = [
         'detalle_venta_id', 'user_id', 'regla_id', 'tipo_calculo',
-        'valor_configurado', 'monto_comision', 'estado', 'fecha_pago', 'pagado_por_user_id',
+        'valor_configurado', 'margen_calculado', 'monto_comision', 'estado', 'fecha_pago', 'pagado_por_user_id',
     ];
 
     protected $casts = [
         'monto_comision'    => 'decimal:2',
         'valor_configurado' => 'decimal:4',
+        'margen_calculado'  => 'decimal:2',
         'fecha_pago'        => 'date',
     ];
 

@@ -50,21 +50,8 @@ class TrasladoController extends Controller
             ]];
         })->filter();
 
-        $ultimoConductor = GuiaRemision::whereNotNull('conductor_dni')
-            ->whereNotNull('conductor_nombre')
-            ->latest()
-            ->first();
-
-        $almacenesAddressMap = $almacenes->mapWithKeys(function ($alm) {
-            $sucursal = $alm->sucursal;
-            return [$alm->id => [
-                'direccion' => $sucursal?->direccion,
-                'ubigeo'    => $sucursal?->ubigeo,
-            ]];
-        });
-
         return view('traslados.create', compact(
-            'almacenes', 'ultimoConductor', 'guiaSeriesMap', 'almacenesAddressMap'
+            'almacenes', 'guiaSeriesMap'
         ));
     }
 
@@ -82,62 +69,24 @@ class TrasladoController extends Controller
             'productos.*.variante_id' => 'nullable|exists:producto_variantes,id',
             'productos.*.imei_ids'    => 'nullable|array',
             'productos.*.imei_ids.*'  => 'nullable|exists:imeis,id',
-            // Destinatario
-            'destinatario_tipo'       => 'nullable|in:proveedor,cliente',
-            'proveedor_id'            => 'nullable|exists:proveedores,id',
-            'cliente_id'              => 'nullable|exists:clientes,id',
-            // Guía de remisión
-            'guia.motivo_traslado'       => 'required|string|max:50',
-            'guia.modalidad'             => 'required|in:privado,publico',
-            'guia.fecha_traslado'        => 'required|date',
-            'guia.peso_total'            => 'nullable|numeric|min:0',
-            'guia.bultos'                => 'nullable|integer|min:1',
-            'guia.direccion_partida'     => 'nullable|string|max:300',
-            'guia.ubigeo_partida'        => 'nullable|string|max:6',
-            'guia.direccion_llegada'     => 'nullable|string|max:300',
-            'guia.ubigeo_llegada'        => 'nullable|string|max:6',
-            'guia.transportista_tipo_doc'=> 'nullable|string|max:10',
-            'guia.transportista_doc'     => 'nullable|string|max:15',
-            'guia.transportista_nombre'  => 'nullable|string|max:200',
-            'guia.conductor_dni'         => 'nullable|string|max:8',
-            'guia.conductor_nombre'      => 'nullable|string|max:200',
-            'guia.conductor_licencia'    => 'nullable|string|max:20',
-            'guia.placa_vehiculo'        => 'nullable|string|max:20',
         ], [
-            'almacen_destino_id.different'    => 'El almacén destino debe ser diferente al origen.',
-            'productos.required'              => 'Debe agregar al menos un producto.',
-            'productos.min'                   => 'Debe agregar al menos un producto.',
-            'guia.motivo_traslado.required'   => 'El motivo de traslado es obligatorio.',
-            'guia.modalidad.required'         => 'La modalidad de transporte es obligatoria.',
-            'guia.fecha_traslado.required'    => 'La fecha de traslado es obligatoria.',
+            'almacen_destino_id.different' => 'El almacén destino debe ser diferente al origen.',
+            'productos.required'           => 'Debe agregar al menos un producto.',
+            'productos.min'                => 'Debe agregar al menos un producto.',
         ]);
 
         try {
-            $guiaData    = $validated['guia'] ?? null;
-            $trasladoData = $validated;
-            unset($trasladoData['guia'], $trasladoData['destinatario_tipo'], $trasladoData['proveedor_id'], $trasladoData['cliente_id']);
-
             $numeroGuia = app(TrasladoService::class)->crearTraslado(
-                array_merge($trasladoData, ['user_id' => auth()->id()])
+                array_merge($validated, ['user_id' => auth()->id()])
             );
 
-            if ($guiaData) {
-                $destinatarioTipo = $validated['destinatario_tipo'] ?? null;
-                $guiaExtra = [
-                    'proveedor_id' => $destinatarioTipo === 'proveedor' ? ($validated['proveedor_id'] ?? null) : null,
-                    'cliente_id'   => $destinatarioTipo === 'cliente'   ? ($validated['cliente_id']   ?? null) : null,
-                ];
-                GuiaRemision::create(array_merge(['numero_guia' => $numeroGuia], $guiaData, $guiaExtra));
-            }
-
-            // Incrementar correlativo de la serie usada
-            if (!empty($validated['guia_serie_id'])) {
-                \App\Models\SerieComprobante::where('id', $validated['guia_serie_id'])->increment('correlativo_actual');
-            }
-
             return redirect()
-                ->route('traslados.index')
-                ->with('success', "Traslado registrado. Guía: {$numeroGuia}");
+                ->route('guias-remision.create', [
+                    'from_traslado'      => $numeroGuia,
+                    'almacen_id'         => $validated['almacen_id'],
+                    'almacen_destino_id' => $validated['almacen_destino_id'],
+                ])
+                ->with('info', "Traslado {$numeroGuia} registrado. Ahora completa los datos de transporte para emitir la guía.");
         } catch (\Exception $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }

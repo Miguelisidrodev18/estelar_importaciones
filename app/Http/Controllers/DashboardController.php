@@ -263,62 +263,64 @@ class DashboardController extends Controller
      */
     public function vendedor(): View
     {
-    $user = auth()->user();
-    
-    // Ventas externas del día
-    $ventas_dia = Venta::where('tipo_venta', 'externa')
-        ->where('user_id', $user->id)
-        ->whereDate('fecha', today())
-        ->sum('total');
-    
-    // Ventas pendientes de pago
-    $ventas_pendientes = Venta::where('tipo_venta', 'externa')
-        ->where('user_id', $user->id)
-        ->where('estado_pago', 'pendiente')
-        ->with('cliente', 'tiendaDestino')
-        ->get();
-    
-    $total_por_cobrar = $ventas_pendientes->sum('total');
-    
-    // Ventas cobradas del mes
-    $ventas_mes = Venta::where('tipo_venta', 'externa')
-        ->where('user_id', $user->id)
-        ->where('estado_pago', 'pagado')
-        ->whereMonth('fecha', now()->month)
-        ->whereYear('fecha', now()->year)
-        ->sum('total');
-    
-    // Tiendas disponibles para enviar clientes
-    $tiendas = User::whereHas('role', function($query) {
-            $query->where('nombre', 'Tienda'); // Ajusta el nombre exacto del rol
-        })
-        ->orderBy('name')
-        ->get(['id', 'name']);
-    
-    // Últimas ventas
-    $ultimas_ventas = Venta::where('user_id', $user->id)
-        ->with('cliente', 'tiendaDestino')
-        ->orderBy('created_at', 'desc')
-        ->limit(10)
-        ->get();
-    
-    // Caja atrasada del vendedor (por si acaso tiene una asignada)
-    $cajaAtrasada = $this->cajaService->cajaAtrasada($user->id);
+        $user = auth()->user();
 
-    $data = [
-        'ventas_hoy' => $ventas_dia,
-        'ventas_mes' => $ventas_mes,
-        'clientes_atendidos' => $ventas_pendientes->count(),
-        'productos_vendidos' => 0, // Lo puedes calcular después
-        'ventas_pendientes' => $ventas_pendientes,
-        'total_por_cobrar' => $total_por_cobrar,
-        'tiendas' => $tiendas,
-        'ultimas_ventas' => $ultimas_ventas,
-        'caja_atrasada' => $cajaAtrasada,
-    ];
+        $baseQuery = fn() => Venta::where('user_id', $user->id)
+            ->whereNotIn('tipo_comprobante', ['cotizacion']);
 
-    return view('dashboards.vendedor', $data);
-}
+        // Ventas del día (todas del usuario)
+        $ventas_dia = $baseQuery()->whereDate('fecha', today())->sum('total');
+
+        // Ventas del mes
+        $ventas_mes = $baseQuery()
+            ->whereMonth('fecha', now()->month)
+            ->whereYear('fecha', now()->year)
+            ->sum('total');
+
+        // Ventas pendientes de cobro
+        $ventas_pendientes = $baseQuery()
+            ->where('estado_pago', 'pendiente')
+            ->with('cliente')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $total_por_cobrar = $ventas_pendientes->sum('total');
+
+        // Clientes atendidos hoy (distintos)
+        $clientes_atendidos = $baseQuery()
+            ->whereDate('fecha', today())
+            ->whereNotNull('cliente_id')
+            ->distinct('cliente_id')
+            ->count('cliente_id');
+
+        // Productos vendidos hoy (suma de cantidades)
+        $productos_vendidos = \App\Models\DetalleVenta::whereHas('venta', fn($q) =>
+            $q->where('user_id', $user->id)->whereDate('fecha', today())
+        )->sum('cantidad');
+
+        // Últimas ventas
+        $ultimas_ventas = $baseQuery()
+            ->with('cliente')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        $cajaAtrasada = $this->cajaService->cajaAtrasada($user->id);
+
+        $data = [
+            'ventas_hoy'         => $ventas_dia,
+            'ventas_mes'         => $ventas_mes,
+            'clientes_atendidos' => $clientes_atendidos,
+            'productos_vendidos' => $productos_vendidos,
+            'ventas_pendientes'  => $ventas_pendientes,
+            'total_por_cobrar'   => $total_por_cobrar,
+            'tiendas'            => collect(),
+            'ultimas_ventas'     => $ultimas_ventas,
+            'caja_atrasada'      => $cajaAtrasada,
+        ];
+
+        return view('dashboards.vendedor', $data);
+    }
 
     /**
      * Dashboard del Almacenero

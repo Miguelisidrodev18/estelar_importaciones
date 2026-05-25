@@ -26,7 +26,7 @@
                 ventasOpen: {{ request()->routeIs('ventas.*') || request()->routeIs('clientes.*') || request()->routeIs('precios.*') || request()->routeIs('cuentas-por-cobrar.*') ? 'true' : 'false' }},
                 facturacionOpen: {{ request()->routeIs('facturacion.*') ? 'true' : 'false' }},
                 reportesOpen: {{ request()->routeIs('reportes.*') ? 'true' : 'false' }},
-                trasladosOpen: {{ request()->routeIs('traslados.*') ? 'true' : 'false' }},
+                trasladosOpen: {{ request()->routeIs('traslados.*') || request()->routeIs('guias-remision.*') ? 'true' : 'false' }},
                 cajaOpen: {{ request()->routeIs('caja.*') ? 'true' : 'false' }},
                 catalogoOpen: {{ request()->routeIs('catalogo.*') ? 'true' : 'false' }},
                 tiendaOpen: {{ request()->routeIs('tienda.*') ? 'true' : 'false' }},
@@ -319,6 +319,12 @@
                                     <i class="fas fa-plus mr-3 text-sm"></i>Nuevo Traslado
                                 </a>
                             </li>
+                            <li>
+                                <a href="{{ route('guias-remision.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('guias-remision.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-file-invoice mr-3 text-sm"></i>Guías de Remisión
+                                </a>
+                            </li>
                         </ul>
                     </li>
 
@@ -584,6 +590,12 @@
                                     <i class="fas fa-plus mr-3 text-sm"></i>Nuevo Traslado
                                 </a>
                             </li>
+                            <li>
+                                <a href="{{ route('guias-remision.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('guias-remision.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-file-invoice mr-3 text-sm"></i>Guías de Remisión
+                                </a>
+                            </li>
                         </ul>
                     </li>
 
@@ -767,6 +779,14 @@
                         </a>
                     </li>
 
+                    {{-- Mis Comisiones --}}
+                    <li>
+                        <a href="{{ route('mis-comisiones') }}"
+                            class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors ml-4 {{ request()->routeIs('mis-comisiones') ? 'bg-blue-600' : '' }}">
+                            <i class="fas fa-percentage mr-3 text-sm w-4"></i>Mis Comisiones
+                        </a>
+                    </li>
+
                 @elseif($role == 'Vendedor')
                     {{-- Dashboard --}}
                     <li>
@@ -798,6 +818,14 @@
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('devoluciones.*') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-undo-alt mr-3"></i>Devoluciones
                             <span class="ml-auto text-[10px] font-bold bg-green-400 text-green-900 px-1.5 py-0.5 rounded-full leading-none">Nuevo</span>
+                        </a>
+                    </li>
+
+                    {{-- Mis Comisiones --}}
+                    <li>
+                        <a href="{{ route('mis-comisiones') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('mis-comisiones') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-percentage mr-3"></i>Mis Comisiones
                         </a>
                     </li>
 
@@ -849,6 +877,14 @@
                         <a href="{{ route('caja.actual') }}"
                             class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('caja.actual') || request()->routeIs('caja.abrir') ? 'bg-blue-700' : '' }}">
                             <i class="fas fa-cash-register mr-3"></i>Mi Caja
+                        </a>
+                    </li>
+
+                    {{-- Mis Comisiones --}}
+                    <li>
+                        <a href="{{ route('mis-comisiones') }}"
+                            class="flex items-center px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('mis-comisiones') ? 'bg-blue-700' : '' }}">
+                            <i class="fas fa-percentage mr-3"></i>Mis Comisiones
                         </a>
                     </li>
 

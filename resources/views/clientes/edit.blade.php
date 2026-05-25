@@ -48,21 +48,26 @@
                                    value="{{ old('nombre', $cliente->nombre) }}">
                             @error('nombre') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
-                        <div>
+                        <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-                            <input type="text" name="direccion" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('direccion', $cliente->direccion) }}">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
-                            <input type="text" name="distrito" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('distrito', $cliente->distrito) }}">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                            <input type="text" name="provincia" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('provincia', $cliente->provincia) }}">
+                            <input type="text" name="direccion" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('direccion', $cliente->direccion) }}" placeholder="Av. / Jr. / Calle...">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
-                            <input type="text" name="departamento" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('departamento', $cliente->departamento) }}">
+                            <select name="departamento" class="w-full rounded-lg border-gray-300 shadow-sm bg-white">
+                                <option value="">— Seleccionar —</option>
+                                @foreach(['AMAZONAS','ÁNCASH','APURÍMAC','AREQUIPA','AYACUCHO','CAJAMARCA','CALLAO','CUSCO','HUANCAVELICA','HUÁNUCO','ICA','JUNÍN','LA LIBERTAD','LAMBAYEQUE','LIMA','LORETO','MADRE DE DIOS','MOQUEGUA','PASCO','PIURA','PUNO','SAN MARTÍN','TACNA','TUMBES','UCAYALI'] as $dep)
+                                    <option value="{{ $dep }}" {{ old('departamento', $cliente->departamento) === $dep ? 'selected' : '' }}>{{ $dep }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                            <input type="text" name="provincia" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('provincia', $cliente->provincia) }}" placeholder="Provincia">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
+                            <input type="text" name="distrito" maxlength="100" class="w-full rounded-lg border-gray-300 shadow-sm" value="{{ old('distrito', $cliente->distrito) }}" placeholder="Distrito">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>

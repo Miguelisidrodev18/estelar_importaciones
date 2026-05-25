@@ -99,14 +99,21 @@
          ALERTAS DE CAJA
     ════════════════════════════════════════ --}}
     @if(!$cajaAbierta)
-    <div class="bg-red-600 text-white text-sm font-semibold px-4 py-2.5 flex items-center gap-3 shrink-0">
-        <i class="fas fa-lock text-base"></i>
-        <span class="flex-1">Caja cerrada — No puedes registrar ventas de contado hasta abrir tu caja.</span>
-        <a href="{{ route('caja.actual') }}"
-           class="bg-white text-red-700 hover:bg-red-50 px-3 py-1 rounded-lg text-xs font-bold transition-colors whitespace-nowrap">
-            <i class="fas fa-cash-register mr-1"></i>Abrir Caja
-        </a>
-    </div>
+        @if($esVendedor)
+        <div class="bg-amber-500 text-white text-sm font-semibold px-4 py-2.5 flex items-center gap-3 shrink-0">
+            <i class="fas fa-clock text-base"></i>
+            <span class="flex-1">Caja no habilitada — Puedes registrar ventas pendientes de cobro. El cajero de tu sucursal procesará el pago.</span>
+        </div>
+        @else
+        <div class="bg-red-600 text-white text-sm font-semibold px-4 py-2.5 flex items-center gap-3 shrink-0">
+            <i class="fas fa-lock text-base"></i>
+            <span class="flex-1">Caja cerrada — No puedes registrar ventas de contado hasta abrir tu caja.</span>
+            <a href="{{ route('caja.actual') }}"
+               class="bg-white text-red-700 hover:bg-red-50 px-3 py-1 rounded-lg text-xs font-bold transition-colors whitespace-nowrap">
+                <i class="fas fa-cash-register mr-1"></i>Abrir Caja
+            </a>
+        </div>
+        @endif
     @elseif($cajaDiaAnterior)
     <div class="bg-amber-500 text-white text-sm font-semibold px-4 py-2.5 flex items-center gap-3 shrink-0">
         <i class="fas fa-exclamation-triangle text-base"></i>
@@ -371,8 +378,31 @@
         ═══════════════════════════════════════ --}}
         <div class="w-[30%] min-w-65 flex flex-col overflow-hidden bg-white dark:bg-gray-800">
 
+            @if($esVendedor)
+            {{-- Tab bar: Nueva Venta / Mis Pedidos (solo Vendedor) --}}
+            <div class="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
+                <button @click="tabCheckout = 'venta'"
+                        :class="tabCheckout === 'venta'
+                            ? 'border-b-2 border-teal-500 text-teal-700 dark:text-teal-400 bg-white dark:bg-gray-800'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                        class="flex-1 py-3 text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                    <i class="fas fa-plus-circle"></i> Nueva Venta
+                </button>
+                <button @click="tabCheckout = 'pedidos'; cargarPendientes()"
+                        :class="tabCheckout === 'pedidos'
+                            ? 'border-b-2 border-teal-500 text-teal-700 dark:text-teal-400 bg-white dark:bg-gray-800'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                        class="flex-1 py-3 text-xs font-bold flex items-center justify-center gap-1.5 transition relative">
+                    <i class="fas fa-list-alt"></i> Mis Pedidos
+                    <span x-show="pendientes.length > 0" x-cloak
+                          class="absolute top-2 right-4 min-w-[18px] h-[18px] bg-teal-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1"
+                          x-text="pendientes.length"></span>
+                </button>
+            </div>
+            @endif
+
             {{-- Scrollable area --}}
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-auto" x-show="{{ $esVendedor ? '!esVendedor || tabCheckout === \'venta\'' : 'true' }}">
 
                 {{-- Client --}}
                 <div class="px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-700">
@@ -381,13 +411,18 @@
                         <div class="flex-1 relative" @click.outside="mostrarDropdownCliente = false">
                             {{-- Selected chip --}}
                             <div x-show="orden.clienteId" x-cloak
-                                 class="w-full border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-lg py-2 pl-3 pr-8 text-sm text-blue-700 dark:text-blue-300 flex items-center gap-2 relative">
+                                 class="w-full border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-lg py-2 pl-3 pr-2 text-sm text-blue-700 dark:text-blue-300 flex items-center gap-2">
                                 <i class="fas fa-user-check text-xs text-blue-500 shrink-0"></i>
                                 <span class="truncate flex-1 font-medium" x-text="orden.clienteNombre"></span>
                                 <span x-show="orden.clienteTipoDoc" x-text="orden.clienteTipoDoc"
                                       :class="orden.clienteTipoDoc === 'RUC' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
                                       class="text-xs font-bold px-1.5 py-0.5 rounded shrink-0"></span>
-                                <button @click="limpiarCliente()" class="absolute right-2 top-2 text-blue-400 hover:text-red-400 transition">
+                                <button @click.stop="abrirEditarCliente()" title="Editar cliente"
+                                        class="text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition shrink-0 px-1">
+                                    <i class="fas fa-pencil-alt text-xs"></i>
+                                </button>
+                                <button @click.stop="limpiarCliente()" title="Quitar cliente"
+                                        class="text-blue-400 hover:text-red-400 transition shrink-0">
                                     <i class="fas fa-times text-xs"></i>
                                 </button>
                             </div>
@@ -517,7 +552,8 @@
                     </div>
                 </div>
 
-                {{-- Format selector --}}
+                {{-- Format selector (oculto para Vendedor) --}}
+                @if(!$esVendedor)
                 <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Formato impresión</p>
                     <div class="flex gap-2">
@@ -713,11 +749,136 @@
                     </div>
                     </div>{{-- end x-show contado --}}
                 </div>
+                @endif{{-- end @if(!$esVendedor) --}}
+
+                @if($esVendedor)
+                {{-- Info box Vendedor: ventas pendientes de cobro --}}
+                <div class="px-4 py-4">
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 flex items-start gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-800/40 flex items-center justify-center shrink-0">
+                            <i class="fas fa-handshake text-amber-600 dark:text-amber-400 text-sm"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-amber-800 dark:text-amber-300 mb-0.5">Venta pendiente de cobro</p>
+                            <p class="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                                Las ventas que registres quedarán en estado <strong>pendiente</strong>. El cajero de tu sucursal se encargará de procesar el cobro y emitir el comprobante.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                @endif
 
             </div>{{-- end scrollable area --}}
 
+            @if($esVendedor)
+            {{-- ═══ PANEL MIS PEDIDOS (solo Vendedor) ═══ --}}
+            <div x-show="tabCheckout === 'pedidos'" x-cloak class="flex-1 overflow-y-auto flex flex-col">
+
+                {{-- Header con refresh --}}
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between shrink-0">
+                    <div>
+                        <p class="text-xs font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider">Ventas pendientes de cobro</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5">Se actualiza automáticamente cada 30s</p>
+                    </div>
+                    <button @click="cargarPendientes()" :disabled="cargandoPendientes"
+                            class="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-teal-100 hover:text-teal-600 dark:hover:bg-teal-900/30 dark:hover:text-teal-400 flex items-center justify-center transition disabled:opacity-40"
+                            title="Actualizar">
+                        <i class="fas fa-sync-alt text-xs" :class="cargandoPendientes ? 'animate-spin' : ''"></i>
+                    </button>
+                </div>
+
+                {{-- Lista de pedidos --}}
+                <div class="flex-1 overflow-y-auto p-3 space-y-3">
+
+                    {{-- Vacío --}}
+                    <template x-if="pendientes.length === 0 && !cargandoPendientes">
+                        <div class="flex flex-col items-center justify-center py-12 text-center">
+                            <div class="w-14 h-14 bg-teal-50 dark:bg-teal-900/20 rounded-2xl flex items-center justify-center mb-3">
+                                <i class="fas fa-clipboard-check text-teal-300 dark:text-teal-600 text-2xl"></i>
+                            </div>
+                            <p class="text-sm font-medium text-gray-400 dark:text-gray-500">Sin pedidos pendientes</p>
+                            <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Tus ventas aparecerán aquí</p>
+                        </div>
+                    </template>
+
+                    {{-- Cargando --}}
+                    <template x-if="cargandoPendientes && pendientes.length === 0">
+                        <div class="flex items-center justify-center py-12">
+                            <i class="fas fa-spinner fa-spin text-teal-400 text-2xl"></i>
+                        </div>
+                    </template>
+
+                    {{-- Tarjetas de pedidos --}}
+                    <template x-for="p in pendientes" :key="p.id">
+                        <div class="bg-white dark:bg-gray-800 border-2 border-amber-200 dark:border-amber-700 rounded-2xl overflow-hidden shadow-sm">
+
+                            {{-- Header tarjeta --}}
+                            <div class="bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 flex items-start justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="font-mono font-bold text-sm text-gray-800 dark:text-gray-100" x-text="p.codigo"></span>
+                                        <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300">
+                                            Esperando cajero
+                                        </span>
+                                    </div>
+                                    <p class="text-[10px] text-gray-400 mt-0.5" x-text="'hace ' + p.hace + ' · ' + p.hora"></p>
+                                    <p x-show="p.cliente" x-cloak class="text-[10px] text-teal-600 dark:text-teal-400 font-medium mt-0.5">
+                                        <i class="fas fa-user text-[8px] mr-0.5"></i>
+                                        <span x-text="p.cliente"></span>
+                                    </p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <div class="text-base font-bold text-gray-900 dark:text-gray-100" x-text="'S/ ' + parseFloat(p.total).toFixed(2)"></div>
+                                    <div class="text-[10px] text-gray-400" x-text="p.items_count + ' ítem(s)'"></div>
+                                </div>
+                            </div>
+
+                            {{-- Toggle productos --}}
+                            <div x-data="{ abierto: false }">
+                                <button @click="abierto = !abierto"
+                                        class="w-full px-3 py-2 text-left text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between transition">
+                                    <span>Ver productos</span>
+                                    <i class="fas fa-chevron-down transition-transform" :class="abierto ? 'rotate-180' : ''"></i>
+                                </button>
+                                <div x-show="abierto" x-cloak class="border-t border-gray-100 dark:border-gray-700">
+                                    <template x-for="(d, di) in p.detalles" :key="d.id ?? di">
+                                        <div class="px-3 py-1.5 flex items-center justify-between gap-2 text-xs border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                                            <div class="flex-1 min-w-0">
+                                                <p class="font-medium text-gray-800 dark:text-gray-200 truncate" x-text="d.producto"></p>
+                                                <p class="text-[10px] text-gray-400" x-text="'× ' + d.cantidad"></p>
+                                            </div>
+                                            <span class="font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap font-mono text-[11px]"
+                                                  x-text="'S/ ' + parseFloat(d.subtotal).toFixed(2)"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            {{-- Footer: ver detalle --}}
+                            <div class="px-3 py-2.5 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700">
+                                <a :href="'/ventas/' + p.id"
+                                   class="block w-full text-center py-2 text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/40 border border-teal-200 dark:border-teal-700 rounded-xl transition">
+                                    <i class="fas fa-eye mr-1"></i> Ver detalle
+                                </a>
+                            </div>
+
+                        </div>
+                    </template>
+
+                </div>
+
+                {{-- Footer: última actualización --}}
+                <div class="px-4 py-2 border-t border-gray-100 dark:border-gray-700 shrink-0 text-center">
+                    <p class="text-[10px] text-gray-400 dark:text-gray-500">
+                        Actualizado: <span x-text="ultimaActualizacionPendientes"></span>
+                    </p>
+                </div>
+            </div>
+            @endif
+
             {{-- Fixed bottom: summary + COBRAR --}}
-            <div class="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 shrink-0">
+            <div class="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 shrink-0"
+                 x-show="{{ $esVendedor ? 'tabCheckout === \'venta\'' : 'true' }}">
                 <div class="space-y-1 mb-3">
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
@@ -741,7 +902,8 @@
                     </div>
                 </div>
 
-                {{-- Aviso inline: caja cerrada (solo para ventas contado) --}}
+                @if(!$esVendedor)
+                {{-- Aviso inline: caja cerrada (solo para ventas contado, no aplica a Vendedor) --}}
                 <template x-if="!cajaAbierta && orden.tipoComprobante !== 'cotizacion' && orden.condicionPago !== 'credito'">
                     <div class="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-1">
                         <i class="fas fa-lock"></i>
@@ -773,6 +935,15 @@
                     </template>
                     <span x-show="guardando" x-cloak><i class="fas fa-spinner fa-spin mr-1"></i> Procesando...</span>
                 </button>
+                @else
+                {{-- Botón Vendedor: siempre activo mientras haya productos y almacén --}}
+                <button @click="procesarPago()"
+                        :disabled="orden.carrito.length === 0 || !orden.almacenId || guardando"
+                        class="w-full disabled:opacity-40 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg bg-teal-600 hover:bg-teal-700 shadow-teal-200 dark:shadow-teal-900/30">
+                    <span x-show="!guardando"><i class="fas fa-handshake mr-1"></i>Generar venta pendiente <kbd class="text-sm opacity-70 font-normal">F4</kbd></span>
+                    <span x-show="guardando" x-cloak><i class="fas fa-spinner fa-spin mr-1"></i> Procesando...</span>
+                </button>
+                @endif
             </div>
         </div>
 
@@ -824,11 +995,11 @@
                     <span class="text-gray-500 dark:text-gray-400">Comprobante</span>
                     <span class="font-semibold text-gray-700 dark:text-gray-200 capitalize" x-text="orden.tipoComprobante"></span>
                 </div>
-                <div x-show="orden.tipoComprobante !== 'cotizacion'" class="flex justify-between text-sm">
+                <div x-show="orden.tipoComprobante !== 'cotizacion' && !esVendedor" class="flex justify-between text-sm">
                     <span class="text-gray-500 dark:text-gray-400">Formato</span>
                     <span class="font-semibold text-gray-700 dark:text-gray-200" x-text="formatoImpresion === 'ticket' ? 'Ticket 80mm' : 'A4'"></span>
                 </div>
-                <div x-show="orden.tipoComprobante !== 'cotizacion' && orden.condicionPago !== 'credito'" class="flex justify-between text-sm">
+                <div x-show="orden.tipoComprobante !== 'cotizacion' && orden.condicionPago !== 'credito' && orden.condicionPago !== 'pendiente_cobro'" class="flex justify-between text-sm">
                     <span class="text-gray-500 dark:text-gray-400">Método</span>
                     <span class="font-semibold text-gray-700 dark:text-gray-200 capitalize"
                           x-text="orden.pagos.length > 1 ? 'Mixto (' + orden.pagos.length + ' métodos)' : orden.pagos[0]?.metodo"></span>
@@ -838,6 +1009,10 @@
                     <span class="font-semibold text-orange-600 dark:text-orange-400">
                         Crédito — <span x-text="orden.credito.numero_cuotas + ' cuotas'"></span>
                     </span>
+                </div>
+                <div x-show="orden.condicionPago === 'pendiente_cobro'" class="flex justify-between text-sm">
+                    <span class="text-gray-500 dark:text-gray-400">Condición</span>
+                    <span class="font-semibold text-teal-600 dark:text-teal-400">Pendiente de cobro</span>
                 </div>
                 <div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
                     <span class="text-base font-bold text-gray-800 dark:text-gray-100">Total</span>
@@ -853,6 +1028,10 @@
             <div x-show="orden.tipoComprobante === 'cotizacion'" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
                 <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
                 <span>Esta cotización quedará guardada. Podrás convertirla a boleta o factura cuando el cliente confirme.</span>
+            </div>
+            <div x-show="esVendedor && orden.condicionPago === 'pendiente_cobro'" class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700 rounded-xl px-4 py-3 text-sm text-teal-700 dark:text-teal-300 flex items-start gap-2">
+                <i class="fas fa-handshake mt-0.5 shrink-0"></i>
+                <span>La venta quedará pendiente de cobro. El cajero de tu sucursal procesará el pago y emitirá el comprobante.</span>
             </div>
         </div>
 
@@ -924,19 +1103,47 @@
                        placeholder="Ingrese nombre o razón social">
             </div>
 
-            <!-- Teléfono y Dirección -->
+            <!-- Teléfono -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
+                <input type="text" x-model="nuevoCliente.telefono"
+                       class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
+                       placeholder="Ej: 999999999">
+            </div>
+
+            <!-- Dirección -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Dirección</label>
+                <input type="text" x-model="nuevoCliente.direccion"
+                       class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
+                       placeholder="Av. / Jr. / Calle...">
+            </div>
+
+            <!-- Departamento -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Departamento</label>
+                <select x-model="nuevoCliente.departamento"
+                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                    <option value="">— Seleccionar —</option>
+                    @foreach(['AMAZONAS','ÁNCASH','APURÍMAC','AREQUIPA','AYACUCHO','CAJAMARCA','CALLAO','CUSCO','HUANCAVELICA','HUÁNUCO','ICA','JUNÍN','LA LIBERTAD','LAMBAYEQUE','LIMA','LORETO','MADRE DE DIOS','MOQUEGUA','PASCO','PIURA','PUNO','SAN MARTÍN','TACNA','TUMBES','UCAYALI'] as $dep)
+                        <option value="{{ $dep }}">{{ $dep }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Provincia + Distrito -->
             <div class="grid grid-cols-2 gap-2">
-                <div class="min-w-0">
-                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
-                    <input type="text" x-model="nuevoCliente.telefono"
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Provincia</label>
+                    <input type="text" x-model="nuevoCliente.provincia"
                            class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
-                           placeholder="Ej: 999999999">
+                           placeholder="Provincia">
                 </div>
-                <div class="min-w-0">
-                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Dirección</label>
-                    <input type="text" x-model="nuevoCliente.direccion"
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Distrito</label>
+                    <input type="text" x-model="nuevoCliente.distrito"
                            class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
-                           placeholder="Ingrese dirección">
+                           placeholder="Distrito">
                 </div>
             </div>
 
@@ -963,6 +1170,113 @@
         </div>
     </div>
 </div>
+{{-- ============================
+     MODAL: EDITAR CLIENTE
+============================== --}}
+<div x-show="showModalEditarCliente" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showModalEditarCliente = false"></div>
+    <div class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-md shadow-2xl animate-fade-up max-h-[90vh] overflow-y-auto">
+        <div class="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+            <h3 class="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                <i class="fas fa-user-edit text-indigo-500"></i> Editar Cliente
+            </h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="editandoCliente.nombre"></p>
+        </div>
+
+        <div class="p-4 sm:p-5 space-y-4">
+            <!-- Tipo doc + Nº documento -->
+            <div class="grid grid-cols-5 gap-2">
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Tipo</label>
+                    <select x-model="editandoCliente.tipo_documento"
+                            class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500">
+                        <option value="DNI">DNI</option>
+                        <option value="RUC">RUC</option>
+                        <option value="CE">Carnet Ext.</option>
+                        <option value="PASAPORTE">Pasaporte</option>
+                    </select>
+                </div>
+                <div class="col-span-3">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">N° Documento</label>
+                    <input type="text" x-model="editandoCliente.numero_documento"
+                           :maxlength="editandoCliente.tipo_documento === 'RUC' ? 11 : 8"
+                           class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 font-mono">
+                </div>
+            </div>
+
+            <!-- Nombre -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Nombre / Razón social *</label>
+                <input type="text" x-model="editandoCliente.nombre"
+                       class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <!-- Teléfono -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
+                <input type="text" x-model="editandoCliente.telefono" maxlength="20"
+                       class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500"
+                       placeholder="Ej: 999999999">
+            </div>
+
+            <!-- Dirección -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Dirección</label>
+                <input type="text" x-model="editandoCliente.direccion"
+                       class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500"
+                       placeholder="Av. / Jr. / Calle...">
+            </div>
+
+            <!-- Departamento -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Departamento</label>
+                <select x-model="editandoCliente.departamento"
+                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500">
+                    <option value="">— Seleccionar —</option>
+                    @foreach(['AMAZONAS','ÁNCASH','APURÍMAC','AREQUIPA','AYACUCHO','CAJAMARCA','CALLAO','CUSCO','HUANCAVELICA','HUÁNUCO','ICA','JUNÍN','LA LIBERTAD','LAMBAYEQUE','LIMA','LORETO','MADRE DE DIOS','MOQUEGUA','PASCO','PIURA','PUNO','SAN MARTÍN','TACNA','TUMBES','UCAYALI'] as $dep)
+                        <option value="{{ $dep }}">{{ $dep }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Provincia + Distrito -->
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Provincia</label>
+                    <input type="text" x-model="editandoCliente.provincia" maxlength="100"
+                           class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Distrito</label>
+                    <input type="text" x-model="editandoCliente.distrito" maxlength="100"
+                           class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2.5 text-xs text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <!-- Error -->
+            <div x-show="errorEdicion" x-cloak
+                 class="px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                <i class="fas fa-exclamation-circle shrink-0"></i>
+                <span x-text="errorEdicion"></span>
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="flex gap-2 p-4 sm:p-5 border-t border-gray-100 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-gray-800">
+            <button @click="showModalEditarCliente = false; errorEdicion = ''"
+                    class="flex-1 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl py-2.5 font-semibold text-xs transition">
+                Cancelar
+            </button>
+            <button @click="guardarClienteEditado()"
+                    :disabled="!editandoCliente.nombre || !editandoCliente.numero_documento || guardandoEdicion"
+                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl py-2.5 font-bold text-xs transition flex items-center justify-center gap-1">
+                <i class="fas" :class="guardandoEdicion ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+                <span x-text="guardandoEdicion ? 'Guardando...' : 'Guardar cambios'"></span>
+            </button>
+        </div>
+    </div>
+</div>
+
 {{-- ============================
      MODAL: VARIANTE
 ============================== --}}
@@ -1482,6 +1796,10 @@ $clientesJson = $clientes->map(fn($c) => [
     'tipo_documento'   => $c->tipo_documento   ?? 'DNI',
     'numero_documento' => $c->numero_documento ?? '',
     'direccion'        => $c->direccion        ?? '',
+    'telefono'         => $c->telefono         ?? '',
+    'departamento'     => $c->departamento     ?? '',
+    'provincia'        => $c->provincia        ?? '',
+    'distrito'         => $c->distrito         ?? '',
 ])->values();
 @endphp
 
@@ -1573,10 +1891,16 @@ function posApp() {
 
         // ── Client modal ──
         showModalCliente: false,
-        nuevoCliente:     { tipo_documento: 'DNI', numero_documento: '', nombre: '', direccion: '', telefono: '' },
+        nuevoCliente:     { tipo_documento: 'DNI', numero_documento: '', nombre: '', direccion: '', telefono: '', departamento: '', provincia: '', distrito: '' },
         buscandoCliente:  false,
         guardandoCliente: false,
         errorCliente:     '',
+
+        // ── Edit client ──
+        showModalEditarCliente: false,
+        editandoCliente:        { id: '', tipo_documento: 'DNI', numero_documento: '', nombre: '', telefono: '', direccion: '', departamento: '', provincia: '', distrito: '' },
+        guardandoEdicion:       false,
+        errorEdicion:           '',
 
         // ── Catalogue ──
         productos: @json($productos),
@@ -1607,8 +1931,34 @@ function posApp() {
         get vuelto()      { return Math.max(0, this.totalPagado - this.total); },
         get falta()       { return Math.max(0, this.total - this.totalPagado); },
         cajaAbierta: {{ $cajaAbierta ? 'true' : 'false' }},
+        esVendedor: {{ $esVendedor ? 'true' : 'false' }},
+
+        // ── Vendedor: cola de pedidos pendientes ──
+        tabCheckout:                 'venta',
+        @php
+        $pendientesInit = $misPendientes->map(fn($v) => [
+            'id'          => $v->id,
+            'codigo'      => $v->codigo,
+            'total'       => $v->total,
+            'cliente'     => $v->cliente ? trim($v->cliente->nombre . ' ' . ($v->cliente->apellido ?? '')) : null,
+            'hora'        => $v->created_at->format('H:i'),
+            'hace'        => $v->created_at->diffForHumans(),
+            'items_count' => $v->detalles->count(),
+            'detalles'    => $v->detalles->map(fn($d) => [
+                'id'       => $d->id,
+                'producto' => trim(($d->producto?->nombre ?? '—') . ($d->variante ? ' · ' . $d->variante->nombre_completo : '')),
+                'cantidad' => $d->cantidad,
+                'subtotal' => (float) $d->subtotal_con_igv,
+            ])->values()->all(),
+        ])->values()->all();
+        @endphp
+        pendientes:                  @json($pendientesInit),
+        cargandoPendientes:          false,
+        _pollingPendientes:          null,
+        ultimaActualizacionPendientes: '—',
 
         get puedePagar()  {
+            if (this.esVendedor) return this.orden.carrito.length > 0 && !!this.orden.almacenId;
             if (this.orden.tipoComprobante === 'cotizacion') return true;
             if (this.orden.condicionPago === 'credito') return !!this.orden.clienteId;
             // Ventas contado requieren caja abierta
@@ -1660,6 +2010,7 @@ function posApp() {
         // ══════════════════════════════════════
         init() {
             this.iniciarReloj();
+            if (this.esVendedor) this.iniciarPollingPendientes();
             document.addEventListener('keydown', e => {
                 // F2: focus search
                 if (e.key === 'F2') { e.preventDefault(); this.$refs.searchInput?.focus(); }
@@ -1682,6 +2033,26 @@ function posApp() {
                     this.orden.pagos[0].monto = parseFloat(this.total.toFixed(2));
                 }
             });
+        },
+
+        // ── Vendedor: cola de pedidos ──
+        iniciarPollingPendientes() {
+            this._pollingPendientes = setInterval(() => this.cargarPendientes(), 30000);
+        },
+
+        async cargarPendientes() {
+            if (this.cargandoPendientes) return;
+            this.cargandoPendientes = true;
+            try {
+                const res = await fetch('{{ route("ventas.mis-pendientes") }}', {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (res.ok) {
+                    this.pendientes = await res.json();
+                    this.ultimaActualizacionPendientes = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                }
+            } catch {}
+            this.cargandoPendientes = false;
         },
 
         // ── Clock ──
@@ -1875,14 +2246,20 @@ function posApp() {
         procesarPago() {
             if (this.orden.carrito.length === 0) { this.toast('warning', 'Agrega productos al carrito'); return; }
             if (!this.orden.almacenId) { this.toast('warning', 'Selecciona un almacén'); return; }
-            // Bloquear ventas contado sin caja abierta
-            if (!this.cajaAbierta && this.orden.tipoComprobante !== 'cotizacion' && this.orden.condicionPago !== 'credito') {
-                this.toast('error', 'Debes abrir tu caja antes de registrar ventas de contado');
-                return;
+
+            // Vendedor siempre genera venta pendiente de cobro
+            if (this.esVendedor) {
+                this.orden.condicionPago = 'pendiente_cobro';
+            } else {
+                // Bloquear ventas contado sin caja abierta
+                if (!this.cajaAbierta && this.orden.tipoComprobante !== 'cotizacion' && this.orden.condicionPago !== 'credito') {
+                    this.toast('error', 'Debes abrir tu caja antes de registrar ventas de contado');
+                    return;
+                }
             }
 
             // ── Validación de cliente obligatorio (boleta y factura) ──
-            if (this.orden.tipoComprobante !== 'cotizacion' && !this.orden.clienteId) {
+            if (this.orden.tipoComprobante !== 'cotizacion' && !this.orden.clienteId && !this.esVendedor) {
                 this.toast('error', 'Debe seleccionar un cliente para registrar la venta');
                 return;
             }
@@ -1917,10 +2294,11 @@ function posApp() {
             this.guardando = true;
             this.showPago  = false;
 
-            const esCredito = this.orden.condicionPago === 'credito';
+            const esCredito       = this.orden.condicionPago === 'credito';
+            const esPendienteCobro = this.orden.condicionPago === 'pendiente_cobro';
             let metodoPago  = this.orden.pagos[0].metodo;
             let pagosDetalle = null;
-            if (esCredito) {
+            if (esCredito || esPendienteCobro) {
                 metodoPago = null;
             } else if (this.orden.pagos.length > 1) {
                 metodoPago   = 'mixto';
@@ -2138,8 +2516,20 @@ function posApp() {
                 }
                 this.orden.clienteId      = String(c.id);
                 this.orden.clienteNombre  = c.nombre;
-                this.orden.clienteTipoDoc = c.tipo_documento  || '';
+                this.orden.clienteTipoDoc = c.tipo_documento   || '';
                 this.orden.clienteNumDoc  = c.numero_documento || '';
+                // store full client for quick-edit
+                this.editandoCliente = {
+                    id:               String(c.id),
+                    tipo_documento:   c.tipo_documento   || 'DNI',
+                    numero_documento: c.numero_documento || '',
+                    nombre:           c.nombre           || '',
+                    telefono:         c.telefono         || '',
+                    direccion:        c.direccion        || '',
+                    departamento:     c.departamento     || '',
+                    provincia:        c.provincia        || '',
+                    distrito:         c.distrito         || '',
+                };
             }
             this.clienteQuery           = '';
             this.mostrarDropdownCliente = false;
@@ -2151,6 +2541,49 @@ function posApp() {
             this.orden.clienteNumDoc    = '';
             this.clienteQuery           = '';
             this.mostrarDropdownCliente = false;
+        },
+
+        abrirEditarCliente() {
+            this.errorEdicion = '';
+            this.showModalEditarCliente = true;
+        },
+
+        async guardarClienteEditado() {
+            if (!this.editandoCliente.nombre || !this.editandoCliente.numero_documento) return;
+            this.guardandoEdicion = true;
+            this.errorEdicion     = '';
+            try {
+                const res = await fetch('/clientes/' + this.editandoCliente.id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                    body: JSON.stringify({
+                        tipo_documento:   this.editandoCliente.tipo_documento,
+                        numero_documento: this.editandoCliente.numero_documento,
+                        nombre:           this.editandoCliente.nombre,
+                        telefono:         this.editandoCliente.telefono     || null,
+                        direccion:        this.editandoCliente.direccion    || null,
+                        departamento:     this.editandoCliente.departamento || null,
+                        provincia:        this.editandoCliente.provincia    || null,
+                        distrito:         this.editandoCliente.distrito     || null,
+                        estado:           'activo',
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    // update local clientes list
+                    const idx = this.clientes.findIndex(c => String(c.id) === String(this.editandoCliente.id));
+                    if (idx >= 0) Object.assign(this.clientes[idx], this.editandoCliente);
+                    // update current selection display
+                    this.orden.clienteNombre  = this.editandoCliente.nombre;
+                    this.orden.clienteTipoDoc = this.editandoCliente.tipo_documento;
+                    this.orden.clienteNumDoc  = this.editandoCliente.numero_documento;
+                    this.showModalEditarCliente = false;
+                    this.toast('success', 'Cliente actualizado');
+                } else {
+                    this.errorEdicion = data.message || Object.values(data.errors || {}).flat().join('. ') || 'Error al guardar';
+                }
+            } catch { this.errorEdicion = 'Error de conexión'; }
+            finally   { this.guardandoEdicion = false; }
         },
 
         // Cambia el tipo de comprobante y aplica reglas de cliente
@@ -2167,7 +2600,7 @@ function posApp() {
         // CLIENT QUICK CREATE
         // ══════════════════════════════════════
         abrirModalCliente() {
-            this.nuevoCliente = { tipo_documento: 'DNI', numero_documento: '', nombre: '', direccion: '', telefono: '' };
+            this.nuevoCliente = { tipo_documento: 'DNI', numero_documento: '', nombre: '', direccion: '', telefono: '', departamento: '', provincia: '', distrito: '' };
             this.errorCliente = '';
             this.showModalCliente = true;
         },
@@ -2189,8 +2622,11 @@ function posApp() {
                 if (!res.ok) {
                     this.errorCliente = data.error || 'No se encontró información';
                 } else if (data.nombre || data.razon_social) {
-                    this.nuevoCliente.nombre    = data.nombre || data.razon_social || '';
-                    this.nuevoCliente.direccion = data.direccion || '';
+                    this.nuevoCliente.nombre       = data.nombre || data.razon_social || '';
+                    this.nuevoCliente.direccion    = data.direccion    || '';
+                    this.nuevoCliente.departamento = data.departamento || '';
+                    this.nuevoCliente.provincia    = data.provincia    || '';
+                    this.nuevoCliente.distrito     = data.distrito     || '';
                 } else {
                     this.errorCliente = 'No se encontró información para este documento';
                 }
@@ -2216,18 +2652,26 @@ function posApp() {
                         tipo_documento:   this.nuevoCliente.tipo_documento,
                         numero_documento: this.nuevoCliente.numero_documento,
                         nombre:           this.nuevoCliente.nombre,
-                        direccion:        this.nuevoCliente.direccion || null,
-                        telefono:         this.nuevoCliente.telefono  || null,
+                        direccion:        this.nuevoCliente.direccion    || null,
+                        telefono:         this.nuevoCliente.telefono     || null,
+                        departamento:     this.nuevoCliente.departamento || null,
+                        provincia:        this.nuevoCliente.provincia    || null,
+                        distrito:         this.nuevoCliente.distrito     || null,
                         estado:           'activo'
                     })
                 });
                 const data = await res.json();
                 if (res.ok && data.id) {
                     this.clientes.unshift({
-                        id: data.id, nombre: data.nombre,
-                        tipo_documento: this.nuevoCliente.tipo_documento,
+                        id:               data.id,
+                        nombre:           data.nombre,
+                        tipo_documento:   this.nuevoCliente.tipo_documento,
                         numero_documento: this.nuevoCliente.numero_documento,
-                        direccion: this.nuevoCliente.direccion || '',
+                        direccion:        this.nuevoCliente.direccion    || '',
+                        telefono:         this.nuevoCliente.telefono     || '',
+                        departamento:     this.nuevoCliente.departamento || '',
+                        provincia:        this.nuevoCliente.provincia    || '',
+                        distrito:         this.nuevoCliente.distrito     || '',
                     });
                     this.orden.clienteId     = String(data.id);
                     this.orden.clienteNombre = data.nombre;
@@ -2385,5 +2829,44 @@ function posApp() {
     }
 }
 </script>
+
+@if(session('venta_exitosa'))
+@php $ve = session('venta_exitosa'); @endphp
+<div x-data="{ show: true }" x-show="show" x-cloak
+     class="fixed inset-0 z-[200] flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="show = false"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 scale-90"
+         x-transition:enter-end="opacity-100 scale-100">
+        <div class="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-6 text-center">
+            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-check text-white text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white">
+                {{ $ve['es_cotizacion'] ? '¡Cotización Guardada!' : '¡Venta Registrada!' }}
+            </h3>
+            <p class="text-green-100 text-sm mt-1 font-mono">{{ $ve['codigo'] }}</p>
+        </div>
+        <div class="p-6 text-center">
+            <div class="text-gray-500 text-sm mb-1">Total cobrado</div>
+            <div class="text-3xl font-bold text-gray-900 mb-5">S/ {{ $ve['total'] }}</div>
+            <div class="flex gap-3">
+                @if(!$ve['es_cotizacion'])
+                <a href="{{ route('ventas.pdf', [$ve['id'], 'formato' => 'ticket']) }}" target="_blank"
+                   class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2">
+                    <i class="fas fa-receipt"></i> Ticket
+                </a>
+                @endif
+                <button @click="show = false"
+                        class="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl py-2.5 text-sm font-semibold transition">
+                    Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 </body>
 </html>

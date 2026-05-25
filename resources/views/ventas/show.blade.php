@@ -668,6 +668,160 @@
             </div>
 
             {{-- Cliente --}}
+            @if($venta->cliente)
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6"
+                 x-data="{
+                    showEdit: false,
+                    saving: false,
+                    errMsg: '',
+                    cliente: {
+                        id:               {{ $venta->cliente->id }},
+                        tipo_documento:   '{{ $venta->cliente->tipo_documento }}',
+                        numero_documento: '{{ $venta->cliente->numero_documento }}',
+                        nombre:           '{{ addslashes($venta->cliente->nombre) }}',
+                        telefono:         '{{ $venta->cliente->telefono ?? '' }}',
+                        direccion:        '{{ addslashes($venta->cliente->direccion ?? '') }}',
+                        departamento:     '{{ $venta->cliente->departamento ?? '' }}',
+                        provincia:        '{{ addslashes($venta->cliente->provincia ?? '') }}',
+                        distrito:         '{{ addslashes($venta->cliente->distrito ?? '') }}',
+                    },
+                    async guardar() {
+                        this.saving = true; this.errMsg = '';
+                        try {
+                            const res = await fetch('/clientes/' + this.cliente.id, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                                body: JSON.stringify({
+                                    tipo_documento:   this.cliente.tipo_documento,
+                                    numero_documento: this.cliente.numero_documento,
+                                    nombre:           this.cliente.nombre,
+                                    telefono:         this.cliente.telefono   || null,
+                                    direccion:        this.cliente.direccion  || null,
+                                    departamento:     this.cliente.departamento || null,
+                                    provincia:        this.cliente.provincia  || null,
+                                    distrito:         this.cliente.distrito   || null,
+                                    estado:           'activo',
+                                })
+                            });
+                            const data = await res.json();
+                            if (res.ok) { this.showEdit = false; }
+                            else { this.errMsg = data.message || Object.values(data.errors || {}).flat().join('. ') || 'Error al guardar'; }
+                        } catch { this.errMsg = 'Error de conexión'; }
+                        finally { this.saving = false; }
+                    }
+                 }">
+                <div class="flex items-center gap-2 mb-5">
+                    <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-user text-indigo-600"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-700 uppercase tracking-wider flex-1">Cliente</h3>
+                    <button @click="showEdit = true"
+                            class="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-indigo-50 transition">
+                        <i class="fas fa-pencil-alt"></i> Editar
+                    </button>
+                </div>
+
+                {{-- Datos del cliente (vista) --}}
+                <dl class="space-y-2.5" x-show="!showEdit">
+                    <div class="flex justify-between items-center">
+                        <dt class="text-sm text-gray-400">Nombre</dt>
+                        <dd class="text-sm text-gray-700 font-medium text-right max-w-[60%]" x-text="cliente.nombre"></dd>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <dt class="text-sm text-gray-400">Documento</dt>
+                        <dd class="text-sm font-mono text-gray-700" x-text="cliente.tipo_documento + ' ' + cliente.numero_documento"></dd>
+                    </div>
+                    <template x-if="cliente.telefono">
+                        <div class="flex justify-between items-center">
+                            <dt class="text-sm text-gray-400">Teléfono</dt>
+                            <dd class="text-sm text-gray-700" x-text="cliente.telefono"></dd>
+                        </div>
+                    </template>
+                    <template x-if="cliente.direccion">
+                        <div class="flex justify-between items-start">
+                            <dt class="text-sm text-gray-400 shrink-0">Dirección</dt>
+                            <dd class="text-sm text-gray-700 text-right max-w-[65%]" x-text="cliente.direccion"></dd>
+                        </div>
+                    </template>
+                    <template x-if="cliente.departamento || cliente.provincia || cliente.distrito">
+                        <div class="flex justify-between items-start">
+                            <dt class="text-sm text-gray-400 shrink-0">Ubigeo</dt>
+                            <dd class="text-sm text-gray-700 text-right max-w-[65%]">
+                                <span x-text="[cliente.distrito, cliente.provincia, cliente.departamento].filter(Boolean).join(', ')"></span>
+                            </dd>
+                        </div>
+                    </template>
+                </dl>
+
+                {{-- Formulario de edición inline --}}
+                <div x-show="showEdit" x-cloak class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo Doc.</label>
+                            <select x-model="cliente.tipo_documento" class="w-full rounded-lg border-gray-200 text-xs py-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500">
+                                <option value="DNI">DNI</option>
+                                <option value="RUC">RUC</option>
+                                <option value="CE">CE</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">N° Documento</label>
+                            <input type="text" x-model="cliente.numero_documento" maxlength="11"
+                                   class="w-full rounded-lg border-gray-200 text-xs py-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500 font-mono">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Nombre *</label>
+                        <input type="text" x-model="cliente.nombre"
+                               class="w-full rounded-lg border-gray-200 text-xs py-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Teléfono</label>
+                        <input type="text" x-model="cliente.telefono" maxlength="20"
+                               class="w-full rounded-lg border-gray-200 text-xs py-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Dirección</label>
+                        <input type="text" x-model="cliente.direccion"
+                               class="w-full rounded-lg border-gray-200 text-xs py-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500"
+                               placeholder="Av. / Jr. / Calle...">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Departamento</label>
+                        <select x-model="cliente.departamento" class="w-full rounded-lg border-gray-200 text-xs py-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500">
+                            <option value="">— Seleccionar —</option>
+                            @foreach(['AMAZONAS','ÁNCASH','APURÍMAC','AREQUIPA','AYACUCHO','CAJAMARCA','CALLAO','CUSCO','HUANCAVELICA','HUÁNUCO','ICA','JUNÍN','LA LIBERTAD','LAMBAYEQUE','LIMA','LORETO','MADRE DE DIOS','MOQUEGUA','PASCO','PIURA','PUNO','SAN MARTÍN','TACNA','TUMBES','UCAYALI'] as $dep)
+                                <option value="{{ $dep }}">{{ $dep }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Provincia</label>
+                            <input type="text" x-model="cliente.provincia" maxlength="100"
+                                   class="w-full rounded-lg border-gray-200 text-xs py-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Distrito</label>
+                            <input type="text" x-model="cliente.distrito" maxlength="100"
+                                   class="w-full rounded-lg border-gray-200 text-xs py-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    <div x-show="errMsg" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2" x-text="errMsg"></div>
+                    <div class="flex gap-2 pt-1">
+                        <button @click="showEdit = false; errMsg = ''"
+                                class="flex-1 text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg py-2 font-semibold transition">
+                            Cancelar
+                        </button>
+                        <button @click="guardar()" :disabled="saving || !cliente.nombre"
+                                class="flex-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2 font-bold transition disabled:opacity-50 flex items-center justify-center gap-1">
+                            <i class="fas" :class="saving ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+                            <span x-text="saving ? 'Guardando...' : 'Guardar'"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            @else
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <div class="flex items-center gap-2 mb-5">
                     <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
@@ -675,33 +829,12 @@
                     </div>
                     <h3 class="font-bold text-gray-700 uppercase tracking-wider">Cliente</h3>
                 </div>
-                @if($venta->cliente)
-                    <dl class="space-y-2.5">
-                        <div class="flex justify-between items-center">
-                            <dt class="text-sm text-gray-400">Nombre</dt>
-                            <dd class="text-sm text-gray-700 font-medium text-right max-w-[60%]">{{ $venta->cliente->nombre }}</dd>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <dt class="text-sm text-gray-400">Documento</dt>
-                            <dd class="text-sm font-mono text-gray-700">
-                                {{ strtoupper($venta->cliente->tipo_documento ?? '') }}
-                                {{ $venta->cliente->numero_documento }}
-                            </dd>
-                        </div>
-                        @if($venta->cliente->telefono)
-                        <div class="flex justify-between items-center">
-                            <dt class="text-sm text-gray-400">Teléfono</dt>
-                            <dd class="text-sm text-gray-700">{{ $venta->cliente->telefono }}</dd>
-                        </div>
-                        @endif
-                    </dl>
-                @else
-                    <div class="flex flex-col items-center justify-center h-24 text-gray-300">
-                        <i class="fas fa-user-slash text-3xl mb-2"></i>
-                        <p class="text-sm text-gray-400">Venta sin cliente</p>
-                    </div>
-                @endif
+                <div class="flex flex-col items-center justify-center h-24 text-gray-300">
+                    <i class="fas fa-user-slash text-3xl mb-2"></i>
+                    <p class="text-sm text-gray-400">Venta sin cliente</p>
+                </div>
             </div>
+            @endif
 
             {{-- Pago --}}
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">

@@ -45,6 +45,18 @@ class ComisionRegla extends Model
 
     public function getTipoCalculoLabelAttribute(): string
     {
-        return $this->tipo_calculo === 'porcentaje' ? 'Porcentaje (%)' : 'Monto Fijo (S/)';
+        return match($this->tipo_calculo) {
+            'porcentaje'        => 'Porcentaje (%) sobre venta',
+            'porcentaje_margen' => 'Porcentaje (%) sobre margen',
+            'monto_fijo'        => 'Monto Fijo (S/)',
+            default             => $this->tipo_calculo,
+        };
+    }
+
+    public function getValorFormateadoAttribute(): string
+    {
+        return in_array($this->tipo_calculo, ['porcentaje', 'porcentaje_margen'])
+            ? number_format($this->valor, 2) . '%'
+            : 'S/ ' . number_format($this->valor, 2);
     }
 }

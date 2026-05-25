@@ -223,7 +223,7 @@
                                 <th class="px-4 py-2 w-10"></th>
                                 <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">Producto</th>
                                 <th class="px-4 py-2 text-center text-xs font-semibold text-gray-500">Cant.</th>
-                                <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500">Precio unit.</th>
+                                <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500">Precio unit. (c/IGV)</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -252,7 +252,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-center font-semibold text-gray-700">{{ $detalle->cantidad }}</td>
-                                <td class="px-4 py-3 text-right text-gray-500">S/ {{ number_format($detalle->precio_unitario, 2) }}</td>
+                                <td class="px-4 py-3 text-right text-gray-500">S/ {{ number_format($detalle->precio_con_igv, 2) }}</td>
                             </tr>
                             @endforeach
                         </tbody>

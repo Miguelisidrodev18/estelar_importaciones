@@ -159,9 +159,9 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Almacén</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sede / Sucursal</label>
                         <select name="almacen_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="">Todos los almacenes</option>
+                            <option value="">Todas las sedes</option>
                             @foreach($almacenes as $alm)
                                 <option value="{{ $alm->id }}" {{ request('almacen_id') == $alm->id ? 'selected' : '' }}>
                                     {{ $alm->nombre }}
@@ -208,7 +208,13 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca/Modelo</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Stock</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                                @if($almacenFiltro)
+                                    Stock en {{ $almacenFiltro->nombre }}
+                                @else
+                                    Stock total
+                                @endif
+                            </th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tipo</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
@@ -262,12 +268,22 @@
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 @php
                                     $esSerie = $producto->tipo_inventario === 'serie';
-                                    if ($esSerie) {
-                                        $stockTotal = $producto->stock_actual ?? 0;
-                                    } elseif ($producto->variantesActivas->count() > 0) {
-                                        $stockTotal = $producto->variantesActivas->sum('stock_actual');
+                                    if ($almacenFiltro) {
+                                        // Stock de la sede seleccionada
+                                        if ($esSerie) {
+                                            $stockTotal = $producto->imeis_sede_count ?? 0;
+                                        } else {
+                                            $stockTotal = $producto->stockAlmacenes->first()?->cantidad ?? 0;
+                                        }
                                     } else {
-                                        $stockTotal = $producto->stock_actual;
+                                        // Stock global
+                                        if ($esSerie) {
+                                            $stockTotal = $producto->stock_actual ?? 0;
+                                        } elseif ($producto->variantesActivas->count() > 0) {
+                                            $stockTotal = $producto->variantesActivas->sum('stock_actual');
+                                        } else {
+                                            $stockTotal = $producto->stock_actual;
+                                        }
                                     }
                                     $colorClass = $stockTotal == 0
                                         ? 'bg-red-100 text-red-800'
@@ -276,7 +292,7 @@
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $colorClass }}">
                                     {{ $stockTotal }} unt
                                 </span>
-                                @if(!$esSerie && $producto->variantesActivas->count() > 0)
+                                @if(!$esSerie && !$almacenFiltro && $producto->variantesActivas->count() > 0)
                                     <div class="flex items-center justify-center gap-1 mt-1 flex-wrap">
                                         @foreach($producto->variantesActivas as $v)
                                             <span title="{{ $v->nombre_completo }}: {{ $v->stock_actual }} unt"

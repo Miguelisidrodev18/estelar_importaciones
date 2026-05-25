@@ -80,6 +80,13 @@ class ClienteController extends Controller
 
         $cliente->update($validated);
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'id'     => $cliente->id,
+                'nombre' => $cliente->nombre,
+            ]);
+        }
+
         return redirect()
             ->route('clientes.index')
             ->with('success', 'Cliente actualizado exitosamente');
@@ -111,9 +118,12 @@ class ClienteController extends Controller
                 return response()->json(['error' => $result['message']], 422);
             }
             return response()->json([
-                'nombre'       => $result['data']['razon_social'] ?? '',
-                'razon_social' => $result['data']['razon_social'] ?? '',
-                'direccion'    => $result['data']['direccion']    ?? '',
+                'nombre'       => $result['data']['razon_social']     ?? '',
+                'razon_social' => $result['data']['razon_social']     ?? '',
+                'direccion'    => $result['data']['direccion_fiscal']  ?? '',
+                'distrito'     => $result['data']['distrito']          ?? '',
+                'provincia'    => $result['data']['provincia']         ?? '',
+                'departamento' => $result['data']['departamento']      ?? '',
             ]);
         }
 

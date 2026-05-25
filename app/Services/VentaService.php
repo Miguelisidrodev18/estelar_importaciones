@@ -29,10 +29,16 @@ class VentaService
 
     private function calcularComisiones(Venta $venta): void
     {
+        $ventaCargada = $venta->load('detalles.producto');
         try {
-            app(\App\Services\ComisionService::class)->calcularParaVenta($venta->load('detalles.producto'));
+            app(\App\Services\ComisionService::class)->calcularParaVenta($ventaCargada);
         } catch (\Throwable $e) {
             Log::warning('Comisiones no calculadas para venta #' . $venta->id . ': ' . $e->getMessage());
+        }
+        try {
+            app(\App\Services\BonusService::class)->calcularParaVenta($ventaCargada);
+        } catch (\Throwable $e) {
+            Log::warning('Bonos no calculados para venta #' . $venta->id . ': ' . $e->getMessage());
         }
     }
 
@@ -119,8 +125,11 @@ class VentaService
                 'total'    => $total,
             ]);
 
-            // Calcular comisiones por vendedor
-            $this->calcularComisiones($venta);
+            // Calcular comisiones solo si la venta queda pagada de inmediato
+            // (ventas pendientes las calculamos cuando el cajero confirme el cobro)
+            if ($venta->estado_pago === 'pagado') {
+                $this->calcularComisiones($venta);
+            }
 
             // Crear guía de remisión si se proporcionaron datos
             if ($guiaData) {
@@ -946,7 +955,7 @@ class VentaService
     /**
      * Confirmar pago de una venta pendiente
      */
-    public function confirmarPago(int $ventaId, string $metodoPago, int $usuarioId)
+    public function confirmarPago(int $ventaId, string $metodoPago, int $usuarioId, array $extra = [])
     {
         $venta = Venta::findOrFail($ventaId);
 
@@ -954,17 +963,25 @@ class VentaService
             throw new \Exception('La venta ya ha sido procesada');
         }
 
-        DB::transaction(function () use ($venta, $metodoPago, $usuarioId) {
-            $venta->update([
+        DB::transaction(function () use ($venta, $metodoPago, $usuarioId, $extra) {
+            $update = [
                 'estado_pago'         => 'pagado',
                 'metodo_pago'         => $metodoPago,
                 'usuario_confirma_id' => $usuarioId,
                 'fecha_confirmacion'  => now(),
-            ]);
+            ];
 
+            if (!empty($extra['pagos_detalle'])) {
+                $update['pagos_detalle'] = $extra['pagos_detalle'];
+            }
+
+            $venta->update($update);
             $this->registrarEnCaja($venta, 'venta');
         });
 
-        return $venta;
+        $ventaFresh = $venta->fresh();
+        $this->calcularComisiones($ventaFresh);
+
+        return $ventaFresh;
     }
 }

@@ -148,6 +148,57 @@
         </button>
     </div>
 
+    {{-- Comprobantes del día --}}
+    @php
+        $ventasDelDia = $caja->movimientos->where('tipo', 'ingreso')->whereNotNull('venta_id')->sortByDesc('created_at')->unique('venta_id');
+    @endphp
+    @if($ventasDelDia->count())
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 no-print">
+        <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="font-semibold text-gray-800">
+                <i class="fas fa-receipt mr-2 text-indigo-600"></i> Comprobantes del día
+            </h3>
+            <span class="text-xs text-gray-400">{{ $ventasDelDia->count() }} venta(s)</span>
+        </div>
+        <div class="divide-y divide-gray-50">
+            @foreach($ventasDelDia as $mov)
+            @php $v = $mov->venta; @endphp
+            @if($v)
+            <div class="px-5 py-3 flex items-center gap-3 hover:bg-gray-50">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold text-gray-800 font-mono">{{ $v->codigo }}</span>
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 uppercase">{{ $v->tipo_comprobante }}</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        {{ $mov->created_at->format('H:i') }}
+                        @if($v->cliente)· {{ $v->cliente->nombre }}@endif
+                        · S/ {{ number_format($v->total, 2) }}
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    @if($v->tipo_comprobante !== 'cotizacion')
+                    <a href="{{ route('ventas.pdf', [$v, 'formato' => 'ticket']) }}" target="_blank"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition">
+                        <i class="fas fa-receipt"></i> Ticket
+                    </a>
+                    @endif
+                    <a href="{{ route('ventas.pdf', [$v, 'formato' => 'a4']) }}" target="_blank"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                    <a href="{{ route('ventas.show', $v) }}"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 hover:bg-gray-50 text-gray-600 text-xs font-semibold rounded-lg transition">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                </div>
+            </div>
+            @endif
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- Tabla de movimientos --}}
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
@@ -167,6 +218,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Método</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Op.</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase no-print">Reimprimir</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
@@ -183,8 +235,8 @@
                         </td>
                         <td class="px-4 py-3">
                             <p class="text-sm font-medium text-gray-800">{{ $mov->concepto }}</p>
-                            @if($mov->venta_id)
-                                <p class="text-xs text-blue-500">Venta #{{ $mov->venta_id }}</p>
+                            @if($mov->venta)
+                                <p class="text-xs text-blue-600 font-mono font-semibold">{{ $mov->venta->codigo }}</p>
                             @endif
                             @if($mov->referencia)
                                 <p class="text-xs text-gray-400">Ref: {{ $mov->referencia }}</p>
@@ -215,10 +267,25 @@
                                 {{ $mov->tipo === 'ingreso' ? '+' : '-' }} S/ {{ number_format($mov->monto, 2) }}
                             </span>
                         </td>
+                        <td class="px-4 py-3 text-center no-print">
+                            @if($mov->venta && $mov->venta->tipo_comprobante !== 'cotizacion')
+                                <a href="{{ route('ventas.pdf', [$mov->venta, 'formato' => 'ticket']) }}" target="_blank"
+                                   class="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs rounded-lg transition" title="Reimprimir ticket">
+                                    <i class="fas fa-print text-xs"></i> Ticket
+                                </a>
+                            @elseif($mov->venta)
+                                <a href="{{ route('ventas.pdf', [$mov->venta, 'formato' => 'a4']) }}" target="_blank"
+                                   class="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs rounded-lg transition" title="Reimprimir PDF">
+                                    <i class="fas fa-file-pdf text-xs"></i> PDF
+                                </a>
+                            @else
+                                <span class="text-gray-200 text-xs">—</span>
+                            @endif
+                        </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="px-4 py-12 text-center text-gray-400">
+                        <td colspan="7" class="px-4 py-12 text-center text-gray-400">
                             <i class="fas fa-receipt text-4xl mb-3 block text-gray-200"></i>
                             Sin movimientos aún en este turno.
                         </td>

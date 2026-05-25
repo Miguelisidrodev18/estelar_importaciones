@@ -145,6 +145,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:Cajero')->prefix('cajero')->name('cajero.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'cajero'])->name('dashboard');
         Route::get('/cola', [\App\Http\Controllers\VentaController::class, 'colaCaja'])->name('cola');
+        Route::get('/cola/json', [\App\Http\Controllers\VentaController::class, 'colaJson'])->name('cola.json');
     });
 
     // ========================================
@@ -360,6 +361,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [VentaController::class, 'store'])->name('store');
         Route::get('/cotizaciones', [VentaController::class, 'cotizaciones'])->name('cotizaciones');
         Route::get('/api/imeis-disponibles', [VentaController::class, 'imeisDisponibles'])->name('imeis-disponibles');
+        Route::get('/api/mis-pendientes', [VentaController::class, 'misPendientes'])->middleware('role:Vendedor')->name('mis-pendientes');
         Route::get('/api/dni/{dni}', [DniLookupController::class, 'buscar'])->name('dni.buscar');
         // Bitácora de auditoría (solo Admin) — debe ir antes del wildcard /{venta}
         Route::get('/auditoria', [VentaController::class, 'bitacora'])->middleware('role:Administrador')->name('auditoria');
@@ -451,6 +453,21 @@ Route::middleware('auth')->group(function () {
     });
 
     // ========================================
+    // MÓDULO GUÍAS DE REMISIÓN
+    // ========================================
+    Route::prefix('guias-remision')->name('guias-remision.')->middleware(['auth', 'role:Administrador,Almacenero'])->group(function () {
+        Route::get('/',                         [\App\Http\Controllers\GuiaRemisionController::class, 'index'])->name('index');
+        Route::get('/create',                   [\App\Http\Controllers\GuiaRemisionController::class, 'create'])->name('create');
+        Route::post('/',                        [\App\Http\Controllers\GuiaRemisionController::class, 'store'])->name('store');
+        Route::get('/{guiasRemision}',          [\App\Http\Controllers\GuiaRemisionController::class, 'show'])->name('show');
+        Route::patch('/{guiasRemision}/estado', [\App\Http\Controllers\GuiaRemisionController::class, 'updateEstado'])->name('update-estado');
+        Route::get('/{guiasRemision}/pdf',      [\App\Http\Controllers\GuiaRemisionController::class, 'pdf'])->name('pdf');
+        Route::get('/buscar-destinatario',      [\App\Http\Controllers\GuiaRemisionController::class, 'buscarDestinatario'])->name('buscar-destinatario');
+        Route::get('/api/ruc/{ruc}',            [\App\Http\Controllers\GuiaRemisionController::class, 'buscarRuc'])->name('api.ruc');
+        Route::get('/api/dni/{dni}',            [\App\Http\Controllers\DniLookupController::class, 'buscar'])->name('api.dni');
+    });
+
+    // ========================================
     // MÓDULO DE INVENTARIO FÍSICO (CONTEO)
     // ========================================
     Route::prefix('inventario-fisico')->name('inventario-fisico.')->middleware('role:Administrador,Almacenero')->group(function () {
@@ -467,6 +484,10 @@ Route::middleware('auth')->group(function () {
     // ========================================
     // MÓDULO DE COMISIONES
     // ========================================
+    Route::get('/mis-comisiones', [\App\Http\Controllers\ComisionController::class, 'misComisiones'])
+        ->middleware('role:Vendedor,Tienda,Cajero')
+        ->name('mis-comisiones');
+
     Route::prefix('comisiones')->name('comisiones.')->middleware('role:Administrador')->group(function () {
         Route::get('/',                [\App\Http\Controllers\ComisionController::class, 'index'])->name('index');
         Route::post('/',               [\App\Http\Controllers\ComisionController::class, 'store'])->name('store');
@@ -475,6 +496,12 @@ Route::middleware('auth')->group(function () {
         Route::patch('/{regla}/toggle',[\App\Http\Controllers\ComisionController::class, 'toggle'])->name('toggle');
         Route::get('/reporte',         [\App\Http\Controllers\ComisionController::class, 'reporte'])->name('reporte');
         Route::post('/marcar-pagado',  [\App\Http\Controllers\ComisionController::class, 'marcarPagado'])->name('marcar-pagado');
+        // Bonus
+        Route::post('/bonus',                    [\App\Http\Controllers\ComisionController::class, 'bonusStore'])->name('bonus.store');
+        Route::put('/bonus/{bonus}',             [\App\Http\Controllers\ComisionController::class, 'bonusUpdate'])->name('bonus.update');
+        Route::delete('/bonus/{bonus}',          [\App\Http\Controllers\ComisionController::class, 'bonusDestroy'])->name('bonus.destroy');
+        Route::patch('/bonus/{bonus}/toggle',    [\App\Http\Controllers\ComisionController::class, 'bonusToggle'])->name('bonus.toggle');
+        Route::post('/marcar-bonus-pagado',      [\App\Http\Controllers\ComisionController::class, 'marcarBonusPagado'])->name('marcar-bonus-pagado');
     });
 
     // ========================================

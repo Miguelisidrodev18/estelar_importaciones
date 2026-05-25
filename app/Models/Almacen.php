@@ -51,6 +51,14 @@ class Almacen extends Model
     }
 
     /**
+     * Relación: Usuarios asignados a este almacén (via users.almacen_id)
+     */
+    public function trabajadores()
+    {
+        return $this->hasMany(User::class, 'almacen_id')->with('role');
+    }
+
+    /**
      * Relación: Un almacén pertenece a una sucursal
      */
     public function sucursal()

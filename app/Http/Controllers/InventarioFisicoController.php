@@ -13,6 +13,12 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
 
 class InventarioFisicoController extends Controller
 {
@@ -170,7 +176,7 @@ class InventarioFisicoController extends Controller
 
     public function exportExcel(ConteoInventario $conteo)
     {
-        $conteo->load(['almacen']);
+        $conteo->load(['almacen', 'usuario']);
         $detalles = $conteo->detalles()
             ->with(['producto.categoria', 'variante'])
             ->join('productos', 'conteo_detalles.producto_id', '=', 'productos.id')
@@ -178,43 +184,151 @@ class InventarioFisicoController extends Controller
             ->orderBy('productos.nombre')
             ->get();
 
-        $filename = 'conteo-' . $conteo->id . '-' . now()->format('Y-m-d') . '.csv';
+        $spreadsheet = new Spreadsheet();
+        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Conteo Inventario');
 
+        // ── Título principal ──────────────────────────────────────
+        $sheet->mergeCells('A1:K1');
+        $sheet->setCellValue('A1', 'CONTEO DE INVENTARIO FÍSICO');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        // ── Info del conteo ───────────────────────────────────────
+        $sheet->setCellValue('A2', 'Conteo:');
+        $sheet->setCellValue('B2', $conteo->nombre);
+        $sheet->setCellValue('D2', 'Almacén:');
+        $sheet->setCellValue('E2', $conteo->almacen?->nombre ?? '—');
+        $sheet->setCellValue('G2', 'Generado:');
+        $sheet->setCellValue('H2', now()->format('d/m/Y H:i'));
+        $sheet->setCellValue('J2', 'Estado:');
+        $sheet->setCellValue('K2', strtoupper($conteo->estado));
+        foreach (['A2','D2','G2','J2'] as $cell) {
+            $sheet->getStyle($cell)->getFont()->setBold(true);
+        }
+
+        $sheet->getRowDimension(3)->setRowHeight(6); // espaciado
+
+        // ── Cabeceras ─────────────────────────────────────────────
         $headers = [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'A' => '#',
+            'B' => 'Código',
+            'C' => 'Producto',
+            'D' => 'Variante',
+            'E' => 'Categoría',
+            'F' => 'Stock Mín.',
+            'G' => 'Stock Sistema',
+            'H' => 'Stock Físico',
+            'I' => 'Diferencia',
+            'J' => 'P. Costo (S/)',
+            'K' => 'Valor Faltante (S/)',
         ];
 
-        $callback = function () use ($conteo, $detalles) {
-            $handle = fopen('php://output', 'w');
-            // BOM UTF-8
-            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        foreach ($headers as $col => $label) {
+            $sheet->setCellValue("{$col}4", $label);
+        }
 
-            fputcsv($handle, [
-                'Código', 'Producto', 'Variante', 'Categoría',
-                'Mín.', 'Stock Sistema', 'Stock Físico', 'Diferencia',
-                'P. Costo', 'Valor Faltante', 'Observaciones',
-            ]);
+        $headerRange = 'A4:K4';
+        $sheet->getStyle($headerRange)->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2563EB']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'BFDBFE']]],
+        ]);
+        $sheet->getRowDimension(4)->setRowHeight(20);
 
-            foreach ($detalles as $d) {
-                fputcsv($handle, [
-                    $d->producto->codigo,
-                    $d->producto->nombre,
-                    $d->variante?->nombre_completo ?? '—',
-                    $d->producto->categoria?->nombre ?? '—',
-                    $d->producto->stock_minimo,
-                    $d->stock_sistema,
-                    $d->stock_fisico ?? '—',
-                    $d->diferencia ?? '—',
-                    number_format($d->producto->costo_promedio ?? 0, 2),
-                    number_format($d->valor_faltante, 2),
-                    $d->observaciones ?? '',
+        // ── Datos ────────────────────────────────────────────────
+        $row = 5;
+        foreach ($detalles as $i => $d) {
+            $diferencia  = $d->stock_fisico !== null ? ($d->stock_fisico - $d->stock_sistema) : null;
+            $valorFaltante = $d->stock_fisico !== null && $diferencia < 0
+                ? abs($diferencia) * ($d->producto->costo_promedio ?? 0)
+                : 0;
+
+            $sheet->setCellValue("A{$row}", $i + 1);
+            $sheet->setCellValue("B{$row}", $d->producto->codigo ?? '');
+            $sheet->setCellValue("C{$row}", $d->producto->nombre ?? '');
+            $sheet->setCellValue("D{$row}", $d->variante?->nombre_completo ?? '—');
+            $sheet->setCellValue("E{$row}", $d->producto->categoria?->nombre ?? '—');
+            $sheet->setCellValue("F{$row}", $d->producto->stock_minimo ?? 0);
+            $sheet->setCellValue("G{$row}", $d->stock_sistema);
+            $sheet->setCellValue("H{$row}", $d->stock_fisico ?? '');
+            $sheet->setCellValue("I{$row}", $diferencia ?? '');
+            $sheet->setCellValue("J{$row}", $d->producto->costo_promedio ?? 0);
+            $sheet->setCellValue("K{$row}", $valorFaltante);
+
+            // Zebra stripe
+            $bgColor = $i % 2 === 0 ? 'F8FAFC' : 'EFF6FF';
+            $sheet->getStyle("A{$row}:K{$row}")->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setRGB($bgColor);
+
+            // Resaltar filas con faltante
+            if ($diferencia !== null && $diferencia < 0) {
+                $sheet->getStyle("I{$row}")->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'DC2626']],
+                ]);
+                $sheet->getStyle("K{$row}")->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'DC2626']],
                 ]);
             }
-            fclose($handle);
-        };
 
-        return response()->stream($callback, 200, $headers);
+            // Bordea toda la fila
+            $sheet->getStyle("A{$row}:K{$row}")->getBorders()->getAllBorders()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()->setRGB('E2E8F0');
+
+            // Formato numérico
+            $sheet->getStyle("J{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("K{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+
+            $row++;
+        }
+
+        // ── Fila de totales ────────────────────────────────────────
+        $lastData = $row - 1;
+        $sheet->setCellValue("G{$row}", "=SUM(G5:G{$lastData})");
+        $sheet->setCellValue("H{$row}", "=SUM(H5:H{$lastData})");
+        $sheet->setCellValue("K{$row}", "=SUM(K5:K{$lastData})");
+        $sheet->setCellValue("A{$row}", 'TOTALES');
+        $sheet->getStyle("A{$row}:K{$row}")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E40AF']],
+        ]);
+        $sheet->getStyle("K{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle("G{$row}:K{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        // ── Anchos de columna ─────────────────────────────────────
+        $widths = ['A'=>6,'B'=>14,'C'=>34,'D'=>20,'E'=>18,'F'=>10,'G'=>13,'H'=>13,'I'=>11,'J'=>14,'K'=>18];
+        foreach ($widths as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+
+        // Alineación numérica
+        foreach (['F','G','H','I','J','K'] as $col) {
+            $sheet->getStyle("{$col}5:{$col}{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        }
+        $sheet->getStyle("A5:A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // ── Congelar cabecera ─────────────────────────────────────
+        $sheet->freezePane('A5');
+
+        // ── Respuesta HTTP ────────────────────────────────────────
+        $filename = 'conteo-' . $conteo->id . '-' . now()->format('Y-m-d') . '.xlsx';
+
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Cache-Control'       => 'max-age=0',
+        ]);
     }
 
     private function poblarDetalles(ConteoInventario $conteo): void

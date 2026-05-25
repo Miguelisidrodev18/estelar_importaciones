@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Venta;
 use App\Models\ComisionRegla;
 use App\Models\ComisionDetalleVenta;
-use Illuminate\Support\Facades\DB;
 
 class ComisionService
 {
@@ -21,19 +20,34 @@ class ComisionService
         }
 
         foreach ($venta->detalles as $detalle) {
+            $producto    = $detalle->producto;
             $productoId  = $detalle->producto_id;
-            $categoriaId = $detalle->producto?->categoria_id;
+            $categoriaId = $producto?->categoria_id;
 
             $regla = $this->resolverRegla($vendedorId, $productoId, $categoriaId);
             if (!$regla) {
                 continue;
             }
 
-            $base  = (float) $detalle->subtotal_con_igv;
-            $qty   = (int) $detalle->cantidad;
-            $monto = $regla->tipo_calculo === 'porcentaje'
-                ? round($base * (float) $regla->valor / 100, 2)
-                : round((float) $regla->valor * $qty, 2);
+            $subtotal = (float) $detalle->subtotal_con_igv;
+            $qty      = (int)   $detalle->cantidad;
+
+            [$monto, $margen] = match($regla->tipo_calculo) {
+                'porcentaje' => [
+                    round($subtotal * (float) $regla->valor / 100, 2),
+                    null,
+                ],
+                'porcentaje_margen' => (function () use ($subtotal, $qty, $producto, $regla) {
+                    $costo  = (float) ($producto?->costo_promedio ?? 0);
+                    $margen = $subtotal - ($costo * $qty);
+                    $margen = max(0, $margen);
+                    return [round($margen * (float) $regla->valor / 100, 2), round($margen, 2)];
+                })(),
+                default => [  // monto_fijo
+                    round((float) $regla->valor * $qty, 2),
+                    null,
+                ],
+            };
 
             ComisionDetalleVenta::create([
                 'detalle_venta_id'  => $detalle->id,
@@ -41,6 +55,7 @@ class ComisionService
                 'regla_id'          => $regla->id,
                 'tipo_calculo'      => $regla->tipo_calculo,
                 'valor_configurado' => $regla->valor,
+                'margen_calculado'  => $margen,
                 'monto_comision'    => $monto,
                 'estado'            => 'pendiente',
             ]);
@@ -49,28 +64,24 @@ class ComisionService
 
     private function resolverRegla(int $vendedorId, int $productoId, ?int $categoriaId): ?ComisionRegla
     {
-        // Producto-specific (highest priority)
+        // Producto (prioridad máxima)
         $regla = ComisionRegla::where('activo', true)
             ->where('tipo_aplicacion', 'producto')
             ->where('producto_id', $productoId)
             ->first();
 
-        if ($regla) {
-            return $regla;
-        }
+        if ($regla) return $regla;
 
-        // Category-specific
+        // Categoría
         if ($categoriaId) {
             $regla = ComisionRegla::where('activo', true)
                 ->where('tipo_aplicacion', 'categoria')
                 ->where('categoria_id', $categoriaId)
                 ->first();
-            if ($regla) {
-                return $regla;
-            }
+            if ($regla) return $regla;
         }
 
-        // User-specific (lowest priority)
+        // Usuario (prioridad mínima)
         return ComisionRegla::where('activo', true)
             ->where('tipo_aplicacion', 'usuario')
             ->where('user_id', $vendedorId)

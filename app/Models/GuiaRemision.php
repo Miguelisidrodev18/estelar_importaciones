@@ -9,8 +9,11 @@ class GuiaRemision extends Model
     protected $table = 'guias_remision';
 
     protected $fillable = [
-        'venta_id', 'proveedor_id', 'cliente_id', 'numero_guia', 'motivo_traslado', 'modalidad',
-        'fecha_traslado', 'peso_total', 'bultos',
+        'almacen_id', 'tipo_destino', 'almacen_destino_id',
+        'venta_id', 'proveedor_id', 'cliente_id',
+        'numero_guia', 'guia_serie_id',
+        'motivo_traslado', 'modalidad', 'fecha_traslado',
+        'peso_total', 'bultos',
         'direccion_partida', 'ubigeo_partida',
         'direccion_llegada', 'ubigeo_llegada',
         'transportista_tipo_doc', 'transportista_doc', 'transportista_nombre',
@@ -23,20 +26,26 @@ class GuiaRemision extends Model
         'peso_total'     => 'decimal:2',
     ];
 
-    public function venta()
+    // ── Relaciones ────────────────────────────────────────────────
+
+    public function venta()      { return $this->belongsTo(Venta::class); }
+    public function proveedor()  { return $this->belongsTo(Proveedor::class); }
+    public function cliente()    { return $this->belongsTo(Cliente::class); }
+    public function almacen()    { return $this->belongsTo(Almacen::class); }
+    public function almacenDestino() { return $this->belongsTo(Almacen::class, 'almacen_destino_id'); }
+    public function serieCombrobante() { return $this->belongsTo(SerieComprobante::class, 'guia_serie_id'); }
+
+    public function detalles()
     {
-        return $this->belongsTo(Venta::class);
+        return $this->hasMany(GuiaRemisionDetalle::class, 'guia_remision_id');
     }
 
-    public function proveedor()
+    public function movimientos()
     {
-        return $this->belongsTo(Proveedor::class);
+        return $this->hasMany(MovimientoInventario::class, 'numero_guia', 'numero_guia');
     }
 
-    public function cliente()
-    {
-        return $this->belongsTo(Cliente::class);
-    }
+    // ── Accessors ─────────────────────────────────────────────────
 
     public function getEstadoLabelAttribute(): string
     {
@@ -66,8 +75,10 @@ class GuiaRemision extends Model
             'VENTA'                    => 'Venta',
             'COMPRA'                   => 'Compra',
             'TRASLADO_ENTRE_ALMACENES' => 'Traslado entre almacenes',
+            'CONSIGNACION'             => 'Consignación',
             'IMPORTACION'              => 'Importación',
             'EXPORTACION'              => 'Exportación',
+            'DEVOLUCION'               => 'Devolución',
             default                    => 'Otros',
         };
     }
@@ -75,5 +86,37 @@ class GuiaRemision extends Model
     public function getModalidadLabelAttribute(): string
     {
         return $this->modalidad === 'privado' ? 'Transporte Privado' : 'Transporte Público';
+    }
+
+    public function getTipoDestinoLabelAttribute(): string
+    {
+        return match($this->tipo_destino) {
+            'almacen'   => 'Almacén interno',
+            'cliente'   => 'Cliente',
+            'proveedor' => 'Proveedor',
+            default     => 'Dirección libre',
+        };
+    }
+
+    public function getDestinatarioNombreAttribute(): string
+    {
+        return match($this->tipo_destino) {
+            'almacen'   => $this->almacenDestino?->nombre ?? '—',
+            'cliente'   => $this->cliente ? trim($this->cliente->nombre . ' ' . $this->cliente->apellido) : '—',
+            'proveedor' => $this->proveedor?->razon_social ?? '—',
+            default     => $this->direccion_llegada ?? '—',
+        };
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
+
+    public function puedeAnular(): bool
+    {
+        return in_array($this->estado, ['pendiente', 'en_transito']);
+    }
+
+    public function puedeConfirmar(): bool
+    {
+        return in_array($this->estado, ['pendiente', 'en_transito']);
     }
 }

@@ -124,29 +124,33 @@
                                        placeholder="Nombre completo o razón social">
                                 @error('nombre') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
-                            <div>
+                            <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-                                <input type="text" name="direccion"
+                                <input type="text" name="direccion" x-model="direccion"
                                        class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
-                                       value="{{ old('direccion') }}">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
-                                <input type="text" name="distrito" maxlength="100"
-                                       class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
-                                       value="{{ old('distrito') }}">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                                <input type="text" name="provincia" maxlength="100"
-                                       class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
-                                       value="{{ old('provincia') }}">
+                                       placeholder="Av. / Jr. / Calle...">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
-                                <input type="text" name="departamento" maxlength="100"
+                                <select name="departamento" x-model="departamento"
+                                        class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 bg-white">
+                                    <option value="">— Seleccionar —</option>
+                                    @foreach(['AMAZONAS','ÁNCASH','APURÍMAC','AREQUIPA','AYACUCHO','CAJAMARCA','CALLAO','CUSCO','HUANCAVELICA','HUÁNUCO','ICA','JUNÍN','LA LIBERTAD','LAMBAYEQUE','LIMA','LORETO','MADRE DE DIOS','MOQUEGUA','PASCO','PIURA','PUNO','SAN MARTÍN','TACNA','TUMBES','UCAYALI'] as $dep)
+                                        <option value="{{ $dep }}">{{ $dep }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                                <input type="text" name="provincia" x-model="provincia" maxlength="100"
                                        class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
-                                       value="{{ old('departamento') }}">
+                                       placeholder="Provincia">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
+                                <input type="text" name="distrito" x-model="distrito" maxlength="100"
+                                       class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+                                       placeholder="Distrito">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
@@ -204,6 +208,10 @@
             tipoDocumento:   '{{ old("tipo_documento", "DNI") }}',
             numeroDocumento: '{{ old("numero_documento") }}',
             nombre:          '{{ old("nombre") }}',
+            direccion:       '{{ old("direccion") }}',
+            distrito:        '{{ old("distrito") }}',
+            provincia:       '{{ old("provincia") }}',
+            departamento:    '{{ old("departamento") }}',
             cargando:        false,
             mensaje:         '',
             exito:           false,
@@ -230,7 +238,6 @@
                     const data = await res.json();
 
                     if (data.error) {
-                        // No encontrado — mostrar form vacío para llenado manual
                         this.tipoDocumento   = this.tipoBuscar;
                         this.numeroDocumento = this.numeroBuscar;
                         this.nombre          = '';
@@ -239,10 +246,13 @@
                         this.encontrado      = false;
                         this.formVisible     = true;
                     } else {
-                        // Encontrado — autocompletar
                         this.tipoDocumento   = this.tipoBuscar;
                         this.numeroDocumento = this.numeroBuscar;
                         this.nombre          = data.nombre || data.razon_social || '';
+                        this.direccion       = data.direccion    || '';
+                        this.distrito        = data.distrito     || '';
+                        this.provincia       = data.provincia    || '';
+                        this.departamento    = data.departamento || '';
                         this.mensaje         = 'Datos encontrados y autocargados.';
                         this.exito           = true;
                         this.encontrado      = true;

@@ -24,13 +24,12 @@ class AlmacenController extends Controller
     {
         $estado = $request->get('estado');
 
-        $base = fn() => Almacen::with(['encargado', 'sucursal'])
+        $base = fn() => Almacen::with(['encargado.role', 'sucursal', 'trabajadores.role'])
             ->when($estado, fn($q) => $q->where('estado', $estado));
 
-        $tiendas  = $base()->where('tipo', 'tienda')->orderBy('nombre')->get();
-        $depositos = $base()->whereIn('tipo', ['principal', 'deposito', 'temporal'])->orderBy('nombre')->get();
+        $tiendas   = $base()->where('tipo', 'tienda')->orderBy('nombre')->get();
+        $depositos  = $base()->whereIn('tipo', ['principal', 'deposito', 'temporal'])->orderBy('nombre')->get();
 
-        // Estadísticas
         $stats = [
             'total'    => Almacen::count(),
             'activos'  => Almacen::activos()->count(),
@@ -43,7 +42,28 @@ class AlmacenController extends Controller
         $canEdit   = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
         $canDelete  = auth()->user()->role->nombre === 'Administrador';
 
-        return view('inventario.almacenes.index', compact('tiendas', 'depositos', 'stats', 'canCreate', 'canEdit', 'canDelete'));
+        // Para los modales de crear/editar
+        $usuarios   = User::with('role')->where('estado', 'activo')->orderBy('name')->get();
+        $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get();
+
+        // Datos de todos los almacenes para poblar el modal de editar vía JS
+        $almacenesData = Almacen::with('trabajadores')->get()->map(fn($a) => [
+            'id'           => $a->id,
+            'nombre'       => $a->nombre,
+            'tipo'         => $a->tipo,
+            'estado'       => $a->estado,
+            'sucursal_id'  => $a->sucursal_id,
+            'encargado_id' => $a->encargado_id,
+            'telefono'     => $a->telefono ?? '',
+            'direccion'    => $a->direccion ?? '',
+            'codigo'       => $a->codigo,
+        ])->keyBy('id');
+
+        return view('inventario.almacenes.index', compact(
+            'tiendas', 'depositos', 'stats',
+            'canCreate', 'canEdit', 'canDelete',
+            'usuarios', 'sucursales', 'almacenesData'
+        ));
     }
 
     /**
@@ -51,10 +71,7 @@ class AlmacenController extends Controller
      */
     public function create()
     {
-        $usuarios = User::whereHas('role', function($query) {
-            $query->whereIn('nombre', ['Administrador', 'Almacenero']);
-        })->orderBy('name')->get();
-
+        $usuarios   = User::with('role')->where('estado', 'activo')->orderBy('name')->get();
         $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get();
 
         return view('inventario.almacenes.create', compact('usuarios', 'sucursales'));
@@ -134,10 +151,7 @@ class AlmacenController extends Controller
      */
     public function edit(Almacen $almacen)
     {
-        $usuarios = User::whereHas('role', function($query) {
-            $query->whereIn('nombre', ['Administrador', 'Almacenero']);
-        })->orderBy('name')->get();
-
+        $usuarios   = User::with('role')->where('estado', 'activo')->orderBy('name')->get();
         $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get();
 
         return view('inventario.almacenes.edit', compact('almacen', 'usuarios', 'sucursales'));
