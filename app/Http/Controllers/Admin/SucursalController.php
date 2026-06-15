@@ -43,7 +43,6 @@ class SucursalController extends Controller
     {
         $validated = $request->validate([
             'nombre'        => 'required|string|max:150',
-            'tipo'          => 'required|in:tienda,almacen',
             'direccion'     => 'nullable|string|max:300',
             'departamento'  => 'nullable|string|max:100',
             'provincia'     => 'nullable|string|max:100',
@@ -54,6 +53,8 @@ class SucursalController extends Controller
             'es_principal'  => 'boolean',
             'estado'        => 'required|in:activo,inactivo',
         ]);
+
+        $validated['tipo'] = 'tienda';
 
         $sucursal = $this->sucursalService->crear($validated);
 
@@ -81,7 +82,6 @@ class SucursalController extends Controller
     {
         $validated = $request->validate([
             'nombre'        => 'required|string|max:150',
-            'tipo'          => 'required|in:tienda,almacen',
             'direccion'     => 'nullable|string|max:300',
             'departamento'  => 'nullable|string|max:100',
             'provincia'     => 'nullable|string|max:100',

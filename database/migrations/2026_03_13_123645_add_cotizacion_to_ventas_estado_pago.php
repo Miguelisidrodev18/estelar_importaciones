@@ -14,6 +14,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::table('ventas')->whereNotIn('estado_pago', ['pendiente','pagado','cancelado'])->update(['estado_pago' => 'pendiente']);
         DB::statement("ALTER TABLE ventas MODIFY COLUMN estado_pago ENUM('pendiente','pagado','cancelado') NOT NULL DEFAULT 'pendiente'");
     }
 };

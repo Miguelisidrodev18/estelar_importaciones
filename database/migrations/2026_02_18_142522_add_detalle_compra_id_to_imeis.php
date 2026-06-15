@@ -20,9 +20,9 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::table('imeis', function (Blueprint $table) {
-            $table->dropForeign(['detalle_compra_id']);
-            $table->dropColumn('detalle_compra_id');
-        });
+        if (Schema::hasColumn('imeis', 'detalle_compra_id')) {
+            Schema::table('imeis', fn($t) => $t->dropForeign(['detalle_compra_id']));
+            Schema::table('imeis', fn($t) => $t->dropColumn('detalle_compra_id'));
+        }
     }
 };

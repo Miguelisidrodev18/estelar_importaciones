@@ -12,6 +12,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::table('comision_detalle_venta')->where('tipo_calculo', 'porcentaje_margen')->update(['tipo_calculo' => 'porcentaje']);
         DB::statement("ALTER TABLE comision_detalle_venta MODIFY tipo_calculo ENUM('porcentaje','monto_fijo') NOT NULL");
     }
 };

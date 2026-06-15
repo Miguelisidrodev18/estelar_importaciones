@@ -89,34 +89,9 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::hasTable('producto_precios')) {
-            Schema::table('producto_precios', function (Blueprint $table) {
-                // Eliminar índices
-                try {
-                    $table->dropIndex('idx_pp_almacen_tipo');
-                } catch (\Exception $e) {}
-                
-                try {
-                    $table->dropIndex('idx_pp_variante_almacen');
-                } catch (\Exception $e) {}
-                
-                // Eliminar foreign keys
-                try {
-                    $table->dropForeign(['variante_id']);
-                } catch (\Exception $e) {}
-                
-                try {
-                    $table->dropForeign(['almacen_id']);
-                } catch (\Exception $e) {}
-                
-                // Eliminar columnas
-                $columns = ['precio_compra', 'precio_mayorista', 'margen', 'observaciones', 'variante_id', 'almacen_id'];
-                foreach ($columns as $column) {
-                    if (Schema::hasColumn('producto_precios', $column)) {
-                        $table->dropColumn($column);
-                    }
-                }
-            });
-        }
+        // producto_precios no tiene migración "create" separada; esta migración
+        // es responsable de crearla (else branch) o alterarla. Al hacer rollback
+        // completo la eliminamos para que proveedores pueda soltarse sin conflictos FK.
+        Schema::dropIfExists('producto_precios');
     }
 };

@@ -54,15 +54,9 @@
                                 <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">
                                     {{ $sucursal->codigo }}
                                 </span>
-                                @if($sucursal->tipo === 'tienda')
-                                    <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200 flex items-center gap-1">
-                                        <i class="fas fa-store text-[10px]"></i> Tienda
-                                    </span>
-                                @else
-                                    <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200 flex items-center gap-1">
-                                        <i class="fas fa-warehouse text-[10px]"></i> Almacén
-                                    </span>
-                                @endif
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200 flex items-center gap-1">
+                                    <i class="fas fa-store text-[10px]"></i> Tienda
+                                </span>
                                 @if($sucursal->es_principal)
                                     <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold flex items-center gap-1">
                                         <i class="fas fa-star text-[10px]"></i> Principal

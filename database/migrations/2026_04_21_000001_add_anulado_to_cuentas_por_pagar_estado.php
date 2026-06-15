@@ -12,6 +12,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::table('cuentas_por_pagar')->where('estado', 'anulado')->update(['estado' => 'pendiente']);
         DB::statement("ALTER TABLE cuentas_por_pagar MODIFY COLUMN estado ENUM('pendiente', 'pagado', 'parcial', 'vencido') NOT NULL DEFAULT 'pendiente'");
     }
 };

@@ -58,12 +58,21 @@
                             <label for="tipo" class="block text-sm font-medium text-gray-700 mb-2">
                                 Tipo <span class="text-red-500">*</span>
                             </label>
-                            <select name="tipo" id="tipo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
-                                <option value="principal" {{ old('tipo', $almacen->tipo) == 'principal' ? 'selected' : '' }}>Principal (almacén central)</option>
-                                <option value="tienda"   {{ old('tipo', $almacen->tipo) == 'tienda'   ? 'selected' : '' }}>Tienda (punto de venta)</option>
-                                <option value="deposito" {{ old('tipo', $almacen->tipo) == 'deposito' ? 'selected' : '' }}>Depósito (almacén secundario)</option>
-                                <option value="temporal" {{ old('tipo', $almacen->tipo) == 'temporal' ? 'selected' : '' }}>Temporal</option>
-                            </select>
+                            @if($almacen->sucursal_id)
+                                {{-- Almacén auto-creado con sucursal: tipo bloqueado --}}
+                                <input type="hidden" name="tipo" value="{{ $almacen->tipo }}">
+                                <div class="flex items-center gap-2 px-4 py-2 border border-orange-200 bg-orange-50 rounded-lg text-sm text-orange-700">
+                                    <i class="fas fa-store"></i>
+                                    <span>Tienda (vinculada a sucursal {{ $almacen->sucursal->nombre ?? '' }})</span>
+                                    <span class="ml-auto text-xs text-orange-400">No editable</span>
+                                </div>
+                            @else
+                                <select name="tipo" id="tipo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
+                                    <option value="principal" {{ old('tipo', $almacen->tipo) == 'principal' ? 'selected' : '' }}>Principal (almacén central)</option>
+                                    <option value="deposito" {{ old('tipo', $almacen->tipo) == 'deposito' ? 'selected' : '' }}>Depósito (almacén secundario)</option>
+                                    <option value="temporal" {{ old('tipo', $almacen->tipo) == 'temporal' ? 'selected' : '' }}>Temporal</option>
+                                </select>
+                            @endif
                         </div>
 
                         <div>
@@ -73,24 +82,6 @@
                             <select name="estado" id="estado" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
                                 <option value="activo" {{ old('estado', $almacen->estado) == 'activo' ? 'selected' : '' }}>Activo</option>
                                 <option value="inactivo" {{ old('estado', $almacen->estado) == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
-                            </select>
-                        </div>
-
-                        <!-- Sucursal -->
-                        <div>
-                            <label for="sucursal_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                Sucursal
-                                <span class="ml-1 text-xs text-gray-400">(opcional)</span>
-                            </label>
-                            <select name="sucursal_id" id="sucursal_id"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <option value="">— Sin sucursal —</option>
-                                @foreach($sucursales as $sucursal)
-                                    <option value="{{ $sucursal->id }}"
-                                        {{ old('sucursal_id', $almacen->sucursal_id) == $sucursal->id ? 'selected' : '' }}>
-                                        {{ $sucursal->nombre }}
-                                    </option>
-                                @endforeach
                             </select>
                         </div>
 

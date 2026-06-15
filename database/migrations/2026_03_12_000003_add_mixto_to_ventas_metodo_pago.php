@@ -12,6 +12,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::table('ventas')->where('metodo_pago', 'mixto')->update(['metodo_pago' => 'efectivo']);
         DB::statement("ALTER TABLE ventas MODIFY COLUMN metodo_pago ENUM('efectivo','transferencia','yape','plin') NULL");
     }
 };

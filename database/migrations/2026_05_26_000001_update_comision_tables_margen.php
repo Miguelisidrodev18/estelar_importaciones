@@ -21,9 +21,16 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('comision_detalle_venta', function (Blueprint $table) {
-            $table->dropColumn('margen_calculado');
-        });
+        if (Schema::hasColumn('comision_detalle_venta', 'margen_calculado')) {
+            Schema::table('comision_detalle_venta', function (Blueprint $table) {
+                $table->dropColumn('margen_calculado');
+            });
+        }
+
+        // Convertir valores que no existen en el ENUM original antes de reducirlo
+        DB::table('comision_reglas')
+            ->where('tipo_calculo', 'porcentaje_margen')
+            ->update(['tipo_calculo' => 'porcentaje']);
 
         DB::statement("ALTER TABLE comision_reglas MODIFY tipo_calculo ENUM('porcentaje','monto_fijo') NOT NULL");
     }

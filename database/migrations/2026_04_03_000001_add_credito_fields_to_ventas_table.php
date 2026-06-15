@@ -21,6 +21,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::table('ventas')->where('estado_pago', 'credito')->update(['estado_pago' => 'pendiente']);
         DB::statement("ALTER TABLE ventas MODIFY COLUMN estado_pago ENUM('pendiente','pagado','cancelado','anulado','cotizacion') DEFAULT 'pendiente'");
 
         Schema::table('ventas', function (Blueprint $table) {

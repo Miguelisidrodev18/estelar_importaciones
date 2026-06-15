@@ -87,8 +87,7 @@ class AlmacenController extends Controller
             'direccion'    => 'nullable|string|max:255',
             'telefono'     => 'nullable|string|max:20',
             'encargado_id' => 'nullable|exists:users,id',
-            'sucursal_id'  => 'nullable|exists:sucursales,id',
-            'tipo'         => 'required|in:principal,tienda,deposito,temporal',
+            'tipo'         => 'required|in:principal,deposito,temporal',
             'estado'       => 'required|in:activo,inactivo',
         ], [
             'nombre.required' => 'El nombre del almacén es obligatorio',
@@ -162,13 +161,13 @@ class AlmacenController extends Controller
      */
     public function update(Request $request, Almacen $almacen)
     {
+        $allowedTipos = $almacen->sucursal_id ? 'tienda' : 'principal,deposito,temporal';
         $validated = $request->validate([
             'nombre'       => 'required|string|max:100',
             'direccion'    => 'nullable|string|max:255',
             'telefono'     => 'nullable|string|max:20',
             'encargado_id' => 'nullable|exists:users,id',
-            'sucursal_id'  => 'nullable|exists:sucursales,id',
-            'tipo'         => 'required|in:principal,tienda,deposito,temporal',
+            'tipo'         => 'required|in:' . $allowedTipos,
             'estado'       => 'required|in:activo,inactivo',
         ]);
 

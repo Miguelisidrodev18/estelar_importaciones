@@ -17,8 +17,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('guias_remision', function (Blueprint $table) {
-            $table->dropForeignIdFor(\App\Models\Proveedor::class);
-            $table->dropForeignIdFor(\App\Models\Cliente::class);
+            $table->dropForeign(['proveedor_id']);
+            $table->dropForeign(['cliente_id']);
+        });
+        Schema::table('guias_remision', function (Blueprint $table) {
             $table->dropColumn(['proveedor_id', 'cliente_id']);
         });
     }

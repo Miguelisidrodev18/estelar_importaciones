@@ -84,15 +84,15 @@
             @endif
         </div>
 
-        {{-- Puntos de venta --}}
+        {{-- Almacenes de Tiendas (auto-creados con sucursales) --}}
         <div class="mb-8">
             <div class="flex items-center gap-3 mb-4">
                 <div class="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
                     <i class="fas fa-store text-orange-600"></i>
                 </div>
                 <div>
-                    <h2 class="text-base font-bold text-gray-900">Puntos de Venta</h2>
-                    <p class="text-xs text-gray-400">Tiendas habilitadas para emitir comprobantes</p>
+                    <h2 class="text-base font-bold text-gray-900">Almacenes de Tiendas</h2>
+                    <p class="text-xs text-gray-400">Stock de cada sucursal — se crean automáticamente al crear una sucursal</p>
                 </div>
                 <span class="ml-auto text-xs font-semibold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-700">
                     {{ $tiendas->count() }} registro(s)
@@ -102,7 +102,7 @@
                 @if($tiendas->isEmpty())
                     <div class="py-14 text-center text-gray-400">
                         <i class="fas fa-store text-4xl mb-3 block opacity-30"></i>
-                        <p class="text-sm">No hay puntos de venta registrados.</p>
+                        <p class="text-sm">No hay almacenes de tienda. Se crean al crear una sucursal.</p>
                         @if($canCreate)
                             <button onclick="openAlmacenCreate()" class="inline-flex items-center gap-2 mt-4 text-sm text-blue-600 hover:underline">
                                 <i class="fas fa-plus"></i>Crear punto de venta
@@ -115,15 +115,15 @@
             </div>
         </div>
 
-        {{-- Almacenes / Depósitos --}}
+        {{-- Almacenes Centrales --}}
         <div class="mb-8">
             <div class="flex items-center gap-3 mb-4">
                 <div class="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
                     <i class="fas fa-warehouse text-teal-600"></i>
                 </div>
                 <div>
-                    <h2 class="text-base font-bold text-gray-900">Almacenes</h2>
-                    <p class="text-xs text-gray-400">Depósitos y almacenes de inventario</p>
+                    <h2 class="text-base font-bold text-gray-900">Almacenes Centrales</h2>
+                    <p class="text-xs text-gray-400">Bodegas de distribución — distribuyen mercadería a las sucursales</p>
                 </div>
                 <span class="ml-auto text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-700">
                     {{ $depositos->count() }} registro(s)
@@ -160,8 +160,8 @@
                         <i class="fas fa-warehouse text-white text-xl"></i>
                     </div>
                     <div>
-                        <h2 class="text-white text-xl font-bold">Nuevo Almacén / Tienda</h2>
-                        <p class="text-blue-200 text-sm mt-0.5">Completa los datos del nuevo espacio</p>
+                        <h2 class="text-white text-xl font-bold">Nuevo Almacén Central</h2>
+                        <p class="text-blue-200 text-sm mt-0.5">Bodega de distribución independiente</p>
                     </div>
                     <button onclick="closeAlmacenCreate()" class="ml-auto text-white/70 hover:text-white">
                         <i class="fas fa-times text-lg"></i>
@@ -177,17 +177,16 @@
                             <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
                                 <i class="fas fa-tag mr-1.5"></i>Tipo de espacio <span class="text-red-500">*</span>
                             </p>
-                            <input type="hidden" name="tipo" id="c-tipo" value="{{ old('tipo','tienda') }}">
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <input type="hidden" name="tipo" id="c-tipo" value="{{ old('tipo','principal') }}">
+                            <div class="grid grid-cols-3 gap-2">
                                 @foreach([
-                                    ['tienda',    'fa-store',     'Tienda',    'bg-orange-500', 'hover:border-orange-400 peer-checked:border-orange-500 peer-checked:bg-orange-50', 'text-orange-700'],
                                     ['principal', 'fa-star',      'Principal', 'bg-purple-500', 'hover:border-purple-400 peer-checked:border-purple-500 peer-checked:bg-purple-50', 'text-purple-700'],
                                     ['deposito',  'fa-boxes',     'Depósito',  'bg-teal-500',   'hover:border-teal-400 peer-checked:border-teal-500 peer-checked:bg-teal-50',     'text-teal-700'],
                                     ['temporal',  'fa-clock',     'Temporal',  'bg-gray-500',   'hover:border-gray-400 peer-checked:border-gray-500 peer-checked:bg-gray-50',     'text-gray-700'],
                                 ] as [$val, $ico, $lbl, $badge, $card, $txt])
                                 <label class="relative cursor-pointer">
                                     <input type="radio" name="_c_tipo_card" value="{{ $val }}" class="peer sr-only"
-                                           {{ old('tipo','tienda') === $val ? 'checked' : '' }}
+                                           {{ old('tipo','principal') === $val ? 'checked' : '' }}
                                            onchange="document.getElementById('c-tipo').value=this.value">
                                     <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all {{ $card }} peer-checked:shadow-md">
                                         <div class="w-8 h-8 rounded-full {{ $badge }} mx-auto mb-1 flex items-center justify-center">
@@ -218,18 +217,6 @@
                                            placeholder="Ej. Tienda Principal Huancayo"
                                            class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     @error('nombre')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Sucursal</label>
-                                    <select name="sucursal_id"
-                                            class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                                        <option value="">— Sin sucursal —</option>
-                                        @foreach($sucursales as $suc)
-                                            <option value="{{ $suc->id }}" {{ old('sucursal_id') == $suc->id ? 'selected' : '' }}>
-                                                {{ $suc->nombre }}
-                                            </option>
-                                        @endforeach
-                                    </select>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Estado <span class="text-red-500">*</span></label>
@@ -267,7 +254,7 @@
 
                         <div class="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
                             <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
-                            <span>El código del almacén se generará automáticamente al guardar.</span>
+                            <span>El código se generará automáticamente. Los almacenes de tienda se crean automáticamente con cada sucursal.</span>
                         </div>
                     </div>
 

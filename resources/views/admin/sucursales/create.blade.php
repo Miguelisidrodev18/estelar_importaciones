@@ -18,7 +18,7 @@
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex gap-3">
             <i class="fas fa-info-circle text-blue-500 mt-0.5"></i>
             <div class="text-sm text-blue-700">
-                <strong>Proceso automático:</strong> Al crear la sucursal, el sistema generará automáticamente un código único (S001, S002…), un almacén vinculado y las series de comprobantes estándar (FA, BA, FC, FD, T, CO).
+                <strong>Proceso automático:</strong> Al crear la sucursal, el sistema generará automáticamente un código único (S001, S002…), un almacén de tienda vinculado y las series de comprobantes estándar (FA, BA, FC, FD, T, CO). Los almacenes centrales de distribución se gestionan por separado en el módulo de Almacenes.
             </div>
         </div>
 
@@ -28,38 +28,17 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                    {{-- Tipo de sucursal --}}
+                    {{-- Badge informativo: siempre es tienda --}}
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Sucursal *</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <label class="relative flex cursor-pointer">
-                                <input type="radio" name="tipo" value="tienda" class="sr-only peer"
-                                    {{ old('tipo', 'tienda') === 'tienda' ? 'checked' : '' }}>
-                                <div class="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all">
-                                    <div class="w-10 h-10 rounded-lg bg-blue-100 peer-checked:bg-blue-200 flex items-center justify-center shrink-0">
-                                        <i class="fas fa-store text-blue-600 text-lg"></i>
-                                    </div>
-                                    <div>
-                                        <p class="font-semibold text-gray-800 text-sm">Tienda</p>
-                                        <p class="text-xs text-gray-500">Punto de venta / emisión de comprobantes</p>
-                                    </div>
-                                </div>
-                            </label>
-                            <label class="relative flex cursor-pointer">
-                                <input type="radio" name="tipo" value="almacen" class="sr-only peer"
-                                    {{ old('tipo') === 'almacen' ? 'checked' : '' }}>
-                                <div class="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
-                                    <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                                        <i class="fas fa-warehouse text-indigo-600 text-lg"></i>
-                                    </div>
-                                    <div>
-                                        <p class="font-semibold text-gray-800 text-sm">Almacén</p>
-                                        <p class="text-xs text-gray-500">Depósito / control de inventario</p>
-                                    </div>
-                                </div>
-                            </label>
+                        <div class="flex items-center gap-3 p-4 rounded-xl border-2 border-blue-400 bg-blue-50">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
+                                <i class="fas fa-store text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-blue-800 text-sm">Tienda / Punto de Venta</p>
+                                <p class="text-xs text-blue-600">Gestiona su propio stock y emite comprobantes. Los almacenes de distribución son independientes.</p>
+                            </div>
                         </div>
-                        @error('tipo')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
 
                     <div class="md:col-span-2">

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -27,6 +28,14 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Limpiar FKs huérfanas de otras tablas que referencian proveedores
+        $refs = DB::select("SELECT TABLE_NAME, CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+            WHERE REFERENCED_TABLE_NAME='proveedores' AND TABLE_SCHEMA=DATABASE()");
+        foreach ($refs as $ref) {
+            try {
+                DB::statement("ALTER TABLE `{$ref->TABLE_NAME}` DROP FOREIGN KEY `{$ref->CONSTRAINT_NAME}`");
+            } catch (\Exception $e) {}
+        }
         Schema::dropIfExists('proveedores');
     }
 };

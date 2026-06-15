@@ -51,12 +51,25 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('caja', function (Blueprint $table) {
-            $table->dropColumn(['sucursal_id', 'fecha_apertura', 'fecha_cierre',
+            if (Schema::hasColumn('caja', 'sucursal_id')) {
+                $table->dropForeign(['sucursal_id']);
+            }
+        });
+        Schema::table('caja', function (Blueprint $table) {
+            $cols = ['sucursal_id', 'fecha_apertura', 'fecha_cierre',
                 'observaciones_apertura', 'observaciones_cierre',
-                'monto_real_cierre', 'diferencia_cierre']);
+                'monto_real_cierre', 'diferencia_cierre'];
+            $table->dropColumn(array_filter($cols, fn($c) => Schema::hasColumn('caja', $c)));
+        });
+
+        Schema::table('movimientos_caja', function (Blueprint $table) {
+            if (Schema::hasColumn('movimientos_caja', 'user_id')) {
+                $table->dropForeign(['user_id']);
+            }
         });
         Schema::table('movimientos_caja', function (Blueprint $table) {
-            $table->dropColumn(['metodo_pago', 'referencia', 'user_id']);
+            $cols = ['metodo_pago', 'referencia', 'user_id'];
+            $table->dropColumn(array_filter($cols, fn($c) => Schema::hasColumn('movimientos_caja', $c)));
         });
     }
 };

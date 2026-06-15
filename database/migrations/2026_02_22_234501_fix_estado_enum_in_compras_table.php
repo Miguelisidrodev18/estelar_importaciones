@@ -17,6 +17,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::table('compras')->whereNotIn('estado', ['registrado','anulado'])->update(['estado' => 'registrado']);
         DB::statement("ALTER TABLE compras MODIFY COLUMN estado ENUM('registrado','anulado') NOT NULL DEFAULT 'registrado'");
     }
 };
