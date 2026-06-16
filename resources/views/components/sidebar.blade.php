@@ -137,10 +137,21 @@
                                     <i class="fas fa-tags mr-3 text-sm"></i>Gestión de Precios
                                 </a>
                             </li>
+                            @php
+                                $cpcVencidas = \App\Models\CuentaPorCobrar::where(function($q) {
+                                    $q->where('estado', 'vencido')
+                                      ->orWhere(fn($s) => $s->where('estado', 'vigente')->where('fecha_vencimiento_final', '<', now()));
+                                })->count();
+                            @endphp
                             <li>
                                 <a href="{{ route('cuentas-por-cobrar.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('cuentas-por-cobrar.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-hand-holding-usd mr-3 text-sm"></i>Cuentas por Cobrar
+                                    @if($cpcVencidas > 0)
+                                        <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                                            {{ $cpcVencidas > 99 ? '99+' : $cpcVencidas }}
+                                        </span>
+                                    @endif
                                 </a>
                             </li>
                             <li>

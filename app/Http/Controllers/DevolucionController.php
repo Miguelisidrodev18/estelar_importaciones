@@ -88,18 +88,25 @@ class DevolucionController extends Controller
 
     public function create(Request $request)
     {
-        $clientes = Cliente::activos()->orderBy('nombre')->get();
+        $clientes  = Cliente::activos()->orderBy('nombre')->get();
         $almacenes = Almacen::activos()->orderBy('nombre')->get();
 
-        // Si viene cliente_id, cargamos sus ventas con detalles
-        $ventas = collect();
+        $ventas    = collect();
         $clienteId = $request->input('cliente_id');
+
         if ($clienteId) {
-            $ventas = Venta::with(['detalles.producto', 'detalles.variante', 'detalles.imei'])
+            $ventas = Venta::with([
+                    'detalles.producto',
+                    'detalles.variante',
+                    'detalles.imei',
+                    'detalles.movimientosDevolucion',
+                ])
                 ->where('cliente_id', $clienteId)
                 ->where('estado_pago', 'pagado')
                 ->orderBy('fecha', 'desc')
-                ->get();
+                ->get()
+                // Solo mostrar ventas que aún tienen algo devolvible
+                ->filter(fn($v) => $v->detalles->some(fn($d) => $d->cantidad_disponible > 0));
         }
 
         return view('devoluciones.create', compact('clientes', 'almacenes', 'ventas', 'clienteId'));
@@ -107,68 +114,80 @@ class DevolucionController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'cliente_id'      => 'required|exists:clientes,id',
-            'almacen_id'      => 'required|exists:almacenes,id',
-            'detalle_ids'     => 'required|array|min:1',
-            'detalle_ids.*'   => 'required|exists:detalle_ventas,id',
-            'observaciones'   => 'nullable|string',
-            // Guía de remisión
-            'guia.motivo_traslado'   => 'nullable|string|max:50',
-            'guia.modalidad'         => 'nullable|in:privado,publico',
-            'guia.fecha_traslado'    => 'nullable|date',
-            'guia.direccion_partida' => 'nullable|string|max:300',
-            'guia.ubigeo_partida'    => 'nullable|string|max:6',
-            'guia.direccion_llegada' => 'nullable|string|max:300',
-            'guia.ubigeo_llegada'    => 'nullable|string|max:6',
-            'guia.conductor_dni'     => 'nullable|string|max:8',
-            'guia.conductor_nombre'  => 'nullable|string|max:200',
-            'guia.conductor_licencia'=> 'nullable|string|max:20',
-            'guia.placa_vehiculo'    => 'nullable|string|max:20',
+        $request->validate([
+            'cliente_id'   => 'required|exists:clientes,id',
+            'almacen_id'   => 'required|exists:almacenes,id',
+            'cantidades'   => 'required|array|min:1',
+            'cantidades.*' => 'integer|min:0',
+            'observaciones'              => 'nullable|string',
+            'guia.motivo_traslado'       => 'nullable|string|max:50',
+            'guia.modalidad'             => 'nullable|in:privado,publico',
+            'guia.fecha_traslado'        => 'nullable|date',
+            'guia.direccion_partida'     => 'nullable|string|max:300',
+            'guia.ubigeo_partida'        => 'nullable|string|max:6',
+            'guia.direccion_llegada'     => 'nullable|string|max:300',
+            'guia.ubigeo_llegada'        => 'nullable|string|max:6',
+            'guia.conductor_dni'         => 'nullable|string|max:8',
+            'guia.conductor_nombre'      => 'nullable|string|max:200',
+            'guia.conductor_licencia'    => 'nullable|string|max:20',
+            'guia.placa_vehiculo'        => 'nullable|string|max:20',
         ]);
 
-        try {
-            DB::transaction(function () use ($validated) {
-                $almacenId   = $validated['almacen_id'];
-                $numeroGuia  = 'DEV-' . strtoupper(uniqid());
-                $guiaCreada  = false;
+        // Filtrar solo los que tienen cantidad > 0
+        $cantidades = collect($request->cantidades)->filter(fn($c) => (int) $c > 0);
 
-                foreach ($validated['detalle_ids'] as $detalleId) {
-                    $detalle = DetalleVenta::with(['producto', 'imei', 'variante'])->findOrFail($detalleId);
+        if ($cantidades->isEmpty()) {
+            return back()->withInput()->with('error', 'Debe indicar al menos 1 unidad a devolver.');
+        }
+
+        try {
+            DB::transaction(function () use ($request, $cantidades) {
+                $almacenId  = $request->almacen_id;
+                $numeroGuia = 'DEV-' . strtoupper(uniqid());
+
+                foreach ($cantidades as $detalleId => $cantidadSolicitada) {
+                    $detalle = DetalleVenta::with(['producto', 'imei', 'variante', 'movimientosDevolucion'])
+                                           ->findOrFail($detalleId);
+
+                    $disponible = $detalle->cantidad_disponible;
+
+                    if ($disponible <= 0) {
+                        throw new \Exception("El producto «{$detalle->producto?->nombre}» ya fue devuelto en su totalidad.");
+                    }
+
+                    $cantidad = min((int) $cantidadSolicitada, $disponible);
 
                     $stockAnterior = StockAlmacen::obtenerOCrear($detalle->producto_id, $almacenId)->cantidad;
 
-                    // Crear movimiento de devolución
                     MovimientoInventario::create([
-                        'producto_id'        => $detalle->producto_id,
-                        'variante_id'        => $detalle->variante_id,
-                        'almacen_id'         => $almacenId,
-                        'user_id'            => auth()->id(),
-                        'tipo_movimiento'    => 'devolucion',
-                        'cantidad'           => $detalle->cantidad,
-                        'stock_anterior'     => $stockAnterior,
-                        'stock_nuevo'        => $stockAnterior + $detalle->cantidad,
-                        'motivo'             => 'Devolución de cliente',
+                        'producto_id'          => $detalle->producto_id,
+                        'variante_id'          => $detalle->variante_id,
+                        'detalle_venta_id'     => $detalle->id,
+                        'almacen_id'           => $almacenId,
+                        'user_id'              => auth()->id(),
+                        'tipo_movimiento'      => 'devolucion',
+                        'cantidad'             => $cantidad,
+                        'stock_anterior'       => $stockAnterior,
+                        'stock_nuevo'          => $stockAnterior + $cantidad,
+                        'motivo'               => 'Devolución de cliente',
                         'documento_referencia' => $detalle->venta?->codigo,
-                        'numero_guia'        => $numeroGuia,
-                        'observaciones'      => $validated['observaciones'] ?? null,
-                        'estado'             => 'confirmado',
+                        'numero_guia'          => $numeroGuia,
+                        'observaciones'        => $request->observaciones,
+                        'estado'               => 'confirmado',
                     ]);
 
-                    // Para productos tipo serie: devolver el IMEI a stock
+                    // Para productos tipo serie (IMEI)
                     if ($detalle->imei_id && $detalle->imei) {
                         $detalle->imei->update([
                             'estado_imei' => Imei::ESTADO_EN_STOCK,
                             'almacen_id'  => $almacenId,
                         ]);
 
-                        // Recalcular stock_actual del producto desde conteo real de IMEIs
                         $totalStock = Imei::where('producto_id', $detalle->producto_id)
                             ->where('estado_imei', Imei::ESTADO_EN_STOCK)
                             ->count();
                         $detalle->producto->update(['stock_actual' => $totalStock]);
 
-                        // Sincronizar variante si existe
                         if ($detalle->variante_id && $detalle->variante) {
                             $varianteStock = Imei::where('producto_id', $detalle->producto_id)
                                 ->where('variante_id', $detalle->variante_id)
@@ -177,28 +196,23 @@ class DevolucionController extends Controller
                             $detalle->variante->update(['stock_actual' => $varianteStock]);
                         }
                     } else {
-                        // Para productos por cantidad: incrementar stock en almacén
+                        // Para productos por cantidad
                         StockAlmacen::obtenerOCrear($detalle->producto_id, $almacenId)
-                            ->incrementar($detalle->cantidad);
+                            ->incrementar($cantidad);
 
                         if ($detalle->variante) {
-                            // incrementarStock() sincroniza Producto.stock_actual desde suma de variantes
-                            $detalle->variante->incrementarStock($detalle->cantidad);
+                            $detalle->variante->incrementarStock($cantidad);
                         } else {
-                            // Sin variante: recalcular desde SUM(StockAlmacen) para consistencia
                             $totalStock = StockAlmacen::where('producto_id', $detalle->producto_id)->sum('cantidad');
                             $detalle->producto->update(['stock_actual' => $totalStock]);
                         }
                     }
-
-                    $guiaCreada = true;
                 }
 
-                // Crear Guía de Remisión si hay datos
-                if ($guiaCreada && !empty($validated['guia']['fecha_traslado'])) {
+                if (!empty($request->input('guia.fecha_traslado'))) {
                     GuiaRemision::create(array_merge(
                         ['numero_guia' => $numeroGuia, 'motivo_traslado' => 'DEVOLUCION'],
-                        $validated['guia'] ?? []
+                        $request->input('guia', [])
                     ));
                 }
             });

@@ -44,6 +44,7 @@ class MovimientoInventario extends Model
         'usuario_confirma_id',
         'fecha_confirmacion',
         'variante_id',
+        'detalle_venta_id',
     ];
 
     /**
@@ -88,6 +89,11 @@ class MovimientoInventario extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function detalleVenta()
+    {
+        return $this->belongsTo(DetalleVenta::class);
     }
 
     /**

@@ -48,4 +48,20 @@ class DetalleVenta extends Model
     {
         return $this->belongsTo(ProductoVariante::class, 'variante_id');
     }
+
+    public function movimientosDevolucion()
+    {
+        return $this->hasMany(MovimientoInventario::class)
+                    ->where('tipo_movimiento', 'devolucion');
+    }
+
+    public function getCantidadDevueltaAttribute(): int
+    {
+        return $this->movimientosDevolucion()->sum('cantidad');
+    }
+
+    public function getCantidadDisponibleAttribute(): int
+    {
+        return max(0, $this->cantidad - $this->cantidad_devuelta);
+    }
 }
