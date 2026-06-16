@@ -13,8 +13,8 @@
 
     <div class="md:ml-64 p-4 md:p-8">
         <x-header
-            title="Almacenes y Tiendas"
-            subtitle="Puntos de venta y almacenes de inventario"
+            title="Almacenes"
+            subtitle="Almacenes centrales y almacenes de tienda"
         />
 
         @if(session('success'))
@@ -54,9 +54,9 @@
                 <p class="text-xs text-gray-400 mt-1"><i class="fas fa-store mr-1"></i>Puntos de venta</p>
             </div>
             <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-teal-500">
-                <p class="text-xs text-gray-500 font-medium">Depósitos</p>
+                <p class="text-xs text-gray-500 font-medium">Centrales</p>
                 <p class="text-3xl font-bold text-gray-900 mt-1">{{ $stats['depositos'] }}</p>
-                <p class="text-xs text-gray-400 mt-1"><i class="fas fa-boxes mr-1"></i>Almacenes</p>
+                <p class="text-xs text-gray-400 mt-1"><i class="fas fa-warehouse mr-1"></i>Almacenes</p>
             </div>
         </div>
 
@@ -172,83 +172,32 @@
                     @csrf
                     <div class="px-6 py-5 space-y-4 max-h-[75vh] overflow-y-auto">
 
-                        {{-- Tipo (tarjetas visuales) --}}
-                        <div>
-                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-                                <i class="fas fa-tag mr-1.5"></i>Tipo de espacio <span class="text-red-500">*</span>
-                            </p>
-                            <input type="hidden" name="tipo" id="c-tipo" value="{{ old('tipo','principal') }}">
-                            <div class="grid grid-cols-3 gap-2">
-                                @foreach([
-                                    ['principal', 'fa-star',      'Principal', 'bg-purple-500', 'hover:border-purple-400 peer-checked:border-purple-500 peer-checked:bg-purple-50', 'text-purple-700'],
-                                    ['deposito',  'fa-boxes',     'Depósito',  'bg-teal-500',   'hover:border-teal-400 peer-checked:border-teal-500 peer-checked:bg-teal-50',     'text-teal-700'],
-                                    ['temporal',  'fa-clock',     'Temporal',  'bg-gray-500',   'hover:border-gray-400 peer-checked:border-gray-500 peer-checked:bg-gray-50',     'text-gray-700'],
-                                ] as [$val, $ico, $lbl, $badge, $card, $txt])
-                                <label class="relative cursor-pointer">
-                                    <input type="radio" name="_c_tipo_card" value="{{ $val }}" class="peer sr-only"
-                                           {{ old('tipo','principal') === $val ? 'checked' : '' }}
-                                           onchange="document.getElementById('c-tipo').value=this.value">
-                                    <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all {{ $card }} peer-checked:shadow-md">
-                                        <div class="w-8 h-8 rounded-full {{ $badge }} mx-auto mb-1 flex items-center justify-center">
-                                            <i class="fas {{ $ico }} text-white text-xs"></i>
-                                        </div>
-                                        <p class="text-xs font-semibold {{ $txt }}">{{ $lbl }}</p>
-                                    </div>
-                                    <div class="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-blue-600 hidden peer-checked:flex items-center justify-center">
-                                        <i class="fas fa-check text-white text-[7px]"></i>
-                                    </div>
-                                </label>
-                                @endforeach
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                                <input type="text" name="nombre" id="c-nombre" value="{{ old('nombre') }}" required
+                                       placeholder="Ej. Almacén Central Lima"
+                                       class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                @error('nombre')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                             </div>
-                            @error('tipo')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                        </div>
-
-                        <hr class="border-gray-100">
-
-                        {{-- Datos básicos --}}
-                        <div>
-                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-                                <i class="fas fa-info-circle mr-1.5"></i>Información
-                            </p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
-                                    <input type="text" name="nombre" id="c-nombre" value="{{ old('nombre') }}" required
-                                           placeholder="Ej. Tienda Principal Huancayo"
-                                           class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    @error('nombre')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Estado <span class="text-red-500">*</span></label>
-                                    <select name="estado" required
-                                            class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                                        <option value="activo"   {{ old('estado','activo') === 'activo'   ? 'selected' : '' }}>Activo</option>
-                                        <option value="inactivo" {{ old('estado') === 'inactivo' ? 'selected' : '' }}>Inactivo</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Encargado</label>
-                                    <select name="encargado_id"
-                                            class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                                        <option value="">Sin asignar</option>
-                                        @foreach($usuarios as $u)
-                                            <option value="{{ $u->id }}" {{ old('encargado_id') == $u->id ? 'selected' : '' }}>
-                                                {{ $u->name }} ({{ $u->role?->nombre ?? '—' }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                                    <input type="text" name="telefono" value="{{ old('telefono') }}"
-                                           placeholder="999 000 000"
-                                           class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div class="sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-                                    <textarea name="direccion" rows="2" placeholder="Dirección completa"
-                                              class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ old('direccion') }}</textarea>
-                                </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Estado <span class="text-red-500">*</span></label>
+                                <select name="estado" required
+                                        class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="activo"   {{ old('estado','activo') === 'activo'   ? 'selected' : '' }}>Activo</option>
+                                    <option value="inactivo" {{ old('estado') === 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                <input type="text" name="telefono" value="{{ old('telefono') }}"
+                                       placeholder="999 000 000"
+                                       class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                                <textarea name="direccion" rows="2" placeholder="Dirección completa"
+                                          class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ old('direccion') }}</textarea>
                             </div>
                         </div>
 
@@ -302,89 +251,35 @@
                     @method('PUT')
                     <div class="px-6 py-5 space-y-4 max-h-[75vh] overflow-y-auto">
 
-                        {{-- Tipo tarjetas --}}
-                        <div>
-                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-                                <i class="fas fa-tag mr-1.5"></i>Tipo de espacio <span class="text-red-500">*</span>
-                            </p>
-                            <input type="hidden" name="tipo" id="e-tipo">
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                @foreach([
-                                    ['tienda',    'fa-store',     'Tienda',    'bg-orange-500', 'hover:border-orange-400 peer-checked:border-orange-500 peer-checked:bg-orange-50', 'text-orange-700'],
-                                    ['principal', 'fa-star',      'Principal', 'bg-purple-500', 'hover:border-purple-400 peer-checked:border-purple-500 peer-checked:bg-purple-50', 'text-purple-700'],
-                                    ['deposito',  'fa-boxes',     'Depósito',  'bg-teal-500',   'hover:border-teal-400 peer-checked:border-teal-500 peer-checked:bg-teal-50',     'text-teal-700'],
-                                    ['temporal',  'fa-clock',     'Temporal',  'bg-gray-500',   'hover:border-gray-400 peer-checked:border-gray-500 peer-checked:bg-gray-50',     'text-gray-700'],
-                                ] as [$val, $ico, $lbl, $badge, $card, $txt])
-                                <label class="relative cursor-pointer">
-                                    <input type="radio" name="_e_tipo_card" value="{{ $val }}" class="peer sr-only"
-                                           onchange="document.getElementById('e-tipo').value=this.value">
-                                    <div class="border-2 border-gray-200 rounded-xl p-3 text-center transition-all {{ $card }} peer-checked:shadow-md">
-                                        <div class="w-8 h-8 rounded-full {{ $badge }} mx-auto mb-1 flex items-center justify-center">
-                                            <i class="fas {{ $ico }} text-white text-xs"></i>
-                                        </div>
-                                        <p class="text-xs font-semibold {{ $txt }}">{{ $lbl }}</p>
-                                    </div>
-                                    <div class="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-amber-500 hidden peer-checked:flex items-center justify-center">
-                                        <i class="fas fa-check text-white text-[7px]"></i>
-                                    </div>
-                                </label>
-                                @endforeach
-                            </div>
+                        {{-- Badge informativo solo para almacenes de tienda --}}
+                        <div id="e-alm-tienda-badge" class="hidden flex items-center gap-2 px-3 py-2.5 bg-orange-50 border border-orange-200 rounded-xl text-xs text-orange-800">
+                            <i class="fas fa-store text-orange-500"></i>
+                            <span>Almacén de tienda — vinculado a la sucursal <strong id="e-alm-sucursal-nombre"></strong>. Creado automáticamente.</span>
                         </div>
 
-                        <hr class="border-gray-100">
-
-                        {{-- Datos --}}
-                        <div>
-                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-                                <i class="fas fa-info-circle mr-1.5"></i>Información
-                            </p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
-                                    <input type="text" name="nombre" id="e-alm-nombre" required
-                                           class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Sucursal</label>
-                                    <select name="sucursal_id" id="e-alm-sucursal"
-                                            class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                                        <option value="">— Sin sucursal —</option>
-                                        @foreach($sucursales as $suc)
-                                            <option value="{{ $suc->id }}">{{ $suc->nombre }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Estado <span class="text-red-500">*</span></label>
-                                    <select name="estado" id="e-alm-estado" required
-                                            class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                                        <option value="activo">Activo</option>
-                                        <option value="inactivo">Inactivo</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Encargado</label>
-                                    <select name="encargado_id" id="e-alm-encargado"
-                                            class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                                        <option value="">Sin asignar</option>
-                                        @foreach($usuarios as $u)
-                                            <option value="{{ $u->id }}">
-                                                {{ $u->name }} ({{ $u->role?->nombre ?? '—' }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                                    <input type="text" name="telefono" id="e-alm-telefono"
-                                           class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                </div>
-                                <div class="sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-                                    <textarea name="direccion" id="e-alm-direccion" rows="2"
-                                              class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"></textarea>
-                                </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                                <input type="text" name="nombre" id="e-alm-nombre" required
+                                       class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Estado <span class="text-red-500">*</span></label>
+                                <select name="estado" id="e-alm-estado" required
+                                        class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                                    <option value="activo">Activo</option>
+                                    <option value="inactivo">Inactivo</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                <input type="text" name="telefono" id="e-alm-telefono"
+                                       class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                                <textarea name="direccion" id="e-alm-direccion" rows="2"
+                                          class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"></textarea>
                             </div>
                         </div>
                     </div>
@@ -432,15 +327,16 @@
         document.getElementById('e-alm-nombre').value    = a.nombre;
         document.getElementById('e-alm-telefono').value  = a.telefono;
         document.getElementById('e-alm-direccion').value = a.direccion;
-        document.getElementById('e-alm-sucursal').value  = a.sucursal_id ?? '';
         document.getElementById('e-alm-estado').value    = a.estado;
-        document.getElementById('e-alm-encargado').value = a.encargado_id ?? '';
 
-        // Tipo: marcar tarjeta
-        document.getElementById('e-tipo').value = a.tipo;
-        document.querySelectorAll('input[name="_e_tipo_card"]').forEach(r => {
-            r.checked = r.value === a.tipo;
-        });
+        // Badge sucursal (solo para almacenes de tienda)
+        const badge = document.getElementById('e-alm-tienda-badge');
+        if (a.es_tienda) {
+            document.getElementById('e-alm-sucursal-nombre').textContent = a.sucursal_nombre;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
 
         // Action
         document.getElementById('e-alm-form').action = updateBaseUrl + '/' + id;

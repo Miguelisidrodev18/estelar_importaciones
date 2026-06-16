@@ -74,6 +74,62 @@
             </div>
         </div>
 
+        {{-- Filtros --}}
+        <form method="GET" action="{{ route('ventas.index') }}" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                {{-- Búsqueda --}}
+                <div class="lg:col-span-2">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Buscar código / cliente</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                            <i class="fas fa-search text-xs"></i>
+                        </span>
+                        <input type="text" name="buscar" value="{{ request('buscar') }}"
+                               placeholder="Código de venta o nombre de cliente..."
+                               class="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                {{-- Estado pago --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Estado pago</label>
+                    <select name="estado_pago" class="w-full py-2 px-3 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos</option>
+                        <option value="pagado"    {{ request('estado_pago') === 'pagado'    ? 'selected' : '' }}>Pagado</option>
+                        <option value="pendiente" {{ request('estado_pago') === 'pendiente' ? 'selected' : '' }}>Pendiente</option>
+                        <option value="parcial"   {{ request('estado_pago') === 'parcial'   ? 'selected' : '' }}>Parcial</option>
+                    </select>
+                </div>
+
+                {{-- Fecha desde --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Desde</label>
+                    <input type="date" name="fecha_desde" value="{{ request('fecha_desde') }}"
+                           class="w-full py-2 px-3 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                {{-- Fecha hasta --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Hasta</label>
+                    <input type="date" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
+                           class="w-full py-2 px-3 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            <div class="flex items-center gap-2 mt-3">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                    <i class="fas fa-search mr-1"></i>Filtrar
+                </button>
+                @if(request()->hasAny(['buscar','estado_pago','tipo_comprobante','fecha_desde','fecha_hasta']))
+                    <a href="{{ route('ventas.index') }}" class="text-sm text-gray-500 hover:text-gray-700 px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-times mr-1"></i>Limpiar
+                    </a>
+                    <span class="text-xs text-blue-600 font-medium">
+                        {{ $ventas->total() }} resultado(s) encontrado(s)
+                    </span>
+                @endif
+            </div>
+        </form>
+
         {{-- Table card --}}
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 

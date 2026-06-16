@@ -34,9 +34,8 @@ class SucursalController extends Controller
 
     public function create()
     {
-        $almacenes  = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
-        $esPrimera  = Sucursal::count() === 0;
-        return view('admin.sucursales.create', compact('almacenes', 'esPrimera'));
+        $esPrimera = Sucursal::count() === 0;
+        return view('admin.sucursales.create', compact('esPrimera'));
     }
 
     public function store(Request $request)
@@ -71,11 +70,10 @@ class SucursalController extends Controller
             'series' => fn($q) => $q->orderBy('tipo_comprobante'),
             'pagos',
         ]);
-        $almacenes    = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
         $tiposPagos   = ['yape', 'plin', 'transferencia', 'pos'];
         $pagosIndexed = $sucursal->pagos->keyBy('tipo_pago');
 
-        return view('admin.sucursales.edit', compact('sucursal', 'almacenes', 'tiposPagos', 'pagosIndexed'));
+        return view('admin.sucursales.edit', compact('sucursal', 'tiposPagos', 'pagosIndexed'));
     }
 
     public function update(Request $request, Sucursal $sucursal)
@@ -89,7 +87,6 @@ class SucursalController extends Controller
             'ubigeo'        => 'nullable|string|max:6',
             'telefono'      => 'nullable|string|max:20',
             'email'         => 'nullable|email|max:150',
-            'almacen_id'    => 'nullable|exists:almacenes,id',
             'es_principal'  => 'boolean',
             'estado'        => 'required|in:activo,inactivo',
         ]);

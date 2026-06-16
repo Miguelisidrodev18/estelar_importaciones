@@ -52,7 +52,7 @@ $catalogoJson = $productos->map(fn($p) => [
 
          /* ── Otros campos ─────────────────────────── */
          cantidad: {{ old('cantidad', 1) }},
-         motivoId: '{{ old(''motivo_movimiento_id'', '''') }}',
+         motivoId: '{{ old('motivo_movimiento_id', '') }}',
          observaciones: '',
          motivos: {{ Js::from($motivos) }},
          get motivosFiltrados() {
@@ -66,6 +66,7 @@ $catalogoJson = $productos->map(fn($p) => [
          /* ── Getters ──────────────────────────────── */
          get esCelular()      { return this.productoTipo === 'serie'; },
          get esIngresoCelular(){ return this.tipoMovimiento === 'ingreso' && this.esCelular; },
+         get labelAlmacen()   { return this.tipoMovimiento === 'ingreso' ? 'Almacén Destino' : 'Almacén Origen'; },
          get formularioValido() {
              if (!this.tipoMovimiento) return false;
              if (!this.productoId)     return false;
@@ -408,19 +409,33 @@ $catalogoJson = $productos->map(fn($p) => [
                             @enderror
                         </div>
 
-                        {{-- Almacén origen --}}
+                        {{-- Almacén --}}
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                                Almacén <span class="text-red-500">*</span>
+                                <span x-text="tipoMovimiento ? labelAlmacen : 'Almacén'"></span>
+                                <span class="text-red-500">*</span>
                             </label>
                             <select name="almacen_id" x-model="almacenId" @change="onAlmacenChange()"
                                     class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">— Selecciona un almacén —</option>
-                                @foreach($almacenes as $alm)
-                                    <option value="{{ $alm->id }}" {{ old('almacen_id') == $alm->id ? 'selected' : '' }}>
-                                        {{ $alm->nombre }}
-                                    </option>
-                                @endforeach
+                                @if($almacenesCentral->isNotEmpty())
+                                    <optgroup label="── Almacenes Centrales">
+                                        @foreach($almacenesCentral as $alm)
+                                            <option value="{{ $alm->id }}" {{ old('almacen_id') == $alm->id ? 'selected' : '' }}>
+                                                {{ $alm->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($almacenesTienda->isNotEmpty())
+                                    <optgroup label="── Almacenes de Tienda">
+                                        @foreach($almacenesTienda as $alm)
+                                            <option value="{{ $alm->id }}" {{ old('almacen_id') == $alm->id ? 'selected' : '' }}>
+                                                {{ $alm->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
                             </select>
                             @error('almacen_id')
                                 <p class="text-xs text-red-600 mt-1">{{ $message }}</p>

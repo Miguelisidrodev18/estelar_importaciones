@@ -74,12 +74,12 @@ class MovimientoInventarioController extends Controller
      */
     public function create()
     {
-        $productos = Producto::activos()->orderBy('nombre')->get();
-        $almacenes = Almacen::activos()->orderBy('nombre')->get();
-        $motivos   = MotivoMovimiento::activos()->orderBy('nombre')->get()
-                        ->groupBy('tipo');
+        $productos        = Producto::activos()->orderBy('nombre')->get();
+        $almacenesCentral = Almacen::activos()->whereIn('tipo', ['principal','deposito','temporal'])->orderBy('nombre')->get();
+        $almacenesTienda  = Almacen::activos()->where('tipo', 'tienda')->orderBy('nombre')->get();
+        $motivos          = MotivoMovimiento::activos()->orderBy('nombre')->get()->groupBy('tipo');
 
-        return view('inventario.movimientos.create', compact('productos', 'almacenes', 'motivos'));
+        return view('inventario.movimientos.create', compact('productos', 'almacenesCentral', 'almacenesTienda', 'motivos'));
     }
 
     /**

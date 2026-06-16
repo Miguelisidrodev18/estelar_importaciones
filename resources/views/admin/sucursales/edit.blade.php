@@ -138,17 +138,18 @@
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Almacén vinculado</label>
-                        <select name="almacen_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                            <option value="">— Sin almacén —</option>
-                            @foreach($almacenes as $alm)
-                                <option value="{{ $alm->id }}" {{ old('almacen_id', $sucursal->almacen_id) == $alm->id ? 'selected' : '' }}>
-                                    {{ $alm->nombre }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Almacén de Tienda</label>
                         @if($sucursal->almacen)
-                            <p class="text-xs text-gray-400 mt-1">Vinculado: <strong>{{ $sucursal->almacen->nombre }}</strong></p>
+                            <div class="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+                                <i class="fas fa-warehouse text-orange-500 text-sm"></i>
+                                <span class="text-sm text-orange-800 font-medium">{{ $sucursal->almacen->nombre }}</span>
+                                <span class="ml-auto text-xs text-orange-500 bg-orange-100 px-2 py-0.5 rounded-full">Auto-generado</span>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">Generado automáticamente al crear la sucursal. No editable desde aquí.</p>
+                        @else
+                            <div class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-400 italic">
+                                Sin almacén vinculado
+                            </div>
                         @endif
                     </div>
                     <div>

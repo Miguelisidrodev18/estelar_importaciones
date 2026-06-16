@@ -259,9 +259,10 @@ Route::middleware('auth')->group(function () {
 
         // REPORTES DE INVENTARIO (HU-INVENTARIO-06/07/08)
         Route::middleware('role:Administrador')->group(function () {
-            Route::get('/reportes/stock-valorizado', [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'stockValorizado'])->name('reportes.stock-valorizado');
-            Route::get('/reportes/kardex',           [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'kardex'])->name('reportes.kardex');
-            Route::get('/reportes/abc',              [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'analisisAbc'])->name('reportes.abc');
+            Route::get('/reportes/stock-valorizado',        [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'stockValorizado'])->name('reportes.stock-valorizado');
+            Route::get('/reportes/kardex',                  [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'kardex'])->name('reportes.kardex');
+            Route::get('/reportes/abc',                     [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'analisisAbc'])->name('reportes.abc');
+            Route::get('/reportes/valorizacion-prorateada', [\App\Http\Controllers\Inventario\InventarioReportesController::class, 'valorizacionProrateada'])->name('reportes.valorizacion-prorateada');
         });
 
     });
@@ -323,6 +324,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/{compra}/edit', [CompraController::class, 'edit'])->name('edit');
         Route::put('/{compra}', [CompraController::class, 'update'])->name('update');
         Route::post('/{compra}/anular', [CompraController::class, 'anular'])->name('anular');
+        Route::post('/{compra}/recalcular-prorrateo', [CompraController::class, 'recalcularProrrateo'])->name('recalcular-prorrateo');
         Route::delete('/{compra}', [CompraController::class, 'destroy'])->name('destroy');
         Route::delete('/{compra}/detalle/{detalle}', [CompraController::class, 'destroyDetalle'])->name('detalle.destroy');
         Route::get('/{compra}/detalle/{detalle}/imeis', [CompraController::class, 'getImeis'])->name('detalle.imeis');
@@ -398,6 +400,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/ventas',     [ReporteVentasController::class, 'index'])->name('ventas');
         Route::get('/ventas/csv', [ReporteVentasController::class, 'exportCsv'])->name('ventas.csv');
         Route::get('/ventas/pdf', [ReporteVentasController::class, 'exportPdf'])->name('ventas.pdf');
+
+        Route::get('/compras',     [\App\Http\Controllers\ReporteComprasController::class, 'index'])->name('compras');
+        Route::get('/compras/csv', [\App\Http\Controllers\ReporteComprasController::class, 'exportCsv'])->name('compras.csv');
     });
 
     // ========================================

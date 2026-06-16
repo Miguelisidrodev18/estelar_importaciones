@@ -145,14 +145,17 @@ class CompraService
                 $this->registrarMovimientoCaja($compra);
             }
             
-            // 5. Registrar en log para auditoría
+            // 5. Calcular prorrateo de gastos de importación
+            $this->aplicarProrrateo($compra->fresh(['detalles.producto', 'detalles.variante']));
+
+            // 6. Registrar en log para auditoría
             Log::info('Compra registrada', [
                 'compra_id' => $compra->id,
                 'user_id' => $compra->user_id,
                 'total' => $compra->total,
                 'productos' => count($detalles)
             ]);
-            
+
             return $compra->fresh([
                 'detalles.producto',
                 'proveedor',
@@ -160,6 +163,62 @@ class CompraService
                 'usuario',
             ]);
         });
+    }
+
+    /**
+     * Distribuir los gastos de importación proporcionalmente entre las líneas
+     * de detalle y calcular el costo unitario final en soles.
+     * Se puede llamar desde el controller para recalcular compras existentes.
+     */
+    public function aplicarProrrateo(Compra $compra): void
+    {
+        $tc = (float)($compra->tipo_cambio ?? 1);
+        if ($tc <= 0) $tc = 1;
+
+        // Total gastos de importación convertidos a PEN
+        $gastosPen = 0;
+        if ($compra->tipo_compra === 'importacion') {
+            $gastosPen =
+                (((float)($compra->flete_usd    ?? 0))
+                + ((float)($compra->seguro_usd   ?? 0))
+                + ((float)($compra->otros_usd    ?? 0))
+                + ((float)($compra->impuestos_usd ?? 0))) * $tc
+                + (float)($compra->transporte_local_pen ?? 0)
+                + (float)($compra->impuestos_pen        ?? 0)
+                + (float)($compra->percepcion_pen       ?? 0);
+        }
+
+        // Valor total de productos en PEN (base del prorrateo)
+        $esUsd = $compra->tipo_moneda === 'USD';
+        $totalSubtotalPen = $compra->detalles->sum(
+            fn($d) => (float)$d->subtotal * ($esUsd ? $tc : 1)
+        );
+
+        if ($totalSubtotalPen <= 0) return;
+
+        foreach ($compra->detalles as $detalle) {
+            $subtotalPen  = (float)$detalle->subtotal * ($esUsd ? $tc : 1);
+            $proporcion   = $subtotalPen / $totalSubtotalPen;
+            $gastoAsignado = $proporcion * $gastosPen;
+            $cantidad      = max(1, (int)$detalle->cantidad);
+
+            $costoProrrateadoUnitario = $gastoAsignado / $cantidad;
+            $precioUnitarioPen        = (float)$detalle->precio_unitario * ($esUsd ? $tc : 1);
+            $costoFinalPen            = $precioUnitarioPen + $costoProrrateadoUnitario;
+
+            $detalle->update([
+                'costo_prorateado_pen'    => round($costoProrrateadoUnitario, 4),
+                'costo_unitario_final_pen' => round($costoFinalPen, 4),
+            ]);
+
+            // Actualizar costo del producto/variante con el costo real en PEN
+            if ($detalle->producto) {
+                $this->actualizarPrecioProducto($detalle->producto, $costoFinalPen);
+            }
+            if ($detalle->variante) {
+                $this->actualizarCostoVariante($detalle->variante, $costoFinalPen);
+            }
+        }
     }
     
     /**

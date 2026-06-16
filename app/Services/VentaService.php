@@ -14,6 +14,7 @@ use App\Models\CuentaPorCobrar;
 use App\Models\CuotaCobro;
 use App\Models\PagoCredito;
 use App\Models\AuditoriaVenta;
+use App\Models\Caja;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +48,19 @@ class VentaService
      */
     public function crearVenta(array $datosVenta, array $detalles, ?array $pago = null, ?array $creditoData = null)
     {
+        $esContado = ($datosVenta['condicion_pago'] ?? 'contado') !== 'credito' && empty($creditoData);
+        $estaPagado = ($datosVenta['estado_pago'] ?? 'pagado') === 'pagado';
+
+        if ($esContado && $estaPagado && auth()->check()) {
+            $cajaAbierta = Caja::where('user_id', auth()->id())
+                ->where('estado', 'abierta')
+                ->exists();
+
+            if (!$cajaAbierta) {
+                throw new \Exception('Debe abrir caja antes de registrar una venta al contado. Vaya a Caja → Abrir Caja.');
+            }
+        }
+
         return DB::transaction(function () use ($datosVenta, $detalles, $pago, $creditoData) {
 
             // Extraer guia_data antes de crear la venta (no es columna de ventas)
@@ -763,8 +777,7 @@ class VentaService
             if ($varianteId) {
                 $variante = \App\Models\ProductoVariante::find($varianteId);
                 if ($variante) {
-                    $nuevoStock = max(0, $variante->stock_actual - $cantidad);
-                    $variante->update(['stock_actual' => $nuevoStock]);
+                    $variante->decrementarStock($cantidad);
                 }
             }
         }

@@ -26,7 +26,7 @@ class ImeiController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Imei::with(['producto', 'almacen', 'color', 'variante.color']);
+        $query = Imei::with(['producto', 'almacen', 'color', 'variante.color', 'compra.proveedor']);
 
         if ($request->filled('buscar')) {
             $query->where(function($q) use ($request) {
@@ -193,6 +193,7 @@ class ImeiController extends Controller
             'almacen',
             'color',
             'usuarioRegistro',
+            'compra.proveedor',
             'movimientos' => fn($q) => $q->with('usuario')->latest(),
         ]);
 

@@ -42,27 +42,22 @@ class AlmacenController extends Controller
         $canEdit   = in_array(auth()->user()->role->nombre, ['Administrador', 'Almacenero']);
         $canDelete  = auth()->user()->role->nombre === 'Administrador';
 
-        // Para los modales de crear/editar
-        $usuarios   = User::with('role')->where('estado', 'activo')->orderBy('name')->get();
-        $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get();
-
         // Datos de todos los almacenes para poblar el modal de editar vía JS
-        $almacenesData = Almacen::with('trabajadores')->get()->map(fn($a) => [
-            'id'           => $a->id,
-            'nombre'       => $a->nombre,
-            'tipo'         => $a->tipo,
-            'estado'       => $a->estado,
-            'sucursal_id'  => $a->sucursal_id,
-            'encargado_id' => $a->encargado_id,
-            'telefono'     => $a->telefono ?? '',
-            'direccion'    => $a->direccion ?? '',
-            'codigo'       => $a->codigo,
+        $almacenesData = Almacen::with('sucursal')->get()->map(fn($a) => [
+            'id'             => $a->id,
+            'nombre'         => $a->nombre,
+            'estado'         => $a->estado,
+            'telefono'       => $a->telefono ?? '',
+            'direccion'      => $a->direccion ?? '',
+            'codigo'         => $a->codigo,
+            'es_tienda'      => $a->tipo === 'tienda',
+            'sucursal_nombre'=> $a->sucursal?->nombre ?? '',
         ])->keyBy('id');
 
         return view('inventario.almacenes.index', compact(
             'tiendas', 'depositos', 'stats',
             'canCreate', 'canEdit', 'canDelete',
-            'usuarios', 'sucursales', 'almacenesData'
+            'almacenesData'
         ));
     }
 
@@ -71,10 +66,7 @@ class AlmacenController extends Controller
      */
     public function create()
     {
-        $usuarios   = User::with('role')->where('estado', 'activo')->orderBy('name')->get();
-        $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get();
-
-        return view('inventario.almacenes.create', compact('usuarios', 'sucursales'));
+        return view('inventario.almacenes.create');
     }
 
     /**
@@ -83,18 +75,16 @@ class AlmacenController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nombre'       => 'required|string|max:100',
-            'direccion'    => 'nullable|string|max:255',
-            'telefono'     => 'nullable|string|max:20',
-            'encargado_id' => 'nullable|exists:users,id',
-            'tipo'         => 'required|in:principal,deposito,temporal',
-            'estado'       => 'required|in:activo,inactivo',
+            'nombre'    => 'required|string|max:100',
+            'direccion' => 'nullable|string|max:255',
+            'telefono'  => 'nullable|string|max:20',
+            'estado'    => 'required|in:activo,inactivo',
         ], [
             'nombre.required' => 'El nombre del almacén es obligatorio',
-            'tipo.required'   => 'Debe seleccionar el tipo de almacén',
         ]);
 
         $validated['codigo'] = Almacen::generarCodigo();
+        $validated['tipo']   = 'principal';
 
         Almacen::create($validated);
 
@@ -150,10 +140,7 @@ class AlmacenController extends Controller
      */
     public function edit(Almacen $almacen)
     {
-        $usuarios   = User::with('role')->where('estado', 'activo')->orderBy('name')->get();
-        $sucursales = Sucursal::where('estado', 'activo')->orderBy('nombre')->get();
-
-        return view('inventario.almacenes.edit', compact('almacen', 'usuarios', 'sucursales'));
+        return view('inventario.almacenes.edit', compact('almacen'));
     }
 
     /**
@@ -161,14 +148,11 @@ class AlmacenController extends Controller
      */
     public function update(Request $request, Almacen $almacen)
     {
-        $allowedTipos = $almacen->sucursal_id ? 'tienda' : 'principal,deposito,temporal';
         $validated = $request->validate([
-            'nombre'       => 'required|string|max:100',
-            'direccion'    => 'nullable|string|max:255',
-            'telefono'     => 'nullable|string|max:20',
-            'encargado_id' => 'nullable|exists:users,id',
-            'tipo'         => 'required|in:' . $allowedTipos,
-            'estado'       => 'required|in:activo,inactivo',
+            'nombre'    => 'required|string|max:100',
+            'direccion' => 'nullable|string|max:255',
+            'telefono'  => 'nullable|string|max:20',
+            'estado'    => 'required|in:activo,inactivo',
         ]);
 
         $almacen->update($validated);

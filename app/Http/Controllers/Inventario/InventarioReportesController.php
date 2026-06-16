@@ -347,6 +347,103 @@ class InventarioReportesController extends Controller
     }
 
     // ══════════════════════════════════════════════════════
+    //  Valorización con Costo Prorateado de Importaciones
+    // ══════════════════════════════════════════════════════
+
+    public function valorizacionProrateada(Request $request)
+    {
+        $categoriaId = $request->categoria_id;
+        $soloConProrrateo = $request->boolean('solo_prorrateo', false);
+
+        // Último costo prorateado por producto desde detalle_compras
+        $costosPorProducto = DetalleCompra::selectRaw('
+                producto_id,
+                MAX(compra_id) as ultima_compra_id,
+                AVG(costo_unitario_final_pen) as costo_prorateado_promedio,
+                MAX(costo_unitario_final_pen) as costo_prorateado_ultimo
+            ')
+            ->where('costo_unitario_final_pen', '>', 0)
+            ->groupBy('producto_id')
+            ->get()
+            ->keyBy('producto_id');
+
+        $productos = Producto::with('categoria')
+            ->where('estado', 'activo')
+            ->where('stock_actual', '>', 0)
+            ->when($categoriaId, fn($q) => $q->where('categoria_id', $categoriaId))
+            ->when($soloConProrrateo, fn($q) => $q->whereIn('id', $costosPorProducto->keys()))
+            ->orderBy('nombre')
+            ->get()
+            ->map(function ($p) use ($costosPorProducto) {
+                $datosProrrateo = $costosPorProducto[$p->id] ?? null;
+                $costoProrateado = $datosProrrateo ? (float) $datosProrrateo->costo_prorateado_ultimo : 0;
+                $costoPromedio   = (float) ($p->costo_promedio ?: $p->ultimo_costo_compra ?: 0);
+
+                return [
+                    'id'                    => $p->id,
+                    'nombre'                => $p->nombre,
+                    'codigo'                => $p->codigo,
+                    'categoria'             => $p->categoria?->nombre ?? '—',
+                    'stock'                 => $p->stock_actual,
+                    'costo_cpp'             => $costoPromedio,
+                    'costo_prorateado'      => $costoProrateado,
+                    'tiene_prorrateo'       => $costoProrateado > 0,
+                    'diferencia'            => $costoProrateado - $costoPromedio,
+                    'valor_al_cpp'          => $p->stock_actual * $costoPromedio,
+                    'valor_prorateado'      => $costoProrateado > 0 ? $p->stock_actual * $costoProrateado : null,
+                ];
+            });
+
+        $totales = [
+            'items'             => $productos->count(),
+            'unidades'          => $productos->sum('stock'),
+            'valor_cpp'         => $productos->sum('valor_al_cpp'),
+            'valor_prorateado'  => $productos->filter(fn($p) => $p['valor_prorateado'] !== null)->sum('valor_prorateado'),
+            'con_prorrateo'     => $productos->filter(fn($p) => $p['tiene_prorrateo'])->count(),
+        ];
+
+        $categorias = Categoria::activas()->orderBy('nombre')->get();
+
+        if ($request->export === 'csv') {
+            return $this->exportarValorizacionCsv($productos, $totales);
+        }
+
+        return view('inventario.reportes.valorizacion-prorateada', compact(
+            'productos', 'totales', 'categorias', 'categoriaId', 'soloConProrrateo'
+        ));
+    }
+
+    private function exportarValorizacionCsv($productos, array $totales)
+    {
+        return response()->streamDownload(function () use ($productos, $totales) {
+            $h = fopen('php://output', 'w');
+            fprintf($h, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            fputcsv($h, ['Código','Producto','Categoría','Stock','Costo CPP (S/)','Costo Prorateado (S/)','Diferencia (S/)','Valor al CPP (S/)','Valor Prorateado (S/)']);
+
+            foreach ($productos as $p) {
+                fputcsv($h, [
+                    $p['codigo'], $p['nombre'], $p['categoria'], $p['stock'],
+                    number_format($p['costo_cpp'], 4),
+                    $p['tiene_prorrateo'] ? number_format($p['costo_prorateado'], 4) : '—',
+                    $p['tiene_prorrateo'] ? number_format($p['diferencia'], 4) : '—',
+                    number_format($p['valor_al_cpp'], 2),
+                    $p['valor_prorateado'] !== null ? number_format($p['valor_prorateado'], 2) : '—',
+                ]);
+            }
+
+            fputcsv($h, []);
+            fputcsv($h, [
+                'TOTALES','','', $totales['unidades'], '','','',
+                number_format($totales['valor_cpp'], 2),
+                $totales['valor_prorateado'] > 0 ? number_format($totales['valor_prorateado'], 2) : '—',
+            ]);
+
+            fclose($h);
+        }, 'valorizacion-prorateada-'.now()->format('Ymd').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    // ══════════════════════════════════════════════════════
     //  HU-INVENTARIO-07 — Kardex Valorizado
     // ══════════════════════════════════════════════════════
 

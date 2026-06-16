@@ -499,6 +499,172 @@
                     @endif
                 </div>
 
+                <!-- ══════════════════════════════════════════════════════════
+                     PRORRATEO DE COSTOS DE IMPORTACIÓN
+                     Solo se muestra cuando tipo_compra = importacion
+                     ══════════════════════════════════════════════════════════ -->
+                @if($tc === 'importacion')
+                @php
+                    $tcVal   = (float)($compra->tipo_cambio ?? 1);
+                    $esUsd   = $compra->tipo_moneda === 'USD';
+
+                    $gastosPen =
+                        (((float)($compra->flete_usd     ?? 0))
+                        + ((float)($compra->seguro_usd    ?? 0))
+                        + ((float)($compra->otros_usd     ?? 0))
+                        + ((float)($compra->impuestos_usd ?? 0))) * $tcVal
+                        + (float)($compra->transporte_local_pen ?? 0)
+                        + (float)($compra->impuestos_pen        ?? 0)
+                        + (float)($compra->percepcion_pen       ?? 0);
+
+                    $totalSubtotalPen = $compra->detalles->sum(
+                        fn($d) => (float)$d->subtotal * ($esUsd ? $tcVal : 1)
+                    );
+
+                    $tieneProrrateo = $compra->detalles->first()?->costo_unitario_final_pen > 0;
+                @endphp
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <div class="bg-gradient-to-r from-orange-600 to-amber-500 px-6 py-4 flex items-center justify-between">
+                        <h2 class="font-bold text-white flex items-center gap-2">
+                            <i class="fas fa-calculator"></i>
+                            Prorrateo de Costos de Importación
+                        </h2>
+                        <div class="flex items-center gap-3">
+                            @if($gastosPen > 0)
+                                <span class="text-orange-100 text-sm">
+                                    Total gastos: <strong class="text-white">S/ {{ number_format($gastosPen, 2) }}</strong>
+                                </span>
+                            @endif
+                            @if(auth()->user()->role->nombre === 'Administrador')
+                            <form action="{{ route('compras.recalcular-prorrateo', $compra) }}" method="POST">
+                                @csrf
+                                <button type="submit"
+                                        class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg transition flex items-center gap-1.5"
+                                        title="Recalcula el prorrateo con los gastos actuales">
+                                    <i class="fas fa-sync-alt"></i> Recalcular
+                                </button>
+                            </form>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if($gastosPen <= 0)
+                    <div class="px-6 py-5 flex items-center gap-3 text-amber-700 bg-amber-50">
+                        <i class="fas fa-info-circle text-lg"></i>
+                        <p class="text-sm">Esta compra no tiene gastos de importación registrados (flete, seguro, impuestos, etc.). El costo sugerido es el precio de compra convertido a soles.</p>
+                    </div>
+                    @endif
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-orange-50 border-b border-orange-100">
+                                <tr>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-orange-800 uppercase">Producto</th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-orange-800 uppercase">Cant.</th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-orange-800 uppercase">
+                                        Precio Unit.<br><span class="text-orange-500 normal-case font-normal">({{ $compra->tipo_moneda }})</span>
+                                    </th>
+                                    @if($esUsd)
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-orange-800 uppercase">
+                                        Precio Unit.<br><span class="text-orange-500 normal-case font-normal">(PEN, TC {{ number_format($tcVal, 3) }})</span>
+                                    </th>
+                                    @endif
+                                    @if($gastosPen > 0)
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-orange-800 uppercase">
+                                        Gasto prorateado<br><span class="text-orange-500 normal-case font-normal">/unidad (S/)</span>
+                                    </th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-orange-800 uppercase">% del total</th>
+                                    @endif
+                                    <th class="px-5 py-3 text-right text-xs font-bold text-green-800 uppercase bg-green-50">
+                                        Costo sugerido<br><span class="text-green-600 normal-case font-normal">/unidad (S/)</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach($compra->detalles as $detalle)
+                                @php
+                                    $subtotalPen    = (float)$detalle->subtotal * ($esUsd ? $tcVal : 1);
+                                    $proporcion     = $totalSubtotalPen > 0 ? $subtotalPen / $totalSubtotalPen : 0;
+                                    $gastoAsignado  = $proporcion * $gastosPen;
+                                    $cantidad       = max(1, (int)$detalle->cantidad);
+                                    $proUnitPen     = $gastoAsignado / $cantidad;
+                                    $precioUnitPen  = (float)$detalle->precio_unitario * ($esUsd ? $tcVal : 1);
+                                    // Preferir el valor guardado; si aún es 0, calcular en vivo
+                                    $costoFinalPen  = (float)$detalle->costo_unitario_final_pen > 0
+                                                        ? (float)$detalle->costo_unitario_final_pen
+                                                        : ($precioUnitPen + $proUnitPen);
+                                    $gastoSaved     = (float)$detalle->costo_prorateado_pen > 0
+                                                        ? (float)$detalle->costo_prorateado_pen
+                                                        : $proUnitPen;
+                                @endphp
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-5 py-3">
+                                        <p class="font-medium text-gray-900">{{ $detalle->producto->nombre ?? '-' }}</p>
+                                        @php
+                                            $varLabel = trim(
+                                                ($detalle->variante?->color?->nombre ?? $detalle->color?->nombre ?? '')
+                                                . ($detalle->variante?->capacidad ? ' / ' . $detalle->variante->capacidad : '')
+                                            );
+                                        @endphp
+                                        @if($varLabel)
+                                            <p class="text-xs text-gray-400">{{ $varLabel }}</p>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-3 text-right font-semibold text-gray-900">{{ $detalle->cantidad }}</td>
+                                    <td class="px-5 py-3 text-right text-gray-700">
+                                        {{ $compra->moneda_simbolo }} {{ number_format($detalle->precio_unitario, 2) }}
+                                    </td>
+                                    @if($esUsd)
+                                    <td class="px-5 py-3 text-right text-gray-700">
+                                        S/ {{ number_format($precioUnitPen, 2) }}
+                                    </td>
+                                    @endif
+                                    @if($gastosPen > 0)
+                                    <td class="px-5 py-3 text-right text-orange-700 font-medium">
+                                        + S/ {{ number_format($gastoSaved, 2) }}
+                                    </td>
+                                    <td class="px-5 py-3 text-right text-gray-500">
+                                        {{ number_format($proporcion * 100, 1) }}%
+                                    </td>
+                                    @endif
+                                    <td class="px-5 py-3 text-right font-bold text-green-800 bg-green-50">
+                                        S/ {{ number_format($costoFinalPen, 2) }}
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            @if($gastosPen > 0)
+                            <tfoot class="bg-orange-50 border-t-2 border-orange-200">
+                                <tr>
+                                    @php
+                                        // cols: Producto + Cant + Precio(moneda) [+ Precio PEN si USD] [+ Gasto/ud + %]
+                                        $colspanNota = 2 + ($esUsd ? 1 : 0) + ($gastosPen > 0 ? 2 : 0);
+                                    @endphp
+                                    <td colspan="{{ $colspanNota }}"
+                                        class="px-5 py-3 text-xs text-orange-700">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Los gastos (S/ {{ number_format($gastosPen, 2) }}) se distribuyen en proporción al valor de cada línea.
+                                        TC aplicado: {{ number_format($tcVal, 3) }}
+                                    </td>
+                                    <td class="px-5 py-3 text-right text-xs font-semibold text-orange-800">Total gastos:</td>
+                                    <td class="px-5 py-3 text-right font-bold text-orange-900 bg-orange-100">
+                                        S/ {{ number_format($gastosPen, 2) }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                            @endif
+                        </table>
+                    </div>
+
+                    @if(!$tieneProrrateo && $compra->detalles->isNotEmpty())
+                    <div class="px-6 py-3 bg-yellow-50 border-t border-yellow-200 flex items-center gap-2 text-yellow-800 text-xs">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Los valores de costo sugerido se muestran calculados en tiempo real. Para guardarlos en el sistema usa <strong class="ml-1">Recalcular</strong>.
+                    </div>
+                    @endif
+                </div>
+                @endif
+
                 <!-- IMEIs por detalle -->
                 @php $detallesSerie = $compra->detalles->filter(fn($d) => $d->producto->tipo_inventario === 'serie'); @endphp
                 @if($detallesSerie->isNotEmpty())

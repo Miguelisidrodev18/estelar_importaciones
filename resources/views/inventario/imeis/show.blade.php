@@ -298,6 +298,23 @@
                                 <p class="text-sm text-gray-600 mb-1">Fecha de ingreso</p>
                                 <p class="font-semibold text-gray-900">{{ $imei->fecha_ingreso ? $imei->fecha_ingreso->format('d/m/Y') : $imei->created_at->format('d/m/Y') }}</p>
                             </div>
+                            @if($imei->compra?->proveedor)
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">Proveedor</p>
+                                <p class="font-semibold text-gray-900">{{ $imei->compra->proveedor->razon_social }}</p>
+                                @if($imei->compra->proveedor->ruc)
+                                    <p class="text-xs text-gray-500">RUC: {{ $imei->compra->proveedor->ruc }}</p>
+                                @endif
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">Compra</p>
+                                <a href="{{ route('compras.show', $imei->compra_id) }}"
+                                   class="font-semibold text-blue-700 hover:underline">
+                                    {{ $imei->compra->numero_factura }}
+                                </a>
+                                <p class="text-xs text-gray-500">{{ $imei->compra->fecha ? $imei->compra->fecha->format('d/m/Y') : '' }}</p>
+                            </div>
+                            @endif
                         </div>
                     </div>
                 </div>

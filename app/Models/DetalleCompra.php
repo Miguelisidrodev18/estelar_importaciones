@@ -24,6 +24,8 @@ class DetalleCompra extends Model
         'descuento',
         'subtotal',
         'codigo_barras',
+        'costo_prorateado_pen',
+        'costo_unitario_final_pen',
     ];
 
     protected $casts = [
@@ -31,6 +33,8 @@ class DetalleCompra extends Model
         'precio_unitario' => 'decimal:2',
         'descuento' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'costo_prorateado_pen' => 'decimal:4',
+        'costo_unitario_final_pen' => 'decimal:4',
     ];
 
     public function compra()

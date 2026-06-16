@@ -222,6 +222,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Variante</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Almacén</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proveedor</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Fecha Registro</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
@@ -268,6 +269,18 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="text-sm text-gray-900">{{ $imei->almacen->nombre ?? '-' }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @if($imei->compra?->proveedor)
+                                    <a href="{{ route('compras.show', $imei->compra_id) }}"
+                                       class="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                                       title="Ver compra {{ $imei->compra->numero_factura }}">
+                                        {{ $imei->compra->proveedor->razon_social }}
+                                    </a>
+                                    <p class="text-xs text-gray-400">{{ $imei->compra->numero_factura }}</p>
+                                @else
+                                    <span class="text-xs text-gray-400 italic">—</span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 @if($imei->estado_imei == 'en_stock')

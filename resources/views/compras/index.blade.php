@@ -76,11 +76,81 @@
             </div>
         </div>
 
+        {{-- Filtros --}}
+        <form method="GET" action="{{ route('compras.index') }}" class="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+                {{-- Búsqueda --}}
+                <div class="lg:col-span-2">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Buscar factura / código</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                            <i class="fas fa-search text-xs"></i>
+                        </span>
+                        <input type="text" name="buscar" value="{{ request('buscar') }}"
+                               placeholder="Nº factura o código..."
+                               class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                {{-- Proveedor --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Proveedor</label>
+                    <select name="proveedor_id" class="w-full py-2 px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos</option>
+                        @foreach($proveedores as $prov)
+                            <option value="{{ $prov->id }}" {{ request('proveedor_id') == $prov->id ? 'selected' : '' }}>
+                                {{ $prov->razon_social }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Tipo --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
+                    <select name="tipo_compra" class="w-full py-2 px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos</option>
+                        <option value="local"       {{ request('tipo_compra') === 'local'       ? 'selected' : '' }}>Local</option>
+                        <option value="importacion" {{ request('tipo_compra') === 'importacion' ? 'selected' : '' }}>Importación</option>
+                    </select>
+                </div>
+
+                {{-- Fecha desde --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Desde</label>
+                    <input type="date" name="fecha_desde" value="{{ request('fecha_desde') }}"
+                           class="w-full py-2 px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                {{-- Fecha hasta + botones --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Hasta</label>
+                    <input type="date" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
+                           class="w-full py-2 px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 mt-3">
+                <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-search mr-1"></i>Filtrar
+                </button>
+                @if(request()->hasAny(['buscar','proveedor_id','tipo_compra','estado','fecha_desde','fecha_hasta']))
+                    <a href="{{ route('compras.index') }}" class="text-sm text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-times mr-1"></i>Limpiar
+                    </a>
+                    <span class="text-xs text-blue-600 font-medium">
+                        {{ $compras->total() }} resultado(s) encontrado(s)
+                    </span>
+                @endif
+            </div>
+        </form>
+
         {{-- Tabla --}}
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h3 class="text-lg font-semibold text-gray-800">
                     <i class="fas fa-list mr-2 text-blue-600"></i>Historial de Compras
+                    <span class="text-sm font-normal text-gray-500 ml-2">({{ $compras->total() }} en total)</span>
                 </h3>
                 <a href="{{ route('compras.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm">
                     <i class="fas fa-plus mr-2"></i>Nueva Compra
@@ -228,6 +298,12 @@
                     </tbody>
                 </table>
             </div>
+            {{-- Paginación --}}
+            @if($compras->hasPages())
+                <div class="px-6 py-4 border-t border-gray-200">
+                    {{ $compras->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </body>

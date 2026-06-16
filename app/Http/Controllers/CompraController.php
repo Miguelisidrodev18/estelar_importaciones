@@ -33,13 +33,43 @@ class CompraController extends Controller
         $this->codigoBarrasService = $codigoBarrasService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $compras = Compra::with('proveedor', 'usuario', 'almacen')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-            
-        return view('compras.index', compact('compras'));
+        $query = Compra::with(['proveedor', 'usuario', 'almacen', 'cuentaPorPagar'])
+            ->orderBy('created_at', 'desc');
+
+        if ($request->filled('buscar')) {
+            $q = $request->buscar;
+            $query->where(function ($w) use ($q) {
+                $w->where('numero_factura', 'like', "%{$q}%")
+                  ->orWhere('codigo', 'like', "%{$q}%");
+            });
+        }
+
+        if ($request->filled('proveedor_id')) {
+            $query->where('proveedor_id', $request->proveedor_id);
+        }
+
+        if ($request->filled('tipo_compra')) {
+            $query->where('tipo_compra', $request->tipo_compra);
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        if ($request->filled('fecha_desde')) {
+            $query->whereDate('fecha', '>=', $request->fecha_desde);
+        }
+
+        if ($request->filled('fecha_hasta')) {
+            $query->whereDate('fecha', '<=', $request->fecha_hasta);
+        }
+
+        $compras    = $query->paginate(15)->withQueryString();
+        $proveedores = Proveedor::where('estado', 'activo')->orderBy('razon_social')->get();
+
+        return view('compras.index', compact('compras', 'proveedores'));
     }
 
     public function create()
@@ -48,10 +78,16 @@ class CompraController extends Controller
             ->orderBy('razon_social')
             ->get();
             
-        $almacenes = Almacen::where('estado', 'activo')
+        $almacenesCentral = Almacen::where('estado', 'activo')
+            ->whereIn('tipo', ['principal', 'deposito', 'temporal'])
             ->orderBy('nombre')
             ->get();
-            
+
+        $almacenesTienda = Almacen::where('estado', 'activo')
+            ->where('tipo', 'tienda')
+            ->orderBy('nombre')
+            ->get();
+
         $marcas = Marca::where('estado', 'activo')->orderBy('nombre')->get();
 
         $productos = Producto::with(['categoria', 'marca', 'modelo', 'variantesActivas.color'])
@@ -88,13 +124,7 @@ class CompraController extends Controller
         $categorias = Categoria::activas()->orderBy('nombre')->get();
         $unidades   = UnidadMedida::where('estado', 'activo')->orderBy('nombre')->get();
 
-        // Obtener todas las sucursales (tiendas y almacenes principales)
-        $sucursales = Sucursal::where('estado', 'activo')
-            ->with(['almacenes' => fn($q) => $q->where('estado', 'activo')->orderBy('nombre')])
-            ->orderBy('nombre')
-            ->get();
-
-        return view('compras.create', compact('proveedores', 'almacenes', 'productos', 'colores', 'marcas', 'categorias', 'sucursales', 'unidades'));
+        return view('compras.create', compact('proveedores', 'almacenesCentral', 'almacenesTienda', 'productos', 'colores', 'marcas', 'categorias', 'unidades'));
     }
 
     public function store(Request $request)
@@ -937,4 +967,23 @@ public function getProductoDetalle($id)
         ], 500);
     }
 }
+
+    /**
+     * Recalcular prorrateo de una compra existente (útil si se editaron gastos)
+     */
+    public function recalcularProrrateo(Compra $compra)
+    {
+        try {
+            $compra->load(['detalles.producto', 'detalles.variante']);
+            $this->compraService->aplicarProrrateo($compra);
+
+            return redirect()
+                ->route('compras.show', $compra)
+                ->with('success', 'Prorrateo recalculado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()
+                ->route('compras.show', $compra)
+                ->with('error', 'Error al recalcular prorrateo: ' . $e->getMessage());
+        }
+    }
 }

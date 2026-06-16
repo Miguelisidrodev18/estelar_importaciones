@@ -181,12 +181,13 @@ class DevolucionController extends Controller
                         StockAlmacen::obtenerOCrear($detalle->producto_id, $almacenId)
                             ->incrementar($detalle->cantidad);
 
-                        // Sincronizar stock_actual del producto
-                        $detalle->producto->increment('stock_actual', $detalle->cantidad);
-
-                        // Si tiene variante, también incrementar
                         if ($detalle->variante) {
+                            // incrementarStock() sincroniza Producto.stock_actual desde suma de variantes
                             $detalle->variante->incrementarStock($detalle->cantidad);
+                        } else {
+                            // Sin variante: recalcular desde SUM(StockAlmacen) para consistencia
+                            $totalStock = StockAlmacen::where('producto_id', $detalle->producto_id)->sum('cantidad');
+                            $detalle->producto->update(['stock_actual' => $totalStock]);
                         }
                     }
 

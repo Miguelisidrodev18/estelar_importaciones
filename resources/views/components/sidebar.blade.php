@@ -423,7 +423,7 @@
                     {{-- Administración --}}
                     <li>
                         <button @click="adminOpen = !adminOpen"
-                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.empresa.*') || request()->routeIs('admin.sucursales.*') || request()->routeIs('admin.cajas.*') ? 'bg-blue-700' : '' }}">
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.empresa.*') || request()->routeIs('admin.sucursales.*') || request()->routeIs('admin.cajas.*') || request()->routeIs('inventario.almacenes.*') ? 'bg-blue-700' : '' }}">
                             <span class="flex items-center">
                                 <i class="fas fa-cogs mr-3"></i>Administración
                             </span>
@@ -440,6 +440,12 @@
                                 <a href="{{ route('admin.sucursales.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.sucursales.*') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-store mr-3 text-sm"></i>Sucursales
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('inventario.almacenes.index') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.almacenes.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-warehouse mr-3 text-sm"></i>Almacenes
                                 </a>
                             </li>
                             <li>

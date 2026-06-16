@@ -25,20 +25,47 @@ use Illuminate\Support\Facades\Hash;
 
 class VentaController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
 
-        $ventas = Venta::with('vendedor', 'cliente', 'almacen')
-            ->when($user->role->nombre === 'Vendedor', fn($q) => $q->where('user_id', $user->id))
-            ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id))
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-
-        $statsBase = Venta::query()
+        // Base con restricciones de rol
+        $base = Venta::query()
             ->when($user->role->nombre === 'Vendedor', fn($q) => $q->where('user_id', $user->id))
             ->when($user->almacen_id, fn($q) => $q->where('almacen_id', $user->almacen_id));
 
+        // Aplicar filtros de búsqueda
+        $query = (clone $base)->with('vendedor', 'cliente', 'almacen');
+
+        if ($request->filled('buscar')) {
+            $q = $request->buscar;
+            $query->where(function ($w) use ($q) {
+                $w->where('codigo', 'like', "%{$q}%")
+                  ->orWhereHas('cliente', fn($c) => $c->where('nombre', 'like', "%{$q}%")
+                      ->orWhere('numero_documento', 'like', "%{$q}%"));
+            });
+        }
+
+        if ($request->filled('estado_pago')) {
+            $query->where('estado_pago', $request->estado_pago);
+        }
+
+        if ($request->filled('tipo_comprobante')) {
+            $query->where('tipo_comprobante', $request->tipo_comprobante);
+        }
+
+        if ($request->filled('fecha_desde')) {
+            $query->whereDate('fecha', '>=', $request->fecha_desde);
+        }
+
+        if ($request->filled('fecha_hasta')) {
+            $query->whereDate('fecha', '<=', $request->fecha_hasta);
+        }
+
+        $ventas = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
+
+        // Stats siempre sobre la base SIN filtros de búsqueda
+        $statsBase = clone $base;
         $stats = [
             'hoy'        => (clone $statsBase)->whereDate('fecha', today())->sum('total'),
             'mes_total'  => (clone $statsBase)->whereMonth('fecha', now()->month)->whereYear('fecha', now()->year)->sum('total'),
