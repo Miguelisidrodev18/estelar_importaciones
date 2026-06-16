@@ -32,7 +32,7 @@
                 </p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-                <a href="{{ route('reportes.stock-valorizado') }}"
+                <a href="{{ route('inventario.reportes.stock-valorizado') }}"
                    class="flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
                     <i class="fas fa-chart-bar"></i> Stock Valorizado
                 </a>
@@ -50,7 +50,7 @@
         <div class="p-4 md:p-6 space-y-6">
 
             {{-- FILTROS --}}
-            <form method="GET" action="{{ route('reportes.valorizacion-prorateada') }}" class="bg-white rounded-xl shadow-sm p-4 no-print">
+            <form method="GET" action="{{ route('inventario.reportes.valorizacion-prorateada') }}" class="bg-white rounded-xl shadow-sm p-4 no-print">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Categoría</label>

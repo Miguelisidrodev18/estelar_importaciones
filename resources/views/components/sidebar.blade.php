@@ -95,6 +95,12 @@
                                     <i class="fas fa-chart-line mr-3 text-sm"></i>Ventas / Márgenes
                                 </a>
                             </li>
+                            <li>
+                                <a href="{{ route('reportes.compras') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('reportes.compras') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-shopping-cart mr-3 text-sm"></i>Compras / Importaciones
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     {{-- Ventas y Precios --}}
@@ -274,6 +280,12 @@
                                 <a href="{{ route('inventario.reportes.abc') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.reportes.abc') ? 'bg-blue-600' : '' }}">
                                     <i class="fas fa-chart-bar mr-3 text-sm"></i>Análisis ABC
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('inventario.reportes.valorizacion-prorateada') }}"
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.reportes.valorizacion-prorateada') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-balance-scale mr-3 text-sm"></i>Valorizacion Prorateada
                                 </a>
                             </li>
                             <li>
