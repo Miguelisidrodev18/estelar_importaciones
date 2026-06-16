@@ -53,6 +53,11 @@ Route::get('/', function () {
 Route::get('/sistema-suspendido', function () {
     return view('sistema_bloqueado');
 })->name('sistema.bloqueado');
+
+// ========================================
+// CONSULTA PÚBLICA DE COMPROBANTE (sin auth)
+// ========================================
+Route::get('/consultas/{codigo}', [VentaController::class, 'consultaPublica'])->name('consultas.venta');
 /*
 |--------------------------------------------------------------------------
 | RUTA PRINCIPAL

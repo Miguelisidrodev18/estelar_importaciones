@@ -158,6 +158,35 @@
                 <h1 class="text-2xl font-bold text-gray-900">Detalle de Venta</h1>
             </div>
 
+            @php
+                $waPhone = preg_replace('/\D/', '', $venta->cliente->telefono ?? '');
+                if (strlen($waPhone) === 9) {
+                    $waPhone = '51' . $waPhone;
+                } elseif (strlen($waPhone) === 10 && str_starts_with($waPhone, '0')) {
+                    $waPhone = '51' . substr($waPhone, 1);
+                } elseif (strlen($waPhone) < 9) {
+                    $waPhone = '';
+                }
+
+                $consultaLink = url('/consultas/' . $venta->codigo);
+
+                $tipoDoc = match($venta->tipo_comprobante) {
+                    'boleta'     => 'Boleta',
+                    'factura'    => 'Factura',
+                    'nota_venta' => 'Nota de Venta',
+                    default      => ucfirst($venta->tipo_comprobante),
+                };
+
+                $waMsg = "Hola {$venta->cliente->nombre}, le compartimos su comprobante de compra 🧾\n\n"
+                       . "📄 *{$tipoDoc} {$venta->codigo}*\n"
+                       . "📅 " . $venta->fecha->format('d/m/Y') . "\n"
+                       . "💰 Total: S/ " . number_format($venta->total, 2) . "\n\n"
+                       . "Descargue su comprobante aquí:\n{$consultaLink}\n\n"
+                       . "Gracias por su preferencia. 🙏";
+
+                $waUrl = $waPhone ? 'https://wa.me/' . $waPhone . '?text=' . urlencode($waMsg) : null;
+            @endphp
+
             <div class="flex items-center gap-2 flex-wrap">
                 @if($venta->tipo_comprobante !== 'cotizacion')
                 <a href="{{ route('ventas.pdf', [$venta, 'formato' => 'a4']) }}" target="_blank"
@@ -173,6 +202,38 @@
                     <i class="fas fa-print"></i> Imprimir
                 </button>
                 @endif
+
+                @if($waUrl)
+                <a href="{{ $waUrl }}" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
+                    <i class="fab fa-whatsapp"></i> WhatsApp
+                </a>
+                @else
+                <div x-data='{
+                    phone: "",
+                    msg: @json($waMsg),
+                    get digits() { return this.phone.replace(/\D/g, ""); },
+                    get valid() { return this.digits.length === 9; },
+                    send() {
+                        if (!this.valid) return;
+                        const n = "51" + this.digits;
+                        window.open("https://wa.me/" + n + "?text=" + encodeURIComponent(this.msg), "_blank");
+                    }
+                }' class="flex items-center gap-0.5">
+                    <span class="inline-flex items-center gap-1.5 bg-green-500 text-white pl-3 pr-2 py-2 rounded-l-xl text-sm font-medium shadow-sm select-none">
+                        <i class="fab fa-whatsapp"></i> WA
+                    </span>
+                    <input x-model="phone" type="tel" placeholder="9xx xxx xxx"
+                           maxlength="9" @keydown.enter="send()"
+                           class="border-y border-gray-300 px-2 py-2 text-sm w-28 focus:outline-none focus:ring-1 focus:ring-green-400 focus:border-green-400">
+                    <button @click="send()" :disabled="!valid"
+                            :class="valid ? 'bg-green-500 hover:bg-green-600 cursor-pointer' : 'bg-gray-300 cursor-not-allowed'"
+                            class="inline-flex items-center text-white px-3 py-2 rounded-r-xl text-sm font-medium transition-colors shadow-sm">
+                        <i class="fas fa-paper-plane text-xs"></i>
+                    </button>
+                </div>
+                @endif
+
                 @if($venta->guiaRemision)
                 <a href="{{ route('ventas.guia-pdf', $venta) }}" target="_blank"
                    class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">

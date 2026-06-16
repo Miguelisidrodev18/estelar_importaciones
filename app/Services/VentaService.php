@@ -242,6 +242,17 @@ class VentaService
      */
     public function registrarPagoCredito(CuentaPorCobrar $cuenta, array $pagoData): PagoCredito
     {
+        // Verificar caja abierta antes de registrar el pago
+        if (auth()->check()) {
+            $cajaAbierta = Caja::where('user_id', auth()->id())
+                ->where('estado', 'abierta')
+                ->exists();
+
+            if (!$cajaAbierta) {
+                throw new \Exception('Debe abrir caja antes de registrar un pago. Vaya a Caja → Abrir Caja.');
+            }
+        }
+
         return DB::transaction(function () use ($cuenta, $pagoData) {
             $monto = (float) $pagoData['monto'];
 

@@ -420,65 +420,106 @@ class CompraService
     {
         DB::transaction(function () use ($compra, $motivo) {
 
-            // Verificar que la compra se pueda anular
             if ($compra->estado === 'anulado') {
-                throw new \Exception('La compra ya está anulada');
+                throw new \Exception('La compra ya está anulada.');
+            }
+
+            // ── Guardia 1: IMEIs ya vendidos ────────────────────────────────
+            $imeisVendidos = Imei::where('compra_id', $compra->id)
+                ->where('estado_imei', Imei::ESTADO_VENDIDO)
+                ->count();
+
+            if ($imeisVendidos > 0) {
+                throw new \Exception(
+                    "No se puede anular esta compra: {$imeisVendidos} IMEI(s) ya fueron vendidos. " .
+                    "Gestione las devoluciones correspondientes antes de anular."
+                );
+            }
+
+            // ── Guardia 2: productos por cantidad ya consumidos parcialmente ─
+            foreach ($compra->detalles as $detalle) {
+                if ($detalle->producto->tipo_inventario !== 'serie') {
+                    $stockDisponible = StockAlmacen::where([
+                        'producto_id' => $detalle->producto_id,
+                        'almacen_id'  => $compra->almacen_id,
+                    ])->value('cantidad') ?? 0;
+
+                    if ($stockDisponible < $detalle->cantidad) {
+                        throw new \Exception(
+                            "No se puede anular: «{$detalle->producto->nombre}» tiene {$stockDisponible} unidad(es) " .
+                            "disponibles pero la compra registró {$detalle->cantidad}. " .
+                            "Parte del stock ya fue vendida o trasladada."
+                        );
+                    }
+                }
             }
 
             $motivoTexto = $motivo ? 'Anulación: ' . $motivo : 'Anulación de compra';
 
-            // Revertir stock de cada detalle
+            // ── Revertir stock de cada detalle ───────────────────────────────
             foreach ($compra->detalles as $detalle) {
-                $stock = StockAlmacen::where([
-                    'producto_id' => $detalle->producto_id,
-                    'almacen_id' => $compra->almacen_id,
-                ])->first();
-
-                if ($stock) {
-                    $stockAnterior = $stock->cantidad;
-                    $stock->decrement('cantidad', $detalle->cantidad);
-
-                    // Sincronizar stock_actual del producto
-                    $totalStock = StockAlmacen::where('producto_id', $detalle->producto_id)->sum('cantidad');
-                    $detalle->producto->update(['stock_actual' => $totalStock]);
-
-                    // Revertir stock de la variante (color/capacidad)
-                    if ($detalle->variante_id) {
-                        $detalle->variante?->decrement('stock_actual', $detalle->cantidad);
-                    }
-
-                    // Registrar movimiento de anulación
-                    MovimientoInventario::create([
+                // Productos por cantidad
+                if ($detalle->producto->tipo_inventario !== 'serie') {
+                    $stock = StockAlmacen::where([
                         'producto_id' => $detalle->producto_id,
-                        'almacen_id' => $compra->almacen_id,
-                        'user_id' => auth()->id(),
-                        'tipo_movimiento' => 'salida',
-                        'cantidad' => $detalle->cantidad,
-                        'stock_anterior' => $stockAnterior,
-                        'stock_nuevo' => $stock->cantidad,
-                        'numero_factura' => $compra->numero_factura,
-                        'documento_referencia' => 'ANUL-' . $compra->id,
-                        'motivo' => $motivoTexto,
-                        'estado' => 'completado',
-                    ]);
-                }
+                        'almacen_id'  => $compra->almacen_id,
+                    ])->first();
 
-                // Marcar IMEIs como devueltos si existen
-                if ($detalle->producto->tipo_inventario === 'serie') {
+                    if ($stock) {
+                        $stockAnterior = $stock->cantidad;
+                        $stock->decrement('cantidad', $detalle->cantidad);
+
+                        MovimientoInventario::create([
+                            'producto_id'          => $detalle->producto_id,
+                            'almacen_id'           => $compra->almacen_id,
+                            'user_id'              => auth()->id(),
+                            'tipo_movimiento'      => 'salida',
+                            'cantidad'             => $detalle->cantidad,
+                            'stock_anterior'       => $stockAnterior,
+                            'stock_nuevo'          => $stock->cantidad,
+                            'numero_factura'       => $compra->numero_factura,
+                            'documento_referencia' => 'ANUL-' . $compra->id,
+                            'motivo'               => $motivoTexto,
+                            'estado'               => 'completado',
+                        ]);
+
+                        // Sincronizar stock: variante primero (sincroniza producto), o directo si no hay variante
+                        if ($detalle->variante_id && $detalle->variante) {
+                            $detalle->variante->decrementarStock($detalle->cantidad);
+                        } else {
+                            $totalStock = StockAlmacen::where('producto_id', $detalle->producto_id)->sum('cantidad');
+                            $detalle->producto->update(['stock_actual' => $totalStock]);
+                        }
+                    }
+                } else {
+                    // Productos tipo serie: solo marcar los IMEIs NO vendidos como devueltos
                     Imei::where('compra_id', $compra->id)
                         ->where('producto_id', $detalle->producto_id)
-                        ->update(['estado_imei' => 'devuelto']);
+                        ->whereNotIn('estado_imei', [Imei::ESTADO_VENDIDO, Imei::ESTADO_REEMPLAZADO])
+                        ->update(['estado_imei' => Imei::ESTADO_DEVUELTO]);
+
+                    // Recalcular stock del producto y variante desde conteo real de IMEIs en stock
+                    $totalStock = Imei::where('producto_id', $detalle->producto_id)
+                        ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+                        ->count();
+                    $detalle->producto->update(['stock_actual' => $totalStock]);
+
+                    if ($detalle->variante_id && $detalle->variante) {
+                        $varianteStock = Imei::where('producto_id', $detalle->producto_id)
+                            ->where('variante_id', $detalle->variante_id)
+                            ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+                            ->count();
+                        $detalle->variante->update(['stock_actual' => $varianteStock]);
+                    }
                 }
             }
 
-            // Actualizar estado de la compra
             $compra->update([
-                'estado' => 'anulado',
-                'fecha_anulacion' => now(),
+                'estado'           => 'anulado',
+                'fecha_anulacion'  => now(),
                 'motivo_anulacion' => $motivo,
             ]);
 
-            // Anular cuenta por pagar si existe
             if ($compra->cuentaPorPagar) {
                 $compra->cuentaPorPagar->update(['estado' => 'anulado']);
             }

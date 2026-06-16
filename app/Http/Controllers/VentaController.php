@@ -475,6 +475,34 @@ class VentaController extends Controller
         return $pdf->stream($filename);
     }
 
+    public function consultaPublica(string $codigo)
+    {
+        $venta = Venta::where('codigo', $codigo)
+            ->whereIn('tipo_comprobante', ['boleta', 'factura', 'nota_venta'])
+            ->firstOrFail();
+
+        $venta->load('vendedor', 'cliente', 'almacen', 'sucursal', 'serieComprobante',
+            'detalles.producto.unidadMedida', 'detalles.variante.color', 'detalles.imei', 'imeis');
+
+        $empresa  = Empresa::first() ?? new Empresa(['razon_social' => config('app.name'), 'ruc' => '']);
+        $sucursal = $venta->sucursal ?? Sucursal::where('almacen_id', $venta->almacen_id)->first();
+        $pagos    = $sucursal
+            ? $sucursal->pagos()->where('activo', true)->get()->keyBy('tipo_pago')
+            : collect();
+
+        $pdf = Pdf::setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled'      => true,
+            'defaultFont'          => 'sans-serif',
+            'chroot'               => public_path(),
+        ])->loadView('pdf.factura-a4', compact('venta', 'empresa', 'sucursal', 'pagos'));
+
+        $pdf->setPaper('A4', 'portrait');
+
+        $filename = 'comprobante-' . $venta->codigo . '.pdf';
+        return $pdf->stream($filename);
+    }
+
     public function colaCaja(Request $request)
     {
         $user = auth()->user();
