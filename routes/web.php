@@ -584,6 +584,9 @@ Route::middleware('auth')->group(function () {
         // Pagos digitales de una sucursal
         Route::put('/sucursales/{sucursal}/pagos', [SucursalController::class, 'updatePagos'])->name('sucursales.pagos.update');
 
+        // Almacenes secundarios de una sucursal
+        Route::post('/sucursales/{sucursal}/almacenes', [SucursalController::class, 'storeAlmacenSecundario'])->name('sucursales.almacenes.store');
+
         // ── Admin Caja (Supervisión) ──────────────────────────────────────────
         Route::get('/cajas/dashboard', [AdminCajaController::class, 'dashboard'])->name('cajas.dashboard');
         Route::get('/cajas/alertas', [AdminCajaController::class, 'alertas'])->name('cajas.alertas');

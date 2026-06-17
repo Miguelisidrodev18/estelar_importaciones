@@ -9,7 +9,7 @@ class Sucursal extends Model
     protected $table = 'sucursales';
 
     protected $fillable = [
-        'codigo', 'nombre', 'direccion',
+        'codigo', 'nombre', 'tipo', 'direccion',
         'ubigeo', 'departamento', 'provincia', 'distrito',
         'telefono', 'email', 'almacen_id', 'es_principal', 'estado',
     ];
@@ -20,12 +20,20 @@ class Sucursal extends Model
 
     public function esTienda(): bool
     {
-        return true;
+        return ($this->tipo ?? 'tienda') === 'tienda';
+    }
+
+    public function esAlmacen(): bool
+    {
+        return ($this->tipo ?? 'tienda') === 'almacen';
     }
 
     public function getTipoLabelAttribute(): string
     {
-        return 'Tienda / Punto de Venta';
+        return match($this->tipo ?? 'tienda') {
+            'almacen' => 'Almacén / Depósito',
+            default   => 'Tienda / Punto de Venta',
+        };
     }
 
     // ── Relaciones ────────────────────────────────────────────

@@ -18,7 +18,7 @@
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex gap-3">
             <i class="fas fa-info-circle text-blue-500 mt-0.5"></i>
             <div class="text-sm text-blue-700">
-                <strong>Proceso automático:</strong> Al crear la sucursal, el sistema generará automáticamente un código único (S001, S002…), un almacén de tienda vinculado y las series de comprobantes estándar (FA, BA, FC, FD, T, CO). Los almacenes centrales de distribución se gestionan por separado en el módulo de Almacenes.
+                <strong>Proceso automático:</strong> Al crear la sucursal, el sistema generará automáticamente un código único (S001, S002…) y un almacén vinculado. Si es <strong>Tienda</strong>, también se crean las series de comprobantes estándar (FA, BA, FC, FD, T, CO). Todos los establecimientos anexos deben estar registrados en SUNAT.
             </div>
         </div>
 
@@ -28,17 +28,40 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                    {{-- Badge informativo: siempre es tienda --}}
+                    {{-- Selector de tipo: Tienda o Almacén --}}
                     <div class="md:col-span-2">
-                        <div class="flex items-center gap-3 p-4 rounded-xl border-2 border-blue-400 bg-blue-50">
-                            <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
-                                <i class="fas fa-store text-white text-lg"></i>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-blue-800 text-sm">Tienda / Punto de Venta</p>
-                                <p class="text-xs text-blue-600">Gestiona su propio stock y emite comprobantes. Los almacenes de distribución son independientes.</p>
-                            </div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Establecimiento SUNAT *</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {{-- Opción Tienda --}}
+                            <label class="cursor-pointer">
+                                <input type="radio" name="tipo" value="tienda" class="hidden peer"
+                                    {{ old('tipo', 'tienda') === 'tienda' ? 'checked' : '' }}>
+                                <div class="flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-blue-300 transition-colors">
+                                    <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                                        <i class="fas fa-store text-blue-600 text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-800 text-sm">Tienda / Punto de Venta</p>
+                                        <p class="text-xs text-gray-500">Emite comprobantes, gestiona caja y ventas al público</p>
+                                    </div>
+                                </div>
+                            </label>
+                            {{-- Opción Almacén --}}
+                            <label class="cursor-pointer">
+                                <input type="radio" name="tipo" value="almacen" class="hidden peer"
+                                    {{ old('tipo') === 'almacen' ? 'checked' : '' }}>
+                                <div class="flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 peer-checked:border-orange-500 peer-checked:bg-orange-50 hover:border-orange-300 transition-colors">
+                                    <div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                                        <i class="fas fa-warehouse text-orange-600 text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-800 text-sm">Almacén / Depósito</p>
+                                        <p class="text-xs text-gray-500">Establecimiento anexo SUNAT, genera traslados internos</p>
+                                    </div>
+                                </div>
+                            </label>
                         </div>
+                        @error('tipo')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
 
                     <div class="md:col-span-2">

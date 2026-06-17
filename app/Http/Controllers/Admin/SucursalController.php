@@ -42,6 +42,7 @@ class SucursalController extends Controller
     {
         $validated = $request->validate([
             'nombre'        => 'required|string|max:150',
+            'tipo'          => 'required|in:tienda,almacen',
             'direccion'     => 'nullable|string|max:300',
             'departamento'  => 'nullable|string|max:100',
             'provincia'     => 'nullable|string|max:100',
@@ -53,12 +54,14 @@ class SucursalController extends Controller
             'estado'        => 'required|in:activo,inactivo',
         ]);
 
-        $validated['tipo'] = 'tienda';
-
         $sucursal = $this->sucursalService->crear($validated);
 
+        $msg = $sucursal->esTienda()
+            ? "Sucursal {$sucursal->codigo} creada. Se generaron las series de comprobantes automáticamente."
+            : "Sucursal {$sucursal->codigo} (Almacén) creada correctamente.";
+
         return redirect()->route('admin.sucursales.edit', $sucursal)
-            ->with('success', "Sucursal {$sucursal->codigo} creada. Se generaron las series de comprobantes automáticamente.");
+            ->with('success', $msg);
     }
 
     // ── HU-02/03/04: Editar ────────────────────────────────────────────────────
@@ -67,6 +70,7 @@ class SucursalController extends Controller
     {
         $sucursal->load([
             'almacen',
+            'almacenes',
             'series' => fn($q) => $q->orderBy('tipo_comprobante'),
             'pagos',
         ]);
@@ -95,6 +99,27 @@ class SucursalController extends Controller
 
         return redirect()->route('admin.sucursales.edit', $sucursal)
             ->with('success', 'Sucursal actualizada correctamente.');
+    }
+
+    public function storeAlmacenSecundario(Request $request, Sucursal $sucursal)
+    {
+        $validated = $request->validate([
+            'nombre'    => 'required|string|max:150',
+            'direccion' => 'nullable|string|max:300',
+        ]);
+
+        Almacen::create([
+            'nombre'      => $validated['nombre'],
+            'codigo'      => Almacen::generarCodigo(),
+            'direccion'   => $validated['direccion'] ?? $sucursal->direccion,
+            'tipo'        => 'deposito',
+            'sucursal_id' => $sucursal->id,
+            'estado'      => 'activo',
+        ]);
+
+        return redirect()->route('admin.sucursales.edit', $sucursal)
+            ->with('success', 'Almacén secundario creado correctamente.')
+            ->with('_tab', 'almacenes');
     }
 
     public function destroy(Sucursal $sucursal)

@@ -22,9 +22,15 @@
             </a>
             <h1 class="text-2xl font-bold text-gray-900">{{ $sucursal->nombre }}</h1>
             <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{{ $sucursal->codigo }}</span>
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                <i class="fas fa-store mr-1"></i>Tienda
-            </span>
+            @if($sucursal->esAlmacen())
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200">
+                    <i class="fas fa-warehouse mr-1"></i>Almacén
+                </span>
+            @else
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    <i class="fas fa-store mr-1"></i>Tienda
+                </span>
+            @endif
             @if($sucursal->es_principal)
                 <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800"><i class="fas fa-star mr-1"></i>Principal</span>
             @endif
@@ -61,9 +67,10 @@
         <div class="border-b border-gray-200">
             <nav class="flex overflow-x-auto -mb-px">
                 @foreach([
-                    ['key'=>'info',   'label'=>'Info Sucursal', 'icon'=>'store'],
-                    ['key'=>'series', 'label'=>'Series / Correlativos',   'icon'=>'list-ol'],
-                    ['key'=>'pagos',  'label'=>'Yape / Plin / Pagos',     'icon'=>'qrcode'],
+                    ['key'=>'info',      'label'=>'Info Sucursal',        'icon'=>'store'],
+                    ['key'=>'almacenes', 'label'=>'Almacenes',            'icon'=>'warehouse'],
+                    ['key'=>'series',    'label'=>'Series / Correlativos','icon'=>'list-ol'],
+                    ['key'=>'pagos',     'label'=>'Yape / Plin / Pagos',  'icon'=>'qrcode'],
                 ] as $t)
                     <button @click="tab = '{{ $t['key'] }}'"
                         :class="tab === '{{ $t['key'] }}' ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'"
@@ -84,17 +91,35 @@
                 @csrf @method('PUT')
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                    {{-- Tipo fijo: siempre Tienda --}}
+                    {{-- Tipo (solo lectura, definido al crear) --}}
                     <div class="md:col-span-2">
-                        <div class="flex items-center gap-3 p-4 rounded-xl border-2 border-blue-400 bg-blue-50">
-                            <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
-                                <i class="fas fa-store text-white text-lg"></i>
+                        @if($sucursal->esAlmacen())
+                            <div class="flex items-center justify-between gap-3 p-4 rounded-xl border-2 border-orange-400 bg-orange-50">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center shrink-0">
+                                        <i class="fas fa-warehouse text-white text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-orange-800 text-sm">Almacén / Depósito</p>
+                                        <p class="text-xs text-orange-600">Establecimiento anexo SUNAT. Gestiona stock y genera traslados internos.</p>
+                                    </div>
+                                </div>
+                                <a href="{{ route('traslados.create') }}"
+                                    class="shrink-0 flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+                                    <i class="fas fa-truck-moving"></i> Generar Traslado
+                                </a>
                             </div>
-                            <div>
-                                <p class="font-semibold text-blue-800 text-sm">Tienda / Punto de Venta</p>
-                                <p class="text-xs text-blue-600">Gestiona su propio stock y emite comprobantes. Los almacenes de distribución son independientes.</p>
+                        @else
+                            <div class="flex items-center gap-3 p-4 rounded-xl border-2 border-blue-400 bg-blue-50">
+                                <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-store text-white text-lg"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-blue-800 text-sm">Tienda / Punto de Venta</p>
+                                    <p class="text-xs text-blue-600">Gestiona su propio stock y emite comprobantes de pago.</p>
+                                </div>
                             </div>
-                        </div>
+                        @endif
                     </div>
 
                     <div class="md:col-span-2">
@@ -138,14 +163,14 @@
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Almacén de Tienda</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Almacén Principal</label>
                         @if($sucursal->almacen)
                             <div class="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
                                 <i class="fas fa-warehouse text-orange-500 text-sm"></i>
                                 <span class="text-sm text-orange-800 font-medium">{{ $sucursal->almacen->nombre }}</span>
-                                <span class="ml-auto text-xs text-orange-500 bg-orange-100 px-2 py-0.5 rounded-full">Auto-generado</span>
+                                <span class="ml-auto text-xs text-orange-500 bg-orange-100 px-2 py-0.5 rounded-full">{{ $sucursal->almacen->codigo }}</span>
                             </div>
-                            <p class="text-xs text-gray-400 mt-1">Generado automáticamente al crear la sucursal. No editable desde aquí.</p>
+                            <p class="text-xs text-gray-400 mt-1">Generado automáticamente al crear la sucursal.</p>
                         @else
                             <div class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-400 italic">
                                 Sin almacén vinculado
@@ -173,6 +198,71 @@
                     </button>
                 </div>
             </form>
+        </div>
+
+        {{-- ─── TAB: ALMACENES ─────────────────────────────────────────────── --}}
+        <div x-show="tab === 'almacenes'" x-cloak class="p-6">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-warehouse text-orange-500"></i> Almacenes de esta Sucursal
+                </h3>
+            </div>
+
+            {{-- Listado de almacenes vinculados --}}
+            @php $todosAlmacenes = $sucursal->almacenes; @endphp
+            @if($todosAlmacenes->isEmpty())
+                <div class="text-center py-8 text-gray-400">
+                    <i class="fas fa-warehouse text-4xl mb-3 block"></i>
+                    No hay almacenes vinculados.
+                </div>
+            @else
+                <div class="space-y-2 mb-6">
+                    @foreach($todosAlmacenes as $alm)
+                        <div class="flex items-center gap-3 px-4 py-3 border rounded-lg {{ $alm->estado === 'activo' ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60' }}">
+                            <div class="w-8 h-8 rounded-lg {{ $alm->tipo === 'tienda' ? 'bg-blue-100' : 'bg-orange-100' }} flex items-center justify-center shrink-0">
+                                <i class="fas {{ $alm->tipo === 'tienda' ? 'fa-store text-blue-600' : 'fa-warehouse text-orange-600' }} text-sm"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-800">{{ $alm->nombre }}</p>
+                                <p class="text-xs text-gray-400">{{ $alm->codigo }} &middot; {{ $alm->tipo_label }}</p>
+                            </div>
+                            @if($alm->id === $sucursal->almacen_id)
+                                <span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">Principal</span>
+                            @else
+                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Secundario</span>
+                            @endif
+                            <span class="text-xs {{ $alm->estado === 'activo' ? 'text-green-700 bg-green-100' : 'text-gray-500 bg-gray-200' }} px-2 py-0.5 rounded-full">
+                                {{ ucfirst($alm->estado) }}
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            {{-- Formulario para agregar almacén secundario --}}
+            <div class="border-t pt-5">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <i class="fas fa-plus-circle text-orange-500"></i> Agregar Almacén Secundario
+                </h4>
+                <form action="{{ route('admin.sucursales.almacenes.store', $sucursal) }}" method="POST">
+                    @csrf
+                    <div class="flex gap-3 flex-wrap">
+                        <div class="flex-1 min-w-48">
+                            <input type="text" name="nombre" placeholder="Nombre del almacén" required
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                        </div>
+                        <div class="flex-1 min-w-48">
+                            <input type="text" name="direccion" placeholder="Dirección (opcional)"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        <button type="submit"
+                            class="bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0">
+                            <i class="fas fa-plus"></i> Agregar
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">El almacén secundario se crea como depósito vinculado a esta sucursal.</p>
+                </form>
+            </div>
         </div>
 
         {{-- ─── TAB: SERIES ──────────────────────────────────────────────────── --}}

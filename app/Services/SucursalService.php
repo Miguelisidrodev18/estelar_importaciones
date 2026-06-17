@@ -29,12 +29,16 @@ class SucursalService
             // 2. Crear sucursal (sin almacen_id aún)
             $sucursal = Sucursal::create($datos);
 
-            // 3. Crear almacén de tienda automático vinculado a la sucursal
+            // 3. Crear almacén automático vinculado a la sucursal
+            $esTienda    = ($datos['tipo'] ?? 'tienda') === 'tienda';
+            $tipoAlmacen = $esTienda ? 'tienda' : 'deposito';
+            $prefixNombre = $esTienda ? 'Tienda ' : 'Almacén ';
+
             $almacen = Almacen::create([
-                'nombre'      => 'Tienda ' . $sucursal->nombre,
+                'nombre'      => $prefixNombre . $sucursal->nombre,
                 'codigo'      => 'ALM-' . $sucursal->codigo,
                 'direccion'   => $sucursal->direccion,
-                'tipo'        => 'tienda',
+                'tipo'        => $tipoAlmacen,
                 'sucursal_id' => $sucursal->id,
                 'estado'      => 'activo',
             ]);
@@ -42,9 +46,11 @@ class SucursalService
             // 4. Vincular almacén a sucursal
             $sucursal->update(['almacen_id' => $almacen->id]);
 
-            // 5. Generar series estándar (número de sucursal)
-            $numSucursal = (int) substr($sucursal->codigo, 1); // S001 → 1
-            $this->generarSeriesEstandar($sucursal, $numSucursal);
+            // 5. Generar series estándar solo para tiendas (las tiendas emiten comprobantes)
+            if ($esTienda) {
+                $numSucursal = (int) substr($sucursal->codigo, 1); // S001 → 1
+                $this->generarSeriesEstandar($sucursal, $numSucursal);
+            }
 
             return $sucursal->fresh(['almacen', 'series']);
         });
