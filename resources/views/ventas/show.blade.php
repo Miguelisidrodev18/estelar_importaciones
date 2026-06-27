@@ -1046,9 +1046,6 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        @php
-                            $igvFactor = $venta->subtotal > 0 ? ($venta->total / $venta->subtotal) : 1.18;
-                        @endphp
                         @foreach($venta->detalles as $i => $detalle)
                         @php
                             $imeisDetalle = $venta->imeis->filter(fn($imei) =>
@@ -1058,8 +1055,8 @@
                             if ($imeisDetalle->isEmpty() && $detalle->imei) {
                                 $imeisDetalle = collect([$detalle->imei]);
                             }
-                            $precioFinal = $detalle->precio_unitario * $igvFactor;
-                            $totalFinal  = $detalle->subtotal * $igvFactor;
+                            $precioFinal = round((float) ($detalle->precio_con_igv ?? $detalle->precio_unitario * 1.18), 2);
+                            $totalFinal  = round((float) ($detalle->subtotal_con_igv ?? $detalle->subtotal * 1.18), 2);
                         @endphp
                         <tr class="{{ $i % 2 === 0 ? 'bg-white' : 'bg-gray-50' }} hover:bg-blue-50/20 transition-colors">
                             <td class="px-4 py-4 text-center text-sm text-gray-500 font-medium">{{ $i + 1 }}</td>

@@ -161,7 +161,6 @@
                         <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Producto</th>
                         <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Compra</th>
                         <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Venta</th>
-                        <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Venta c/IGV</th>
                         <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Margen</th>
                         <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
                         <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</th>
@@ -171,10 +170,9 @@
                 @forelse($productos as $producto)
                 @php
                     $tieneVariantes  = $producto->variantes->isNotEmpty();
-                    $preciosActivos  = $producto->precios;           // active global venta_regular
+                    $preciosActivos  = $producto->precios->unique('variante_id');
 
                     if ($tieneVariantes) {
-                        // Group loaded prices by capacity of their variant
                         $porCapacidad = $preciosActivos->groupBy(
                             fn($p) => $p->variante?->capacidad ?? ''
                         );
@@ -250,17 +248,6 @@
                                     <span class="text-gray-300 text-sm">—</span>
                                 @endif
                             </td>
-                            {{-- P. Venta c/IGV --}}
-                            <td class="px-5 py-3.5 text-right">
-                                @if($tienePrecio)
-                                    <span class="text-xs font-medium text-emerald-700">
-                                        S/ {{ number_format($pvMin * 1.18, 2) }}
-                                        @if($pvMin != $pvMax)<br><span class="text-gray-400">— S/ {{ number_format($pvMax * 1.18, 2) }}</span>@endif
-                                    </span>
-                                @else
-                                    <span class="text-gray-300 text-sm">—</span>
-                                @endif
-                            </td>
                             {{-- Margen --}}
                             <td class="px-5 py-3.5 text-right">
                                 <span class="text-xs text-gray-400 italic">múltiple</span>
@@ -293,15 +280,6 @@
                             <td class="px-5 py-3.5 text-right">
                                 @if($tienePrecio)
                                     <span class="text-sm font-bold text-blue-700">S/ {{ number_format($precio->precio, 2) }}</span>
-                                @else
-                                    <span class="text-gray-300 text-sm">—</span>
-                                @endif
-                            </td>
-                            <td class="px-5 py-3.5 text-right">
-                                @if($tienePrecio)
-                                    <span class="text-xs font-medium text-emerald-700">
-                                        S/ {{ number_format($precio->precio * 1.18, 2) }}
-                                    </span>
                                 @else
                                     <span class="text-gray-300 text-sm">—</span>
                                 @endif

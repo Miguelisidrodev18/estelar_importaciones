@@ -537,8 +537,8 @@
                     @foreach($porCapacidadGlobal as $cap => $vars)
                         @php
                             $varRep  = $vars->first();
-                            $pCap    = $preciosGlobalesActivos[$varRep->id] ?? null;
-                            $pMay    = $preciosMayoristasActivos[$varRep->id] ?? null;
+                            $pCap    = $vars->map(fn($v) => $preciosGlobalesActivos[$v->id] ?? null)->filter()->sortByDesc('id')->first();
+                            $pMay    = $vars->map(fn($v) => $preciosMayoristasActivos[$v->id] ?? null)->filter()->sortByDesc('id')->first();
                             $esActual = $varianteActual && $vars->contains('id', $varianteActual->id);
                             $pmVal   = $pMay?->precio ?? 'null';
                             $pmMrg   = $pMay?->margen ?? 10;
@@ -667,8 +667,8 @@
                                 @foreach($porCapacidadGlobal as $capacidad => $variantes)
                                     @php
                                         $varRep   = $variantes->first();
-                                        $precio   = $preciosGlobalesActivos[$varRep->id] ?? null;
-                                        $pMayHist = $preciosMayoristasActivos[$varRep->id] ?? null;
+                                        $precio   = $variantes->map(fn($v) => $preciosGlobalesActivos[$v->id] ?? null)->filter()->sortByDesc('id')->first();
+                                        $pMayHist = $variantes->map(fn($v) => $preciosMayoristasActivos[$v->id] ?? null)->filter()->sortByDesc('id')->first();
                                         $pmHVal   = $pMayHist?->precio ?? 'null';
                                         $pmHMrg   = $pMayHist?->margen ?? 10;
                                     @endphp

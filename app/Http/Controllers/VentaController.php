@@ -157,8 +157,8 @@ class VentaController extends Controller
             $preciosRegulares  = $p->precios->where('tipo_precio', 'venta_regular');
             $preciosMayoristas = $p->precios->where('tipo_precio', 'venta_mayorista');
             // Indexar precios por variante_id para lookup O(1)
-            $preciosPorVariante          = $preciosRegulares->whereNotNull('variante_id')->keyBy('variante_id');
-            $preciosMayoristaPorVariante = $preciosMayoristas->whereNotNull('variante_id')->keyBy('variante_id');
+            $preciosPorVariante          = $preciosRegulares->whereNotNull('variante_id')->unique('variante_id')->keyBy('variante_id');
+            $preciosMayoristaPorVariante = $preciosMayoristas->whereNotNull('variante_id')->unique('variante_id')->keyBy('variante_id');
             // Precio base del producto (sin variante) — fallback
             $precioBase          = $preciosRegulares->first(fn($pr) => is_null($pr->variante_id));
             $precioMayoristaBase = $preciosMayoristas->first(fn($pr) => is_null($pr->variante_id));
@@ -218,7 +218,9 @@ class VentaController extends Controller
                 'tipo_inventario'  => $p->tipo_inventario,
                 'stock_actual'     => (int) $p->stock_actual,
                 'stock_por_almacen'=> $stockMap,  // {almacen_id: qty}
-                'precio_venta'     => (float) ($precioBase?->precio ?? $precioActivo?->precio ?? $p->precio_venta),
+                'precio_venta'     => (float) ($variantes->isNotEmpty()
+                    ? ($variantes->filter(fn($v) => $v['precio_venta'] !== null)->min('precio_venta') ?? $precioBase?->precio ?? $p->precio_venta)
+                    : ($precioBase?->precio ?? $precioActivo?->precio ?? $p->precio_venta)),
                 'precio_mayorista' => $precioMayoristaBase ? (float)$precioMayoristaBase->precio : null,
                 'incluye_igv'      => (bool) ($precioActivo?->incluye_igv ?? false),
                 'imagen'           => $p->imagen_url ?? null,

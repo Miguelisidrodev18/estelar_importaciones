@@ -10,6 +10,7 @@ class ProductoPrecioHistorial extends Model
 
     protected $fillable = [
         'producto_id',
+        'variante_id',
         'tipo_cambio',
         'precio_anterior',
         'precio_nuevo',
@@ -31,5 +32,10 @@ class ProductoPrecioHistorial extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'usuario_id');
+    }
+
+    public function variante()
+    {
+        return $this->belongsTo(ProductoVariante::class, 'variante_id');
     }
 }

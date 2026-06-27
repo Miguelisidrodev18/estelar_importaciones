@@ -295,10 +295,10 @@ class FacturacionElectronicaController extends Controller
 
         // IGV
         $xml .= "  <cac:TaxTotal>\n";
-        $xml .= "    <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvTotal, 2, '.', '') . "</cbc:TaxAmount>\n";
+        $xml .= "    <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvTotal, 4, '.', '') . "</cbc:TaxAmount>\n";
         $xml .= "    <cac:TaxSubtotal>\n";
-        $xml .= "      <cbc:TaxableAmount currencyID=\"PEN\">" . number_format($subtotalBase, 2, '.', '') . "</cbc:TaxableAmount>\n";
-        $xml .= "      <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvTotal, 2, '.', '') . "</cbc:TaxAmount>\n";
+        $xml .= "      <cbc:TaxableAmount currencyID=\"PEN\">" . number_format($subtotalBase, 4, '.', '') . "</cbc:TaxableAmount>\n";
+        $xml .= "      <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvTotal, 4, '.', '') . "</cbc:TaxAmount>\n";
         $xml .= "      <cac:TaxCategory>\n";
         $xml .= "        <cbc:ID schemeID=\"UN/ECE 5305\">S</cbc:ID>\n";
         $xml .= "        <cbc:Percent>18</cbc:Percent>\n";
@@ -309,9 +309,9 @@ class FacturacionElectronicaController extends Controller
 
         // Totales
         $xml .= "  <cac:LegalMonetaryTotal>\n";
-        $xml .= "    <cbc:LineExtensionAmount currencyID=\"PEN\">" . number_format($subtotalBase, 2, '.', '') . "</cbc:LineExtensionAmount>\n";
-        $xml .= "    <cbc:TaxInclusiveAmount currencyID=\"PEN\">" . number_format($totalPagar, 2, '.', '') . "</cbc:TaxInclusiveAmount>\n";
-        $xml .= "    <cbc:PayableAmount currencyID=\"PEN\">" . number_format($totalPagar, 2, '.', '') . "</cbc:PayableAmount>\n";
+        $xml .= "    <cbc:LineExtensionAmount currencyID=\"PEN\">" . number_format($subtotalBase, 4, '.', '') . "</cbc:LineExtensionAmount>\n";
+        $xml .= "    <cbc:TaxInclusiveAmount currencyID=\"PEN\">" . number_format($totalPagar, 4, '.', '') . "</cbc:TaxInclusiveAmount>\n";
+        $xml .= "    <cbc:PayableAmount currencyID=\"PEN\">" . number_format($totalPagar, 4, '.', '') . "</cbc:PayableAmount>\n";
         $xml .= "  </cac:LegalMonetaryTotal>\n";
 
         // Líneas de detalle
@@ -321,21 +321,21 @@ class FacturacionElectronicaController extends Controller
             if ($det->variante?->nombre_completo) {
                 $nombre .= ' - ' . $det->variante->nombre_completo;
             }
-            $precioUnit  = (float) $det->precio_unitario;
-            $subtotalDet = (float) $det->subtotal;
-            $precioUnitSinIgv = round($precioUnit / 1.18, 6);
-            $igvLinea    = round($subtotalDet - ($subtotalDet / 1.18), 2);
-            $baseImponible = round($subtotalDet / 1.18, 2);
+            $precioUnitSinIgv = round((float) $det->precio_unitario, 4);
+            $precioConIgv     = round((float) ($det->precio_con_igv ?? $det->precio_unitario * 1.18), 4);
+            $baseImponible    = round((float) $det->subtotal, 4);
+            $totalLinea       = round((float) ($det->subtotal_con_igv ?? $det->subtotal * 1.18), 4);
+            $igvLinea         = round($totalLinea - $baseImponible, 4);
 
             $xml .= "  <cac:InvoiceLine>\n";
             $xml .= "    <cbc:ID>{$linea}</cbc:ID>\n";
             $xml .= "    <cbc:InvoicedQuantity unitCode=\"NIU\">{$det->cantidad}</cbc:InvoicedQuantity>\n";
-            $xml .= "    <cbc:LineExtensionAmount currencyID=\"PEN\">" . number_format($baseImponible, 2, '.', '') . "</cbc:LineExtensionAmount>\n";
+            $xml .= "    <cbc:LineExtensionAmount currencyID=\"PEN\">" . number_format($baseImponible, 4, '.', '') . "</cbc:LineExtensionAmount>\n";
             $xml .= "    <cac:TaxTotal>\n";
-            $xml .= "      <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvLinea, 2, '.', '') . "</cbc:TaxAmount>\n";
+            $xml .= "      <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvLinea, 4, '.', '') . "</cbc:TaxAmount>\n";
             $xml .= "      <cac:TaxSubtotal>\n";
-            $xml .= "        <cbc:TaxableAmount currencyID=\"PEN\">" . number_format($baseImponible, 2, '.', '') . "</cbc:TaxableAmount>\n";
-            $xml .= "        <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvLinea, 2, '.', '') . "</cbc:TaxAmount>\n";
+            $xml .= "        <cbc:TaxableAmount currencyID=\"PEN\">" . number_format($baseImponible, 4, '.', '') . "</cbc:TaxableAmount>\n";
+            $xml .= "        <cbc:TaxAmount currencyID=\"PEN\">" . number_format($igvLinea, 4, '.', '') . "</cbc:TaxAmount>\n";
             $xml .= "        <cac:TaxCategory>\n";
             $xml .= "          <cbc:ID schemeID=\"UN/ECE 5305\">S</cbc:ID>\n";
             $xml .= "          <cbc:Percent>18</cbc:Percent>\n";
@@ -347,7 +347,7 @@ class FacturacionElectronicaController extends Controller
             $xml .= "      <cbc:Description>" . e($nombre) . "</cbc:Description>\n";
             $xml .= "    </cac:Item>\n";
             $xml .= "    <cac:Price>\n";
-            $xml .= "      <cbc:PriceAmount currencyID=\"PEN\">" . number_format($precioUnitSinIgv, 6, '.', '') . "</cbc:PriceAmount>\n";
+            $xml .= "      <cbc:PriceAmount currencyID=\"PEN\">" . number_format($precioUnitSinIgv, 4, '.', '') . "</cbc:PriceAmount>\n";
             $xml .= "    </cac:Price>\n";
             $xml .= "  </cac:InvoiceLine>\n";
         }

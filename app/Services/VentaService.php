@@ -93,15 +93,13 @@ class VentaService
                 $qty            = (int)   $detalle['cantidad'];
 
                 // precio_unitario en detalle_ventas siempre sin IGV (base imponible)
-                $precioSinIgv   = $incluyeIgv ? round($precioRecibido / 1.18, 2) : $precioRecibido;
-                // total con IGV por línea: usar precio original para no acumular error de redondeo
-                $precioConIgv   = $incluyeIgv ? $precioRecibido : round($precioRecibido * 1.18, 2);
+                $precioSinIgv   = $incluyeIgv ? round($precioRecibido / 1.18, 4) : $precioRecibido;
+                $precioConIgv   = $incluyeIgv ? $precioRecibido : round($precioRecibido * 1.18, 4);
 
-                $subtotalDetalle = round($precioSinIgv * $qty, 2);
+                $subtotalDetalle = round($precioSinIgv * $qty, 4);
                 $subtotal       += $subtotalDetalle;
-                $totalExact     += round($precioConIgv * $qty, 2);
+                $totalExact     += round($precioConIgv * $qty, 4);
 
-                // Crear detalle de venta
                 $detalleVenta = DetalleVenta::create([
                     'venta_id'        => $venta->id,
                     'producto_id'     => $detalle['producto_id'],
@@ -110,7 +108,7 @@ class VentaService
                     'precio_unitario' => $precioSinIgv,
                     'precio_con_igv'  => $precioConIgv,
                     'subtotal'        => $subtotalDetalle,
-                    'subtotal_con_igv'=> round($precioConIgv * $qty, 2),
+                    'subtotal_con_igv'=> round($precioConIgv * $qty, 4),
                 ]);
 
                 // Si es producto con IMEI, marcar los IMEIs como vendidos
@@ -128,11 +126,10 @@ class VentaService
                 );
             }
 
-            // Total exacto desde precios originales; IGV = total - base imponible
-            $total = round($totalExact, 2);
-            $igv   = round($total - $subtotal, 2);
+            $total    = round($totalExact, 4);
+            $subtotal = round($subtotal, 4);
+            $igv      = round($total - $subtotal, 4);
 
-            // Actualizar venta con montos calculados
             $venta->update([
                 'subtotal' => $subtotal,
                 'igv'      => $igv,
@@ -896,11 +893,11 @@ class VentaService
                 $incluyeIgv      = (bool)  ($detalle['incluye_igv'] ?? false);
                 $qty             = (int)   $detalle['cantidad'];
 
-                $precioSinIgv    = $incluyeIgv ? round($precioRecibido / 1.18, 2) : $precioRecibido;
-                $precioConIgv    = $incluyeIgv ? $precioRecibido : round($precioRecibido * 1.18, 2);
-                $subtotalDetalle = round($precioSinIgv * $qty, 2);
+                $precioSinIgv    = $incluyeIgv ? round($precioRecibido / 1.18, 4) : $precioRecibido;
+                $precioConIgv    = $incluyeIgv ? $precioRecibido : round($precioRecibido * 1.18, 4);
+                $subtotalDetalle = round($precioSinIgv * $qty, 4);
                 $subtotal       += $subtotalDetalle;
-                $totalExact     += round($precioConIgv * $qty, 2);
+                $totalExact     += round($precioConIgv * $qty, 4);
 
                 DetalleVenta::create([
                     'venta_id'        => $venta->id,
@@ -910,12 +907,13 @@ class VentaService
                     'precio_unitario' => $precioSinIgv,
                     'precio_con_igv'  => $precioConIgv,
                     'subtotal'        => $subtotalDetalle,
-                    'subtotal_con_igv'=> round($precioConIgv * $qty, 2),
+                    'subtotal_con_igv'=> round($precioConIgv * $qty, 4),
                 ]);
             }
 
-            $total = round($totalExact, 2);
-            $igv   = round($total - $subtotal, 2);
+            $total    = round($totalExact, 4);
+            $subtotal = round($subtotal, 4);
+            $igv      = round($total - $subtotal, 4);
 
             $venta->update(['subtotal' => $subtotal, 'igv' => $igv, 'total' => $total]);
 

@@ -106,6 +106,10 @@ class SunatComprobanteService
         $correlativo = str_pad($venta->correlativo ?? 1, 8, '0', STR_PAD_LEFT);
         $tipoDoc     = $venta->tipo_comprobante === 'factura' ? '01' : '03';
 
+        $baseImponibleTotal = round((float) $venta->subtotal, 4);
+        $igvTotal           = round((float) $venta->igv, 4);
+        $totalVenta         = round((float) $venta->total, 4);
+
         $invoice = new Invoice();
         $invoice->setUblVersion('2.1')
             ->setTipoOperacion('0101')
@@ -116,37 +120,37 @@ class SunatComprobanteService
             ->setTipoMoneda('PEN')
             ->setCompany($this->buildCompany($empresa))
             ->setClient($this->buildClient($venta))
-            ->setMtoOperGravadas(round((float) $venta->subtotal / 1.18, 2))
-            ->setMtoIGV(round((float) $venta->igv, 2))
-            ->setTotalImpuestos(round((float) $venta->igv, 2))
-            ->setValorVenta(round((float) $venta->subtotal / 1.18, 2))
-            ->setSubTotal(round((float) $venta->total, 2))
-            ->setMtoImpVenta(round((float) $venta->total, 2));
+            ->setMtoOperGravadas($baseImponibleTotal)
+            ->setMtoIGV($igvTotal)
+            ->setTotalImpuestos($igvTotal)
+            ->setValorVenta($baseImponibleTotal)
+            ->setSubTotal($totalVenta)
+            ->setMtoImpVenta($totalVenta);
 
         $details = [];
         foreach ($venta->detalles as $det) {
             $nombre = $det->producto?->nombre ?? 'Producto';
             if ($det->variante?->nombre_completo) $nombre .= ' - ' . $det->variante->nombre_completo;
 
-            $precioUnit    = (float) $det->precio_unitario;
-            $subtotalDet   = (float) $det->subtotal;
-            $baseImponible = round($subtotalDet / 1.18, 2);
-            $igvLinea      = round($subtotalDet - $baseImponible, 2);
-            $precioSinIgv  = round($precioUnit / 1.18, 6);
+            $precioSinIgv  = round((float) $det->precio_unitario, 4);
+            $precioConIgv  = round((float) ($det->precio_con_igv ?? $det->precio_unitario * 1.18), 4);
+            $baseLinea     = round((float) $det->subtotal, 4);
+            $totalLinea    = round((float) ($det->subtotal_con_igv ?? $det->subtotal * 1.18), 4);
+            $igvLinea      = round($totalLinea - $baseLinea, 4);
 
             $detail = new SaleDetail();
             $detail->setCodProducto($det->producto?->codigo ?? 'P001')
                 ->setUnidad($det->producto?->unidadMedida?->codigo_sunat ?? 'NIU')
                 ->setCantidad((float) $det->cantidad)
                 ->setDescripcion($nombre)
-                ->setMtoBaseIgv($baseImponible)
+                ->setMtoBaseIgv($baseLinea)
                 ->setPorcentajeIgv(18.00)
                 ->setIgv($igvLinea)
                 ->setTipAfeIgv('10')
                 ->setTotalImpuestos($igvLinea)
-                ->setMtoValorVenta($baseImponible)
+                ->setMtoValorVenta($baseLinea)
                 ->setMtoValorUnitario($precioSinIgv)
-                ->setMtoPrecioUnitario($precioUnit);
+                ->setMtoPrecioUnitario($precioConIgv);
 
             $details[] = $detail;
         }
@@ -167,6 +171,10 @@ class SunatComprobanteService
         $correlativo = str_pad($venta->correlativo ?? 1, 8, '0', STR_PAD_LEFT);
         $tipoDoc     = $venta->tipo_comprobante === 'nota_credito' ? '07' : '08';
 
+        $baseImponibleTotal = round((float) $venta->subtotal, 4);
+        $igvTotal           = round((float) $venta->igv, 4);
+        $totalVenta         = round((float) $venta->total, 4);
+
         $note = new Note();
         $note->setUblVersion('2.1')
             ->setTipoDoc($tipoDoc)
@@ -176,10 +184,10 @@ class SunatComprobanteService
             ->setTipoMoneda('PEN')
             ->setCompany($this->buildCompany($empresa))
             ->setClient($this->buildClient($venta))
-            ->setMtoOperGravadas(round((float) $venta->subtotal / 1.18, 2))
-            ->setMtoIGV(round((float) $venta->igv, 2))
-            ->setTotalImpuestos(round((float) $venta->igv, 2))
-            ->setMtoImpVenta(round((float) $venta->total, 2));
+            ->setMtoOperGravadas($baseImponibleTotal)
+            ->setMtoIGV($igvTotal)
+            ->setTotalImpuestos($igvTotal)
+            ->setMtoImpVenta($totalVenta);
 
         if ($venta->venta_origen_id) {
             $origen = Venta::with('serieComprobante')->find($venta->venta_origen_id);
@@ -198,23 +206,25 @@ class SunatComprobanteService
             $nombre = $det->producto?->nombre ?? 'Producto';
             if ($det->variante?->nombre_completo) $nombre .= ' - ' . $det->variante->nombre_completo;
 
-            $subtotalDet   = (float) $det->subtotal;
-            $baseImponible = round($subtotalDet / 1.18, 2);
-            $igvLinea      = round($subtotalDet - $baseImponible, 2);
+            $precioSinIgv = round((float) $det->precio_unitario, 4);
+            $precioConIgv = round((float) ($det->precio_con_igv ?? $det->precio_unitario * 1.18), 4);
+            $baseLinea    = round((float) $det->subtotal, 4);
+            $totalLinea   = round((float) ($det->subtotal_con_igv ?? $det->subtotal * 1.18), 4);
+            $igvLinea     = round($totalLinea - $baseLinea, 4);
 
             $detail = new SaleDetail();
             $detail->setCodProducto($det->producto?->codigo ?? 'P001')
                 ->setUnidad($det->producto?->unidadMedida?->codigo_sunat ?? 'NIU')
                 ->setCantidad((float) $det->cantidad)
                 ->setDescripcion($nombre)
-                ->setMtoBaseIgv($baseImponible)
+                ->setMtoBaseIgv($baseLinea)
                 ->setPorcentajeIgv(18.00)
                 ->setIgv($igvLinea)
                 ->setTipAfeIgv('10')
                 ->setTotalImpuestos($igvLinea)
-                ->setMtoValorVenta($baseImponible)
-                ->setMtoValorUnitario(round((float) $det->precio_unitario / 1.18, 6))
-                ->setMtoPrecioUnitario((float) $det->precio_unitario);
+                ->setMtoValorVenta($baseLinea)
+                ->setMtoValorUnitario($precioSinIgv)
+                ->setMtoPrecioUnitario($precioConIgv);
             $details[] = $detail;
         }
 

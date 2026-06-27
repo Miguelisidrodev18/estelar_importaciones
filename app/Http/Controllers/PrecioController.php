@@ -112,11 +112,12 @@ class PrecioController extends Controller
         $proveedores = Proveedor::where('estado', 'activo')->orderBy('razon_social')->get();
         $almacenes   = Almacen::where('estado', 'activo')->orderBy('nombre')->get();
 
-        // Precios globales activos indexados por variante_id para lookup rápido
         $preciosGlobalesActivos = $producto->precios
             ->whereNull('almacen_id')
             ->where('tipo_precio', 'venta_regular')
             ->where('activo', true)
+            ->sortByDesc('id')
+            ->unique('variante_id')
             ->keyBy('variante_id');
 
         // Precios mayoristas globales activos
@@ -124,6 +125,8 @@ class PrecioController extends Controller
             ->whereNull('almacen_id')
             ->where('tipo_precio', 'venta_mayorista')
             ->where('activo', true)
+            ->sortByDesc('id')
+            ->unique('variante_id')
             ->keyBy('variante_id');
 
         // Para el historial/tabla completa (incluye inactivos)
@@ -283,9 +286,9 @@ class PrecioController extends Controller
                 }
             }
 
-            // Registrar en historial
             ProductoPrecioHistorial::create([
                 'producto_id'    => $producto->id,
+                'variante_id'    => $validated['variante_id'] ?: null,
                 'tipo_cambio'    => 'venta_regular',
                 'precio_anterior'=> $precioAnterior ?: null,
                 'precio_nuevo'   => $validated['precio_venta'],
@@ -394,6 +397,7 @@ public function restoreSingle(Producto $producto, ProductoPrecio $precio)
             if ((float)$precio->precio !== (float)$validated['precio_venta']) {
                 ProductoPrecioHistorial::create([
                     'producto_id'     => $producto->id,
+                    'variante_id'     => $precio->variante_id,
                     'tipo_cambio'     => 'venta_regular',
                     'precio_anterior' => $precio->precio,
                     'precio_nuevo'    => $validated['precio_venta'],
@@ -434,14 +438,28 @@ public function restoreSingle(Producto $producto, ProductoPrecio $precio)
     /**
      * Ver historial de cambios de precio
      */
-    public function historial(Producto $producto)
+    public function historial(Request $request, Producto $producto)
     {
-        $historial = ProductoPrecioHistorial::where('producto_id', $producto->id)
-            ->with('usuario')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $producto->load(['variantesActivas.color']);
 
-        return view('precios.historial', compact('producto', 'historial'));
+        $query = ProductoPrecioHistorial::where('producto_id', $producto->id)
+            ->with(['usuario', 'variante.color']);
+
+        if ($request->filled('variante_id')) {
+            $variante = \App\Models\ProductoVariante::find($request->variante_id);
+            if ($variante) {
+                $variantesCapacidad = $producto->variantesActivas
+                    ->where('capacidad', $variante->capacidad)
+                    ->pluck('id');
+                $query->whereIn('variante_id', $variantesCapacidad);
+            }
+        }
+
+        $historial = $query->orderBy('created_at', 'desc')->paginate(20)->withQueryString();
+
+        $capacidades = $producto->variantesActivas->groupBy(fn($v) => $v->capacidad ?? '');
+
+        return view('precios.historial', compact('producto', 'historial', 'capacidades'));
     }
 
     /**

@@ -1911,14 +1911,9 @@ function posApp() {
         get orden() { return this.ordenes[this.ordenActiva]; },
 
         // ── Computed: financials ──
-        // total = suma exacta de (precio_con_igv × qty) por línea → evita error de redondeo /1.18
         get total() {
             return Math.round(
-                this.orden.carrito.reduce((s, i) => {
-                    const precioConIgv = i.incluye_igv ? i.precio_unitario
-                        : Math.round(i.precio_unitario * 1.18 * 100) / 100;
-                    return s + precioConIgv * i.cantidad;
-                }, 0) * 100
+                this.orden.carrito.reduce((s, i) => s + i.precio_unitario * i.cantidad, 0) * 100
             ) / 100;
         },
         get subtotal()    { return Math.round(this.total / 1.18 * 100) / 100; },
@@ -2145,7 +2140,7 @@ function posApp() {
                     producto_id: producto.id, variante_id: null,
                     nombre: producto.nombre,
                     precio_unitario: precioBase,
-                    incluye_igv: !!producto.incluye_igv,
+                    incluye_igv: true,
                     cantidad: 1, stock_disponible: stockAlmacen,
                     tipo_inventario: producto.tipo_inventario, imeis: []
                 });
@@ -2180,7 +2175,7 @@ function posApp() {
                     producto_id: this.productoActual.id, variante_id: v.id,
                     nombre: nombreCompleto,
                     precio_unitario: precioBase,
-                    incluye_igv: !!incluyeIgv,
+                    incluye_igv: true,
                     cantidad: 1, stock_disponible: stockDisponible,
                     tipo_inventario: this.productoActual.tipo_inventario, imeis: []
                 });
@@ -2362,7 +2357,7 @@ function posApp() {
                             variante_id:      i.variante_id || null,
                             cantidad:         i.cantidad,
                             precio_unitario:  i.precio_unitario,
-                            incluye_igv:      i.incluye_igv ?? false,
+                            incluye_igv:      true,
                             imeis:            i.imeis || []
                         }))
                     })
@@ -2450,7 +2445,7 @@ function posApp() {
                 producto_id: this.productoActual.id, variante_id: v ? v.id : null,
                 nombre: nombreCompleto,
                 precio_unitario: precioBase,
-                incluye_igv: !!incluyeIgv,
+                incluye_igv: true,
                 cantidad: this.imeisTemp.length, stock_disponible: this.imeisTemp.length,
                 tipo_inventario: 'serie', imeis: this.imeisTemp.map(i => ({ codigo_imei: i.codigo_imei }))
             });
