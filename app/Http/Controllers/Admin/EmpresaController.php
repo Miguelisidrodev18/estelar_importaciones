@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
+use App\Services\CertificadoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -15,9 +16,6 @@ class EmpresaController extends Controller
         $this->middleware('role:Administrador');
     }
 
-    /**
-     * Consultar datos de empresa por RUC en apis.net.pe (SUNAT).
-     */
     public function consultarRuc(string $ruc)
     {
         if (!preg_match('/^\d{11}$/', $ruc)) {
@@ -31,12 +29,10 @@ class EmpresaController extends Controller
             ->get('https://api.apis.net.pe/v1/ruc', ['numero' => $ruc]);
 
         if ($response->failed()) {
-            return response()->json(['error' => 'No se pudo consultar el RUC. Verifica tu token de apis.net.pe.'], 502);
+            return response()->json(['error' => 'No se pudo consultar el RUC.'], 502);
         }
 
         $data = $response->json();
-
-        // v1 devuelve 'ubigeo' como string o array
         $ubigeo = is_array($data['ubigeo'] ?? null)
             ? ($data['ubigeo'][0] ?? '')
             : ($data['ubigeo'] ?? '');
@@ -55,18 +51,12 @@ class EmpresaController extends Controller
         ]);
     }
 
-    /**
-     * Mostrar formulario de configuración (singleton).
-     */
     public function edit()
     {
         $empresa = Empresa::first() ?? new Empresa();
         return view('admin.empresa.edit', compact('empresa'));
     }
 
-    /**
-     * Guardar / actualizar los datos de la empresa.
-     */
     public function update(Request $request)
     {
         $validated = $request->validate([
@@ -88,18 +78,20 @@ class EmpresaController extends Controller
             'sunat_usuario_sol' => 'nullable|string|max:100',
             'sunat_clave_sol'   => 'nullable|string|max:100',
             'sunat_modo'        => 'nullable|in:beta,produccion',
-            'api_url'           => 'nullable|url|max:300',
-            'api_key'           => 'nullable|string|max:300',
+            'certificado_pfx'          => 'nullable|file|max:5120',
+            'certificado_pfx_password' => 'nullable|string|max:200',
+            'gre_client_id'     => 'nullable|string|max:200',
+            'gre_client_secret' => 'nullable|string|max:200',
             'logo'              => 'nullable|image|max:2048',
             'logo_pdf'          => 'nullable|image|max:2048',
         ], [
-            'ruc.digits'           => 'El RUC debe tener exactamente 11 dígitos',
-            'razon_social.required'=> 'La razón social es obligatoria',
+            'ruc.digits'            => 'El RUC debe tener exactamente 11 dígitos',
+            'razon_social.required' => 'La razón social es obligatoria',
         ]);
 
         $empresa = Empresa::first() ?? new Empresa();
 
-        // Subir logos
+        // Logos
         if ($request->hasFile('logo')) {
             if ($empresa->logo_path) Storage::disk('public')->delete($empresa->logo_path);
             $validated['logo_path'] = $request->file('logo')->store('logos', 'public');
@@ -109,11 +101,44 @@ class EmpresaController extends Controller
             $validated['logo_pdf_path'] = $request->file('logo_pdf')->store('logos', 'public');
         }
 
-        // No sobrescribir campos sensibles si están vacíos
-        if (empty($validated['sunat_clave_sol'])) unset($validated['sunat_clave_sol']);
-        if (empty($validated['api_key'])) unset($validated['api_key']);
+        // Certificado PFX → convertir a PEM
+        if ($request->hasFile('certificado_pfx')) {
+            $password = $request->input('certificado_pfx_password', '');
+            if (empty($password) && $empresa->certificado_pfx_password) {
+                $password = $empresa->certificado_pfx_password;
+            }
+            if (empty($password)) {
+                return back()->withInput()->with('error', 'Debe ingresar la contraseña del certificado PFX.');
+            }
 
-        unset($validated['logo'], $validated['logo_pdf']);
+            try {
+                if (!$empresa->exists) {
+                    $empresa->fill($validated);
+                    $empresa->save();
+                }
+
+                $pemPath = app(CertificadoService::class)->convertirPfxAPem(
+                    $request->file('certificado_pfx'),
+                    $password,
+                    $empresa
+                );
+
+                $validated['certificado_pfx_path'] = $request->file('certificado_pfx')->store('certificados', 'local');
+                $validated['certificado_pem_path']  = $pemPath;
+                $validated['certificado_pfx_password'] = $password;
+            } catch (\Exception $e) {
+                return back()->withInput()->with('error', 'Error al procesar certificado: ' . $e->getMessage());
+            }
+        }
+
+        // No sobrescribir campos sensibles vacíos
+        if (empty($validated['sunat_clave_sol'])) unset($validated['sunat_clave_sol']);
+        if (!$request->hasFile('certificado_pfx') && empty($validated['certificado_pfx_password'])) {
+            unset($validated['certificado_pfx_password']);
+        }
+        if (empty($validated['gre_client_secret'])) unset($validated['gre_client_secret']);
+
+        unset($validated['logo'], $validated['logo_pdf'], $validated['certificado_pfx']);
 
         if ($empresa->exists) {
             $empresa->update($validated);

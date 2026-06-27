@@ -231,6 +231,32 @@ class SucursalController extends Controller
             ->with('_tab', 'pagos');
     }
 
+    // ── Almacén secundario dentro de una sucursal ─────────────────────────
+
+    public function storeAlmacen(Request $request, Sucursal $sucursal)
+    {
+        $validated = $request->validate([
+            'nombre'    => 'required|string|max:150',
+            'direccion' => 'nullable|string|max:300',
+            'telefono'  => 'nullable|string|max:20',
+        ]);
+
+        $almacen = Almacen::create([
+            'nombre'      => $validated['nombre'],
+            'codigo'      => Almacen::generarCodigo(),
+            'direccion'   => $validated['direccion'] ?? $sucursal->direccion,
+            'telefono'    => $validated['telefono'] ?? null,
+            'tipo'        => 'deposito',
+            'sucursal_id' => $sucursal->id,
+            'estado'      => 'activo',
+        ]);
+
+        return redirect()
+            ->route('admin.sucursales.edit', $sucursal)
+            ->with('success', "Almacén secundario \"{$almacen->nombre}\" creado correctamente.")
+            ->with('_tab', 'almacenes');
+    }
+
     // ── HU-03: Generar series estándar faltantes ───────────────────────────────
 
     public function generarSeries(Sucursal $sucursal)

@@ -64,7 +64,6 @@
                  precioCompra: '',
                  margen: 30,
                  precioVenta: '',
-                 incluyeIgv: false,
                  modoCalculo: 'margen',
                  resultado: null,
                  margenMayor: 10,
@@ -127,8 +126,7 @@
                      this.margen       = margen;
                      this.modoCalculo  = 'margen';
                      this.resultado    = {
-                         precio_final:   parseFloat(precioVenta),
-                         precio_con_igv: Math.round(parseFloat(precioVenta) * 1.18 * 100) / 100,
+                         precio_final: parseFloat(precioVenta),
                      };
                      if (precioMayorista) {
                          this.precioMayorista    = precioMayorista;
@@ -167,8 +165,7 @@
 
                      const precioFinal = parseFloat(this.precioVenta) || 0;
                      this.resultado = {
-                         precio_final:    precioFinal,
-                         precio_con_igv:  Math.round(precioFinal * 1.18 * 100) / 100,
+                         precio_final: precioFinal,
                      };
                  },
 
@@ -214,8 +211,12 @@
 
                     @if($producto->precio_venta > 0)
                     <div class="flex items-center justify-between text-sm border-t border-gray-100 pt-3 mt-3">
-                        <span class="text-gray-500">Precio actual</span>
+                        <span class="text-gray-500 font-semibold">Precio de Venta</span>
                         <span class="font-bold text-emerald-700 text-base">S/ {{ number_format($producto->precio_venta, 2) }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-gray-400 mt-1">
+                        <span>Base: S/ {{ number_format($producto->precio_venta / 1.18, 2) }}</span>
+                        <span>IGV: S/ {{ number_format($producto->precio_venta - ($producto->precio_venta / 1.18), 2) }}</span>
                     </div>
                     @endif
                 </div>
@@ -346,7 +347,7 @@
                     {{-- Precio de venta (editable en modo 'precio') --}}
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                            Precio Venta (S/)
+                            Precio de Venta (S/)
                             <span x-show="modoCalculo==='precio'" class="text-red-500">*</span>
                         </label>
                         <input type="number" x-model="precioVenta"
@@ -359,17 +360,7 @@
                         <p x-show="modoCalculo==='precio'" class="text-xs text-gray-400 mt-1">Ingresa el precio que quieres cobrar</p>
                     </div>
 
-                    {{-- IGV (solo referencial) --}}
-                    <input type="hidden" name="incluye_igv" value="0">
-                    <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-                        <input type="checkbox" name="incluye_igv" value="1"
-                               x-model="incluyeIgv"
-                               class="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500">
-                        <div>
-                            <p class="text-sm font-semibold text-gray-700">Mostrar precio referencial con IGV (18%)</p>
-                            <p class="text-xs text-gray-400 mt-0.5">Solo informativo — no modifica el precio ni el margen</p>
-                        </div>
-                    </label>
+                    <input type="hidden" name="incluye_igv" value="1">
 
                     {{-- Botón calcular (para trigger explícito) --}}
                     <button type="button" @click="calcular()"
@@ -381,17 +372,23 @@
                     {{-- Resultado calculado --}}
                     <template x-if="resultado">
                         <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2">
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Margen de ganancia</span>
-                                <span class="font-semibold text-emerald-700" x-text="(parseFloat(margen)||0).toFixed(1) + '%'"></span>
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="font-semibold text-emerald-800 flex items-center gap-1.5">
+                                    <i class="fas fa-tag text-emerald-500 text-xs"></i> Precio de Venta
+                                </span>
+                                <span class="font-bold text-emerald-800 text-lg" x-text="'S/ ' + resultado.precio_final.toFixed(2)"></span>
                             </div>
-                            <div class="flex justify-between text-sm border-t border-emerald-200 pt-2">
-                                <span class="font-semibold text-gray-700">Precio de venta</span>
-                                <span class="font-bold text-emerald-700 text-lg" x-text="'S/ ' + resultado.precio_final.toFixed(2)"></span>
+                            <div class="flex justify-between text-xs text-gray-500 border-t border-emerald-200 pt-2">
+                                <span>Margen</span>
+                                <span class="font-semibold" x-text="(parseFloat(margen)||0).toFixed(1) + '%'"></span>
                             </div>
-                            <div class="flex justify-between text-sm" x-show="incluyeIgv">
-                                <span class="text-gray-500 text-xs">Ref. con IGV 18%</span>
-                                <span class="text-xs text-gray-500" x-text="'S/ ' + resultado.precio_con_igv.toFixed(2)"></span>
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>Base sin IGV</span>
+                                <span x-text="'S/ ' + (resultado.precio_final / 1.18).toFixed(2)"></span>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>IGV (18%)</span>
+                                <span x-text="'S/ ' + (resultado.precio_final - resultado.precio_final / 1.18).toFixed(2)"></span>
                             </div>
                         </div>
                     </template>
@@ -562,12 +559,8 @@
                                         <span class="font-medium text-gray-700">{{ $pCap->precio_compra ? 'S/ ' . number_format($pCap->precio_compra, 2) : '—' }}</span>
                                     </div>
                                     <div class="flex justify-between items-center">
-                                        <span class="text-xs text-gray-500">Venta</span>
+                                        <span class="text-xs text-gray-500">P. Venta</span>
                                         <span class="text-base font-bold text-blue-700">S/ {{ number_format($pCap->precio, 2) }}</span>
-                                    </div>
-                                    <div class="flex justify-between text-xs">
-                                        <span class="text-gray-500">c/IGV</span>
-                                        <span class="text-emerald-600 font-medium">S/ {{ number_format($pCap->precio * 1.18, 2) }}</span>
                                     </div>
                                     <div class="flex justify-between text-xs border-t border-gray-100 pt-1.5 mt-1.5">
                                         <span class="text-gray-500">Margen</span>
@@ -603,11 +596,14 @@
                 {{-- Producto sin variantes: KPIs + mayorista --}}
                 @php $precioMayoristaGlobal = $preciosMayoristasActivos[null] ?? $preciosMayoristasActivos->first(); @endphp
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-                        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Venta</p>
+                    <div class="bg-white rounded-xl border border-blue-200 shadow-sm p-4 text-center">
+                        <p class="text-xs text-blue-600 uppercase tracking-wide mb-1 font-semibold">Precio de Venta</p>
                         <p class="text-xl font-bold text-blue-700">
                             {{ $precioGlobal ? 'S/ ' . number_format($precioGlobal->precio, 2) : '—' }}
                         </p>
+                        @if($precioGlobal)
+                            <p class="text-[10px] text-gray-400 mt-0.5">Base: S/ {{ number_format($precioGlobal->precio / 1.18, 2) }} + IGV</p>
+                        @endif
                     </div>
                     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
                         <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Precio Compra</p>
@@ -781,7 +777,7 @@
                                     </tr>
                                 @else
                                     <tr>
-                                        <td colspan="7" class="py-12 text-center">
+                                        <td colspan="8" class="py-12 text-center">
                                             <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                                 <i class="fas fa-globe text-2xl text-gray-400"></i>
                                             </div>
@@ -1047,7 +1043,6 @@
                                                 <th class="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Proveedor</th>
                                                 <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">P. Compra</th>
                                                 <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">P. Venta</th>
-                                                <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">c/IGV</th>
                                                 <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">Margen</th>
                                                 <th class="px-4 py-2 text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">Estado</th>
                                                 <th class="px-4 py-2 text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">Acciones</th>
@@ -1081,9 +1076,6 @@
                                                     </td>
                                                     <td class="px-4 py-2.5 text-right">
                                                         <span class="text-sm font-bold text-indigo-700">S/ {{ number_format($pRep->precio, 2) }}</span>
-                                                    </td>
-                                                    <td class="px-4 py-2.5 text-right">
-                                                        <span class="text-xs font-medium text-emerald-700">S/ {{ number_format($pRep->precio * 1.18, 2) }}</span>
                                                     </td>
                                                     <td class="px-4 py-2.5 text-right">
                                                         @if($pRep->margen !== null)

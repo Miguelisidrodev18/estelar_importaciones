@@ -79,12 +79,11 @@
                                 <i class="fas fa-hashtag mr-1 text-blue-400"></i>N° Guía
                             </label>
                             <div class="flex items-center gap-2">
-                                <input type="text" name="numero_guia" x-model="numeroGuia"
-                                       @input="numeroGuia = numeroGuia.toUpperCase()"
-                                       placeholder="Auto-generado"
-                                       class="flex-1 px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono uppercase">
+                                <input type="text" x-model="numeroGuia" readonly
+                                       placeholder="Se genera automáticamente"
+                                       class="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-lg font-mono uppercase bg-gray-50 text-gray-600 cursor-not-allowed">
                                 <span x-show="guiaSerieId" x-cloak class="text-xs text-emerald-600 font-medium whitespace-nowrap">
-                                    <i class="fas fa-check-circle"></i> Serie
+                                    <i class="fas fa-check-circle"></i> Auto-generado
                                 </span>
                             </div>
                             <input type="hidden" name="guia_serie_id" x-model="guiaSerieId">

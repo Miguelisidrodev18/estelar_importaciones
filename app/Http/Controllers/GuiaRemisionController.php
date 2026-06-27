@@ -8,6 +8,7 @@ use App\Models\Cliente;
 use App\Models\Proveedor;
 use App\Models\Empresa;
 use App\Services\GuiaRemisionService;
+use App\Services\SunatGuiaService;
 use App\Services\SunatService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -169,7 +170,9 @@ class GuiaRemisionController extends Controller
             'detalles.producto.unidadMedida', 'detalles.variante',
         ]);
 
-        return view('guias-remision.show', ['guia' => $guiasRemision]);
+        $empresa = Empresa::first();
+
+        return view('guias-remision.show', ['guia' => $guiasRemision, 'empresa' => $empresa]);
     }
 
     public function updateEstado(Request $request, GuiaRemision $guiasRemision)
@@ -217,6 +220,38 @@ class GuiaRemisionController extends Controller
         $pdf->setPaper('A4', 'portrait');
 
         return $pdf->stream('guia-' . $guia->numero_guia . '.pdf');
+    }
+
+    public function enviarSunat(GuiaRemision $guiasRemision)
+    {
+        $guia = $guiasRemision;
+
+        if (!$guia->puedeEnviarSunat()) {
+            return back()->with('error', 'Esta guía no puede enviarse a SUNAT en su estado actual.');
+        }
+
+        $result = app(SunatGuiaService::class)->enviar($guia);
+
+        return back()->with(
+            $result['success'] ? 'success' : 'error',
+            $result['message']
+        );
+    }
+
+    public function consultarSunat(GuiaRemision $guiasRemision)
+    {
+        $guia = $guiasRemision;
+
+        if (!$guia->sunat_api_id) {
+            return back()->with('error', 'Esta guía no ha sido enviada a SUNAT.');
+        }
+
+        $result = app(SunatGuiaService::class)->consultarEstado($guia);
+
+        return back()->with(
+            $result['success'] ? 'success' : 'error',
+            $result['message']
+        );
     }
 
     public function buscarDestinatario(Request $request)

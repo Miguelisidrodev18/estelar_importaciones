@@ -223,6 +223,27 @@ class TrasladoController extends Controller
         }
     }
 
+    public function anular(Request $request, MovimientoInventario $traslado)
+    {
+        $request->validate([
+            'motivo' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            app(TrasladoService::class)->anularTraslado(
+                $traslado->id,
+                auth()->id(),
+                $request->input('motivo')
+            );
+
+            return redirect()
+                ->route('traslados.index')
+                ->with('success', 'Traslado anulado correctamente. El stock fue devuelto al almacén origen.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
     /**
      * AJAX: IMEIs en_stock para un producto + almacén origen.
      */
@@ -261,7 +282,7 @@ class TrasladoController extends Controller
         $q        = trim($request->get('q', ''));
         $almacenId = (int) $request->get('almacen_id', 0);
 
-        $productos = Producto::with(['variantesActivas'])
+        $productos = Producto::with(['variantesActivas.color'])
             ->where('estado', 'activo')
             ->where(function ($query) use ($q) {
                 $query->where('nombre', 'like', "%{$q}%")
@@ -287,7 +308,18 @@ class TrasladoController extends Controller
             ->groupBy('producto_id')
             ->map(fn($rows) => $rows->pluck('total', 'almacen_id'));
 
-        $result = $productos->map(function ($p) use ($stocksMap, $imeisMap, $almacenId) {
+        $imeisPorVariante = collect();
+        if ($almacenId) {
+            $imeisPorVariante = Imei::whereIn('producto_id', $productoIds)
+                ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+                ->where('almacen_id', $almacenId)
+                ->whereNotNull('variante_id')
+                ->selectRaw('variante_id, COUNT(*) as total')
+                ->groupBy('variante_id')
+                ->pluck('total', 'variante_id');
+        }
+
+        $result = $productos->map(function ($p) use ($stocksMap, $imeisMap, $imeisPorVariante, $almacenId) {
             $esSerie = $p->tipo_inventario === 'serie';
             $stock   = null;
 
@@ -304,13 +336,24 @@ class TrasladoController extends Controller
                 'tipo_inventario' => $p->tipo_inventario,
                 'es_serie'        => $esSerie,
                 'stock_origen'    => $stock,
+                'tiene_variantes' => $p->variantesActivas->isNotEmpty(),
                 'variantes'       => $p->variantesActivas->map(fn($v) => [
-                    'id'     => $v->id,
-                    'nombre' => $v->nombre_completo,
-                    'sku'    => $v->sku ?? '',
+                    'id'           => $v->id,
+                    'nombre'       => $v->nombre_completo,
+                    'sku'          => $v->sku ?? '',
+                    'color_nombre' => $v->color?->nombre ?? null,
+                    'color_hex'    => $v->color?->codigo_hex ?? null,
+                    'capacidad'    => $v->capacidad ?? null,
+                    'stock'        => $esSerie
+                        ? (int) ($imeisPorVariante[$v->id] ?? 0)
+                        : (int) ($v->stock_actual ?? 0),
                 ])->values(),
             ];
         });
+
+        if ($almacenId) {
+            $result = $result->filter(fn($item) => $item['stock_origen'] > 0)->values();
+        }
 
         return response()->json($result);
     }

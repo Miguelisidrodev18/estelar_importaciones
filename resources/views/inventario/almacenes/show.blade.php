@@ -180,27 +180,36 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach($stockDetalle as $item)
-                            @php $stockBajo = $item['stock'] <= 3; @endphp
+                            @php
+                                $stockBajo = $item['stock'] <= 3;
+                                $esSerie   = $item['es_serie'] ?? false;
+                                $unidad    = $esSerie ? 'IMEI' : ($item['producto']->unidadMedida?->abreviatura ?? 'UND');
+                            @endphp
                             <tr class="hover:bg-gray-50/60 transition-colors">
                                 <td class="px-5 py-3">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                                        <div class="w-9 h-9 rounded-lg {{ $esSerie ? 'bg-purple-100' : 'bg-gray-100' }} flex items-center justify-center shrink-0 overflow-hidden">
                                             @if($item['producto']->imagen)
                                                 <img src="{{ $item['producto']->imagen_url }}"
                                                      alt="{{ $item['producto']->nombre }}"
                                                      class="w-full h-full object-cover">
                                             @else
-                                                <i class="fas fa-box text-gray-400 text-sm"></i>
+                                                <i class="fas {{ $esSerie ? 'fa-mobile-alt text-purple-400' : 'fa-box text-gray-400' }} text-sm"></i>
                                             @endif
                                         </div>
                                         <div>
                                             <p class="text-sm font-semibold text-gray-900">{{ $item['producto']->nombre }}</p>
-                                            <p class="text-xs text-gray-400 font-mono">{{ $item['producto']->codigo }}</p>
+                                            <div class="flex items-center gap-1.5 mt-0.5">
+                                                <span class="text-xs text-gray-400 font-mono">{{ $item['producto']->codigo }}</span>
+                                                @if($esSerie)
+                                                    <span class="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded font-bold">IMEI</span>
+                                                @endif
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-5 py-3">
-                                    <span class="text-xs text-gray-500">{{ $item['producto']->nombre_categoria }}</span>
+                                    <span class="text-xs text-gray-500">{{ $item['producto']->categoria?->nombre ?? '—' }}</span>
                                 </td>
                                 <td class="px-5 py-3 text-center">
                                     <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold
@@ -209,13 +218,13 @@
                                             <i class="fas fa-exclamation-triangle text-xs"></i>
                                         @endif
                                         {{ number_format($item['stock'], 0) }}
-                                        <span class="text-xs font-normal">{{ $item['producto']->unidad_medida }}</span>
+                                        <span class="text-xs font-normal">{{ $unidad }}</span>
                                     </span>
                                 </td>
                                 <td class="px-5 py-3 text-center">
                                     <span class="text-sm text-gray-500">
                                         {{ $item['producto']->stock_actual }}
-                                        <span class="text-xs text-gray-400">{{ $item['producto']->unidad_medida }}</span>
+                                        <span class="text-xs text-gray-400">{{ $unidad }}</span>
                                     </span>
                                 </td>
                             </tr>

@@ -243,13 +243,17 @@
                                 <i class="fas fa-eye"></i>
                             </a>
                             @if(in_array($comp->estado_sunat, ['pendiente_envio', 'rechazado']))
-                                <form action="{{ route('facturacion.reenviar', $comp) }}" method="POST" class="inline">
+                                <form action="{{ route('facturacion.enviar-sunat', $comp) }}" method="POST" class="inline">
                                     @csrf
-                                    <button type="submit" class="text-amber-600 hover:text-amber-800 transition" title="Reenviar a SUNAT"
-                                            onclick="return confirm('¿Marcar para reenvío a SUNAT?')">
+                                    <button type="submit" class="text-amber-600 hover:text-amber-800 transition" title="Enviar a SUNAT"
+                                            onclick="return confirm('¿Enviar este comprobante a SUNAT?')">
                                         <i class="fas fa-paper-plane"></i>
                                     </button>
                                 </form>
+                            @elseif($comp->estado_sunat === 'aceptado' && $comp->sunat_api_id)
+                                <span class="text-green-500" title="{{ $comp->sunat_descripcion ?? 'Aceptado por SUNAT' }}">
+                                    <i class="fas fa-check-circle"></i>
+                                </span>
                             @endif
                             <a href="{{ route('ventas.pdf', $comp) }}" target="_blank"
                                class="text-red-500 hover:text-red-700 transition" title="Descargar PDF">

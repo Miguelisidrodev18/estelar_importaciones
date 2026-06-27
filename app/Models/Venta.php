@@ -29,6 +29,10 @@ class Venta extends Model
         'pagos_detalle',
         'estado_pago',
         'estado_sunat',
+        'sunat_api_id',
+        'sunat_ticket',
+        'sunat_descripcion',
+        'sunat_enviado_at',
         'venta_origen_id',
         'motivo_nc_codigo',
         'motivo_nc_descripcion',
@@ -50,6 +54,7 @@ class Venta extends Model
         'total'             => 'decimal:2',
         'pagos_detalle'     => 'array',
         'es_credito'        => 'boolean',
+        'sunat_enviado_at'  => 'datetime',
     ];
 
     public function vendedor()

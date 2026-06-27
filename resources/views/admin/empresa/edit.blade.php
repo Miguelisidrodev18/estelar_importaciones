@@ -218,50 +218,106 @@
             </div>
 
             {{-- TAB: INTEGRACIÓN API --}}
-            <div x-show="tab === 'api'" class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="md:col-span-2">
-                        <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <i class="fas fa-file-invoice text-blue-600"></i> Credenciales SUNAT (Clave SOL)
-                        </h3>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Usuario SOL</label>
-                        <input type="text" name="sunat_usuario_sol" value="{{ old('sunat_usuario_sol', $empresa->sunat_usuario_sol) }}" maxlength="100"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                            placeholder="MODDATOS">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Clave SOL</label>
-                        <input type="password" name="sunat_clave_sol" maxlength="100"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Dejar vacío para no cambiar">
-                        <p class="text-xs text-gray-400 mt-1">Se almacenará de forma segura. Dejar vacío para mantener la clave actual.</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Modo SUNAT</label>
-                        <select name="sunat_modo" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                            <option value="beta" {{ old('sunat_modo', $empresa->sunat_modo) === 'beta' ? 'selected' : '' }}>Beta / Pruebas</option>
-                            <option value="produccion" {{ old('sunat_modo', $empresa->sunat_modo) === 'produccion' ? 'selected' : '' }}>Producción</option>
-                        </select>
-                    </div>
+            <div x-show="tab === 'api'" class="p-6 space-y-6">
 
-                    <div class="md:col-span-2 border-t pt-5 mt-2">
-                        <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <i class="fas fa-server text-green-600"></i> Servidor de Facturación (API REST)
-                        </h3>
+                {{-- 1. Credenciales SUNAT --}}
+                <div>
+                    <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-landmark text-amber-600"></i> Credenciales SUNAT (Clave SOL)
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Usuario SOL</label>
+                            <input type="text" name="sunat_usuario_sol" value="{{ old('sunat_usuario_sol', $empresa->sunat_usuario_sol) }}" maxlength="100"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                placeholder="MODDATOS">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Clave SOL</label>
+                            <input type="password" name="sunat_clave_sol" maxlength="100"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                placeholder="Dejar vacío para no cambiar">
+                            <p class="text-xs text-gray-400 mt-1">Dejar vacío para mantener la clave actual.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Modo SUNAT</label>
+                            <select name="sunat_modo" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                                <option value="beta" {{ old('sunat_modo', $empresa->sunat_modo) === 'beta' ? 'selected' : '' }}>Beta / Pruebas</option>
+                                <option value="produccion" {{ old('sunat_modo', $empresa->sunat_modo) === 'produccion' ? 'selected' : '' }}>Producción</option>
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">URL del API</label>
-                        <input type="url" name="api_url" value="{{ old('api_url', $empresa->api_url) }}" maxlength="300"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                            placeholder="https://api.mifacturador.pe">
+                </div>
+
+                {{-- 2. Certificado Digital --}}
+                <div class="border-t pt-5">
+                    <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-certificate text-purple-600"></i> Certificado Digital (.PFX)
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Archivo Certificado (.pfx)</label>
+                            @if($empresa->certificado_pfx_path)
+                                <div class="mb-2 flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm">
+                                    <i class="fas fa-check-circle text-green-500"></i>
+                                    <span class="text-green-700 font-medium">Certificado cargado</span>
+                                    <span class="text-green-500 text-xs font-mono">{{ basename($empresa->certificado_pfx_path) }}</span>
+                                </div>
+                            @endif
+                            <input type="file" name="certificado_pfx" accept=".pfx,.p12"
+                                class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
+                            <p class="text-xs text-gray-400 mt-1">Archivo .pfx o .p12 del certificado digital de SUNAT. Se reemplazará el anterior si sube uno nuevo.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña del Certificado</label>
+                            <input type="password" name="certificado_pfx_password" maxlength="200"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500"
+                                placeholder="Dejar vacío para no cambiar">
+                            <p class="text-xs text-gray-400 mt-1">Contraseña del archivo .pfx. Dejar vacío para mantener la actual.</p>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">API Key / Token</label>
-                        <input type="password" name="api_key" maxlength="300"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Dejar vacío para no cambiar">
+                </div>
+
+                {{-- 3. Credenciales GRE (Guías de Remisión Electrónicas) --}}
+                <div class="border-t pt-5">
+                    <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-truck text-teal-600"></i> Credenciales GRE (Guías de Remisión)
+                    </h3>
+                    <p class="text-sm text-gray-500 mb-4">
+                        Credenciales API para el envío de Guías de Remisión Electrónicas. En modo <strong>Beta</strong> se usan credenciales de prueba automáticamente.
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Client ID (GRE)</label>
+                            <input type="text" name="gre_client_id" value="{{ old('gre_client_id', $empresa->gre_client_id) }}" maxlength="200"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500"
+                                placeholder="{{ ($empresa->sunat_modo ?? 'beta') !== 'produccion' ? 'Opcional en modo Beta' : 'Requerido en producción' }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Client Secret (GRE)</label>
+                            <input type="password" name="gre_client_secret" maxlength="200"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500"
+                                placeholder="Dejar vacío para no cambiar">
+                        </div>
+                    </div>
+                </div>
+
+                {{-- 4. Estado de configuración --}}
+                <div class="border-t pt-5">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Estado de configuración</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="flex items-center gap-2 px-3 py-2.5 rounded-lg border {{ $empresa->tieneCredencialesSunat() ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                            <i class="fas {{ $empresa->tieneCredencialesSunat() ? 'fa-check-circle text-green-500' : 'fa-times-circle text-red-400' }}"></i>
+                            <span class="text-sm {{ $empresa->tieneCredencialesSunat() ? 'text-green-700' : 'text-red-600' }}">Clave SOL</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-2.5 rounded-lg border {{ $empresa->tieneCertificado() ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                            <i class="fas {{ $empresa->tieneCertificado() ? 'fa-check-circle text-green-500' : 'fa-times-circle text-red-400' }}"></i>
+                            <span class="text-sm {{ $empresa->tieneCertificado() ? 'text-green-700' : 'text-red-600' }}">Certificado Digital</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-blue-50 border-blue-200">
+                            <i class="fas fa-info-circle text-blue-500"></i>
+                            <span class="text-sm text-blue-700">Modo: {{ ($empresa->sunat_modo ?? 'beta') === 'produccion' ? 'Producción' : 'Beta / Pruebas' }}</span>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -126,13 +126,12 @@
                                 <i class="fas fa-file-alt mr-1 text-blue-400"></i>N° Guía
                             </label>
                             <div class="flex items-center gap-2">
-                                <input type="text" name="numero_guia" x-model="numeroGuia"
-                                       class="w-full sm:w-64 px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono uppercase"
-                                       placeholder="Seleccione almacén origen"
-                                       @input="numeroGuia = numeroGuia.toUpperCase()">
+                                <input type="text" x-model="numeroGuia" readonly
+                                       class="w-full sm:w-64 px-3 py-2.5 text-sm border border-gray-200 rounded-lg font-mono uppercase bg-gray-50 text-gray-600 cursor-not-allowed"
+                                       placeholder="Se genera automáticamente">
                                 <span x-show="guiaSerieId" x-cloak
                                       class="text-xs text-emerald-600 font-medium flex items-center gap-1 whitespace-nowrap">
-                                    <i class="fas fa-check-circle"></i> Serie de sucursal
+                                    <i class="fas fa-check-circle"></i> Auto-generado
                                 </span>
                                 <span x-show="almacenId && !guiaSerieId" x-cloak
                                       class="text-xs text-amber-500 font-medium flex items-center gap-1 whitespace-nowrap">
@@ -140,9 +139,6 @@
                                 </span>
                             </div>
                             <input type="hidden" name="guia_serie_id" x-model="guiaSerieId">
-                            @error('numero_guia')
-                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                            @enderror
                         </div>
 
                         <div>
@@ -162,9 +158,9 @@
                     <i class="fas fa-info-circle mt-0.5 text-blue-500 shrink-0"></i>
                     <span>Al guardar, serás redirigido al formulario de <strong>Guía de Remisión</strong> para completar los datos de transporte (conductor, modalidad, etc.).</span>
                 </div>
-                <div class="bg-white rounded-2xl shadow-md overflow-hidden mb-5">
+                <div class="bg-white rounded-2xl shadow-md mb-5">
 
-                    <div class="bg-linear-to-r from-purple-900 to-purple-700 px-6 py-4 flex items-center justify-between">
+                    <div class="bg-linear-to-r from-purple-900 to-purple-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
                         <div class="flex items-center gap-3">
                             <div class="bg-white/20 rounded-xl p-2.5">
                                 <i class="fas fa-boxes text-white text-xl"></i>
@@ -189,7 +185,7 @@
 
                         {{-- ── Filas de producto ── --}}
                         <template x-for="(producto, idx) in productos" :key="producto._id">
-                            <div class="border border-gray-200 rounded-xl overflow-hidden"
+                            <div class="border border-gray-200 rounded-xl"
                                  :class="esDuplicado(idx) ? 'border-red-300 bg-red-50' : 'bg-gray-50/40'">
 
                                 {{-- Cabecera de la fila --}}
@@ -251,27 +247,57 @@
 
                                             {{-- Dropdown resultados --}}
                                             <div x-show="producto.resultados.length > 0" x-cloak
-                                                 class="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto">
+                                                 class="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden max-h-[420px] overflow-y-auto">
                                                 <template x-for="item in producto.resultados" :key="item.id">
-                                                    <button type="button"
-                                                            @click="seleccionarProducto(idx, item)"
-                                                            :disabled="estaUsado(item.id, idx)"
-                                                            class="w-full text-left px-4 py-2.5 text-sm transition-colors border-b border-gray-50 last:border-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                                                            :class="estaUsado(item.id, idx) ? 'bg-gray-50' : 'hover:bg-blue-50'">
-                                                        <div class="flex items-center gap-2">
-                                                            <span class="flex-1 font-medium text-gray-800" x-text="item.nombre"></span>
-                                                            <span class="text-[10px] font-mono text-gray-400" x-text="item.codigo"></span>
-                                                            <span x-show="item.es_serie"
-                                                                  class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold shrink-0">IMEI</span>
-                                                        </div>
-                                                        <div class="flex items-center gap-1 mt-0.5">
-                                                            <span class="text-[10px]"
-                                                                  :class="item.stock_origen > 0 ? 'text-green-600' : 'text-red-500'"
-                                                                  x-text="'Stock: ' + item.stock_origen + (item.es_serie ? ' IMEIs' : ' unid.')"></span>
+                                                    <div class="border-b border-gray-100 last:border-0"
+                                                         :class="estaUsado(item.id, idx) ? 'opacity-40' : ''">
+                                                        {{-- Cabecera del producto --}}
+                                                        <button type="button"
+                                                                @click="seleccionarProducto(idx, item)"
+                                                                :disabled="estaUsado(item.id, idx)"
+                                                                class="w-full text-left px-4 py-3 transition-colors disabled:cursor-not-allowed"
+                                                                :class="estaUsado(item.id, idx) ? 'bg-gray-50' : 'hover:bg-blue-50'">
+                                                            <div class="flex items-center gap-2">
+                                                                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                                                                     :class="item.es_serie ? 'bg-purple-100' : 'bg-blue-100'">
+                                                                    <i class="text-xs" :class="item.es_serie ? 'fas fa-mobile-alt text-purple-600' : 'fas fa-box text-blue-600'"></i>
+                                                                </div>
+                                                                <div class="flex-1 min-w-0">
+                                                                    <p class="text-sm font-semibold text-gray-800 truncate" x-text="item.nombre"></p>
+                                                                    <div class="flex items-center gap-2 mt-0.5">
+                                                                        <span class="text-[10px] font-mono text-gray-400" x-text="item.codigo"></span>
+                                                                        <span x-show="item.es_serie"
+                                                                              class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">IMEI</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="text-right shrink-0">
+                                                                    <span class="text-xs font-bold px-2 py-1 rounded-lg"
+                                                                          :class="item.stock_origen > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'"
+                                                                          x-text="item.stock_origen + (item.es_serie ? ' IMEI' : ' u.')"></span>
+                                                                </div>
+                                                            </div>
                                                             <span x-show="estaUsado(item.id, idx)"
-                                                                  class="text-[10px] text-amber-500 ml-2">ya agregado</span>
+                                                                  class="text-[10px] text-amber-500 mt-1 block">Ya agregado en otra fila</span>
+                                                        </button>
+
+                                                        {{-- Preview de variantes (inline en el dropdown) --}}
+                                                        <div x-show="item.tiene_variantes && !estaUsado(item.id, idx)" x-cloak
+                                                             class="px-4 pb-3 -mt-1">
+                                                            <div class="flex flex-wrap gap-1.5">
+                                                                <template x-for="v in item.variantes" :key="v.id">
+                                                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border"
+                                                                          :class="v.stock > 0 ? 'bg-white border-gray-200 text-gray-700' : 'bg-gray-50 border-gray-100 text-gray-400'">
+                                                                        <span x-show="v.color_hex"
+                                                                              class="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                                                              :style="'background-color:' + v.color_hex"></span>
+                                                                        <span x-text="v.nombre"></span>
+                                                                        <span class="font-bold" :class="v.stock > 0 ? 'text-green-600' : 'text-red-400'"
+                                                                              x-text="'(' + v.stock + ')'"></span>
+                                                                    </span>
+                                                                </template>
+                                                            </div>
                                                         </div>
-                                                    </button>
+                                                    </div>
                                                 </template>
                                                 <div x-show="producto.resultados.length === 0 && producto.busqueda.length >= 2 && !producto.buscando"
                                                      class="px-4 py-3 text-center text-xs text-gray-400">
@@ -284,7 +310,8 @@
 
                                         <p x-show="esDuplicado(idx)" x-cloak
                                            class="text-xs text-red-500 mt-1 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-triangle"></i> Este producto ya está en otra fila.
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            <span x-text="producto.variantes.length > 0 ? 'Esta variante ya está en otra fila.' : 'Este producto ya está en otra fila.'"></span>
                                         </p>
                                     </div>
 
@@ -302,34 +329,56 @@
                                         </span>
                                     </div>
 
-                                    {{-- ── VARIANTE SELECTOR (accesorio con variantes) ── --}}
-                                    <div x-show="producto.productoId && !producto.esSerie && producto.variantes.length > 0" x-cloak>
-                                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                                            <i class="fas fa-palette mr-1 text-pink-400"></i>Variante
+                                    {{-- ── VARIANTE SELECTOR (accesorio y serie con variantes) ── --}}
+                                    <div x-show="producto.productoId && producto.variantes.length > 0" x-cloak>
+                                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                            <i class="fas fa-palette mr-1 text-pink-400"></i>
+                                            <span x-text="producto.esSerie ? 'Filtrar por variante' : 'Variante'"></span>
                                         </label>
-                                        <select :name="`productos[${idx}][variante_id]`"
-                                                x-model="producto.varianteId"
-                                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                            <option :value="null">— Sin variante específica —</option>
-                                            <template x-for="v in producto.variantes" :key="v.id">
-                                                <option :value="v.id" x-text="v.nombre + (v.sku ? ' (' + v.sku + ')' : '')"></option>
-                                            </template>
-                                        </select>
-                                    </div>
 
-                                    {{-- ── VARIANTE FILTRO (serie con variantes) ── --}}
-                                    <div x-show="producto.productoId && producto.esSerie && producto.variantes.length > 0" x-cloak>
-                                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                                            <i class="fas fa-palette mr-1 text-pink-400"></i>Filtrar por variante
-                                        </label>
-                                        <select x-model="producto.varianteId"
-                                                @change="recargarImeisConVariante(idx)"
-                                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                            <option :value="null">— Todas las variantes —</option>
+                                        {{-- Tarjetas de variantes --}}
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                                            {{-- Opción "Todas" solo para serie --}}
+                                            <div x-show="producto.esSerie" x-cloak
+                                                 @click="producto.varianteId = null; recargarImeisConVariante(idx)"
+                                                 class="flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-all"
+                                                 :class="!producto.varianteId ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200' : 'border-gray-200 hover:border-blue-300'">
+                                                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shrink-0">
+                                                    <i class="fas fa-layer-group text-[8px] text-gray-500"></i>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-xs font-semibold text-gray-700">Todas las variantes</p>
+                                                    <p class="text-[10px] text-gray-400" x-text="producto.variantes.length + ' opciones'"></p>
+                                                </div>
+                                                <span class="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                                                      :class="producto.stockOrigen > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'"
+                                                      x-text="producto.stockOrigen + ' disp.'"></span>
+                                            </div>
+
                                             <template x-for="v in producto.variantes" :key="v.id">
-                                                <option :value="v.id" x-text="v.nombre + (v.sku ? ' (' + v.sku + ')' : '')"></option>
+                                                <div @click="seleccionarVariante(idx, v)"
+                                                     class="flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-all"
+                                                     :class="String(producto.varianteId) === String(v.id) ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200' : 'border-gray-200 hover:border-blue-300'">
+                                                    <template x-if="v.color_hex">
+                                                        <span class="w-6 h-6 rounded-full border-2 border-white shadow-sm shrink-0"
+                                                              :style="'background-color:' + v.color_hex"></span>
+                                                    </template>
+                                                    <template x-if="!v.color_hex">
+                                                        <span class="w-6 h-6 rounded-full bg-gray-200 border-2 border-white shadow-sm shrink-0 flex items-center justify-center">
+                                                            <i class="fas fa-mobile-alt text-[8px] text-gray-400"></i>
+                                                        </span>
+                                                    </template>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-xs font-semibold text-gray-700 truncate" x-text="v.nombre"></p>
+                                                        <p x-show="v.sku" class="text-[10px] text-gray-400 font-mono" x-text="v.sku"></p>
+                                                    </div>
+                                                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                                                          :class="v.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'"
+                                                          x-text="v.stock + (producto.esSerie ? ' IMEI' : ' u.')"></span>
+                                                </div>
                                             </template>
-                                        </select>
+                                        </div>
+
                                         <input type="hidden" :name="`productos[${idx}][variante_id]`" :value="producto.varianteId ?? ''">
                                     </div>
 
@@ -556,13 +605,24 @@ function trasladoForm() {
         },
 
         estaUsado(productoId, idx) {
+            const item = this.productos[idx]?.resultados?.find(r => r.id == productoId);
+            if (item && item.tiene_variantes) return false;
             return this.productos.some((p, i) => i !== idx && String(p.productoId) === String(productoId));
         },
 
         esDuplicado(idx) {
-            const pid = String(this.productos[idx]?.productoId ?? '');
-            if (!pid) return false;
-            return this.productos.filter((p, i) => i !== idx && String(p.productoId) === pid).length > 0;
+            const cur = this.productos[idx];
+            if (!cur?.productoId) return false;
+            const pid = String(cur.productoId);
+            const vid = String(cur.varianteId ?? '');
+            return this.productos.some((p, i) => {
+                if (i === idx) return false;
+                if (String(p.productoId) !== pid) return false;
+                if (cur.variantes.length > 0) {
+                    return vid && String(p.varianteId ?? '') === vid;
+                }
+                return true;
+            });
         },
 
         // ── Eventos de selección ─────────────────────────────────────
@@ -618,6 +678,22 @@ function trasladoForm() {
             p.busqueda           = '';
             if (p.esSerie && this.almacenId) {
                 this.cargarImeis(idx);
+            }
+        },
+
+        seleccionarVariante(idx, variante) {
+            const p = this.productos[idx];
+            if (String(p.varianteId) === String(variante.id)) {
+                if (p.esSerie) {
+                    p.varianteId = null;
+                    this.recargarImeisConVariante(idx);
+                }
+                return;
+            }
+            p.varianteId = variante.id;
+            p.stockOrigen = variante.stock;
+            if (p.esSerie) {
+                this.recargarImeisConVariante(idx);
             }
         },
 
@@ -722,9 +798,10 @@ function trasladoForm() {
             if (this.productos.length === 0)                 return false;
 
             return this.productos.every((p, idx) => {
-                if (!p.productoId)       return false;
+                if (!p.productoId)         return false;
                 if (this.esDuplicado(idx)) return false;
-                if (p.esSerie)           return p.imeisSeleccionados.length > 0;
+                if (p.variantes.length > 0 && !p.varianteId) return false;
+                if (p.esSerie)             return p.imeisSeleccionados.length > 0;
                 return p.cantidad >= 1 && (p.stockOrigen === null || p.stockOrigen >= p.cantidad);
             });
         },

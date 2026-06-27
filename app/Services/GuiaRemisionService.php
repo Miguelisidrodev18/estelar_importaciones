@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Almacen;
 use App\Models\GuiaRemision;
 use App\Models\GuiaRemisionDetalle;
 use App\Models\MovimientoInventario;
@@ -18,7 +19,9 @@ class GuiaRemisionService
     {
         return DB::transaction(function () use ($datos) {
 
-            $numeroGuia = $this->resolverNumeroGuia($datos);
+            $resolved    = $this->resolverNumeroGuia($datos['almacen_id'], $datos['guia_serie_id'] ?? null);
+            $numeroGuia  = $resolved['numero'];
+            $guiaSerieId = $resolved['serie_id'];
 
             if (MovimientoInventario::where('numero_guia', $numeroGuia)->exists() ||
                 GuiaRemision::where('numero_guia', $numeroGuia)->where('id', '!=', 0)->exists()) {
@@ -32,7 +35,7 @@ class GuiaRemisionService
                 'cliente_id'             => $datos['tipo_destino'] === 'cliente'   ? ($datos['cliente_id']   ?? null) : null,
                 'proveedor_id'           => $datos['tipo_destino'] === 'proveedor' ? ($datos['proveedor_id'] ?? null) : null,
                 'numero_guia'            => $numeroGuia,
-                'guia_serie_id'          => $datos['guia_serie_id'] ?? null,
+                'guia_serie_id'          => $guiaSerieId,
                 'motivo_traslado'        => $datos['motivo_traslado'],
                 'modalidad'              => $datos['modalidad'],
                 'fecha_traslado'         => $datos['fecha_traslado'],
@@ -64,10 +67,6 @@ class GuiaRemisionService
                 $this->moverStock($guia, $linea, $datos['user_id'], $numeroGuia);
             }
 
-            if (!empty($datos['guia_serie_id'])) {
-                SerieComprobante::where('id', $datos['guia_serie_id'])->increment('correlativo_actual');
-            }
-
             return $guia;
         });
     }
@@ -84,12 +83,23 @@ class GuiaRemisionService
                 throw new \Exception("Ya existe una guía de remisión para el traslado '{$numeroGuia}'.");
             }
 
+            $guiaSerieId = $datos['guia_serie_id'] ?? null;
+            if (!$guiaSerieId) {
+                $almacen = Almacen::with('sucursal')->find($datos['almacen_id']);
+                if ($almacen?->sucursal) {
+                    $guiaSerieId = SerieComprobante::where('sucursal_id', $almacen->sucursal->id)
+                        ->where('tipo_comprobante', '09')
+                        ->where('activo', true)
+                        ->value('id');
+                }
+            }
+
             $guia = GuiaRemision::create([
                 'almacen_id'             => $datos['almacen_id'],
                 'tipo_destino'           => 'almacen',
                 'almacen_destino_id'     => $datos['almacen_destino_id'] ?? null,
                 'numero_guia'            => $numeroGuia,
-                'guia_serie_id'          => $datos['guia_serie_id'] ?? null,
+                'guia_serie_id'          => $guiaSerieId,
                 'motivo_traslado'        => $datos['motivo_traslado'],
                 'modalidad'              => $datos['modalidad'],
                 'fecha_traslado'         => $datos['fecha_traslado'],
@@ -109,7 +119,6 @@ class GuiaRemisionService
                 'estado'                 => 'pendiente',
             ]);
 
-            // Auto-poblar detalles desde los movimientos ya existentes
             $movimientos = MovimientoInventario::where('numero_guia', $numeroGuia)
                 ->where('tipo_movimiento', 'transferencia')
                 ->get();
@@ -122,10 +131,6 @@ class GuiaRemisionService
                     'cantidad'         => $mov->cantidad,
                     'descripcion'      => null,
                 ]);
-            }
-
-            if (!empty($datos['guia_serie_id'])) {
-                SerieComprobante::where('id', $datos['guia_serie_id'])->increment('correlativo_actual');
             }
 
             return $guia;
@@ -324,18 +329,36 @@ class GuiaRemisionService
         }
     }
 
-    private function resolverNumeroGuia(array $datos): string
+    private function resolverNumeroGuia(int $almacenId, ?int $serieId = null): array
     {
-        if (!empty($datos['numero_guia'])) {
-            return strtoupper(trim($datos['numero_guia']));
+        if ($serieId) {
+            return ['numero' => $this->consumirCorrelativo($serieId), 'serie_id' => $serieId];
+        }
+
+        $almacen = Almacen::with('sucursal')->find($almacenId);
+        if ($almacen?->sucursal) {
+            $serie = SerieComprobante::where('sucursal_id', $almacen->sucursal->id)
+                ->where('tipo_comprobante', '09')
+                ->where('activo', true)
+                ->first();
+            if ($serie) {
+                return ['numero' => $this->consumirCorrelativo($serie->id), 'serie_id' => $serie->id];
+            }
         }
 
         $ultimo = GuiaRemision::where('numero_guia', 'like', 'GR-%')
             ->latest('id')->value('numero_guia');
+        $num = $ultimo ? ((int) substr($ultimo, 3) + 1) : 1;
 
-        $numero = $ultimo ? ((int) substr($ultimo, 3) + 1) : 1;
+        return ['numero' => 'GR-' . str_pad($num, 5, '0', STR_PAD_LEFT), 'serie_id' => null];
+    }
 
-        return 'GR-' . str_pad($numero, 5, '0', STR_PAD_LEFT);
+    private function consumirCorrelativo(int $serieId): string
+    {
+        $serie = SerieComprobante::lockForUpdate()->findOrFail($serieId);
+        $numero = $serie->serie . '-' . str_pad($serie->correlativo_actual, 8, '0', STR_PAD_LEFT);
+        $serie->increment('correlativo_actual');
+        return $numero;
     }
 
     private function calcularStockTotal(int $productoId, bool $esSerie, int $almacenId): int

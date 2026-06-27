@@ -9,6 +9,8 @@
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^3.1",
         "doctrine/dbal": "^4.4",
+        "greenter/consulta-cpe": "^1.1",
+        "greenter/lite": "^5.3",
         "inertiajs/inertia-laravel": "^2.0",
         "intervention/image": "^3.11",
         "laravel/framework": "^12.0",

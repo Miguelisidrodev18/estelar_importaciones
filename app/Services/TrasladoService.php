@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Almacen;
 use App\Models\MovimientoInventario;
+use App\Models\SerieComprobante;
 use App\Models\StockAlmacen;
 use App\Models\Imei;
 use App\Models\TrasladoImei;
@@ -38,20 +40,18 @@ class TrasladoService
                 throw new \Exception('Debe incluir al menos un producto en el traslado.');
             }
 
-            // Un único numero_guia para todo el traslado (grupo)
-            $numeroGuia = !empty($datos['numero_guia'])
-                ? strtoupper(trim($datos['numero_guia']))
-                : $this->generarNumeroGuia();
+            $numeroGuia = $this->resolverNumeroGuiaAutomatico(
+                $almacenOrigenId,
+                $datos['guia_serie_id'] ?? null
+            );
 
-            // Verificar que el numero_guia no esté ya en uso
             if (MovimientoInventario::where('numero_guia', $numeroGuia)->exists()) {
-                throw new \Exception("La guía '{$numeroGuia}' ya existe. Deja el campo vacío para auto-generar.");
+                throw new \Exception("La guía '{$numeroGuia}' ya existe.");
             }
 
-            // Validar productos duplicados
-            $productosIds = array_column($productos, 'producto_id');
-            if (count($productosIds) !== count(array_unique($productosIds))) {
-                throw new \Exception('Hay productos duplicados en el traslado.');
+            $claves = array_map(fn($p) => $p['producto_id'] . '-' . ($p['variante_id'] ?? ''), $productos);
+            if (count($claves) !== count(array_unique($claves))) {
+                throw new \Exception('Hay productos con la misma variante duplicados en el traslado.');
             }
 
             foreach ($productos as $linea) {
@@ -259,10 +259,93 @@ class TrasladoService
         });
     }
 
+    // ── Anular traslado ────────────────────────────────────────────────────
+
+    public function anularTraslado(int $movimientoId, int $usuarioId, ?string $motivo = null): void
+    {
+        DB::transaction(function () use ($movimientoId, $usuarioId, $motivo) {
+
+            $representante = MovimientoInventario::with('producto')->findOrFail($movimientoId);
+
+            if ($representante->estado !== 'pendiente') {
+                throw new \Exception('Solo se pueden anular traslados en estado pendiente.');
+            }
+
+            $grupo = $representante->numero_guia
+                ? MovimientoInventario::with(['producto', 'imeisTrasladados'])
+                    ->where('numero_guia', $representante->numero_guia)
+                    ->where('tipo_movimiento', 'transferencia')
+                    ->where('estado', 'pendiente')
+                    ->get()
+                : collect([$representante->load('imeisTrasladados')]);
+
+            if ($grupo->isEmpty()) {
+                throw new \Exception('No se encontraron movimientos pendientes para este traslado.');
+            }
+
+            $observacionAnulacion = 'ANULADO' . ($motivo ? ": {$motivo}" : '') . ' — por ' . auth()->user()?->name . ' el ' . now()->format('d/m/Y H:i');
+
+            foreach ($grupo as $movimiento) {
+                $esSerie = $movimiento->producto->tipo_inventario === 'serie';
+
+                if ($esSerie) {
+                    $imeiIds = $movimiento->imeisTrasladados->pluck('imei_id')->toArray();
+                    if (!empty($imeiIds)) {
+                        Imei::whereIn('id', $imeiIds)
+                            ->where('estado_imei', Imei::ESTADO_EN_TRANSITO)
+                            ->update(['estado_imei' => Imei::ESTADO_EN_STOCK]);
+                    }
+
+                    $totalStock = Imei::where('producto_id', $movimiento->producto_id)
+                        ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+                        ->count();
+                    $movimiento->producto->update(['stock_actual' => $totalStock]);
+                } else {
+                    $stockOrigen = StockAlmacen::firstOrCreate(
+                        ['producto_id' => $movimiento->producto_id, 'almacen_id' => $movimiento->almacen_id],
+                        ['cantidad' => 0]
+                    );
+                    $stockOrigen->increment('cantidad', $movimiento->cantidad);
+
+                    $totalStock = StockAlmacen::where('producto_id', $movimiento->producto_id)->sum('cantidad');
+                    $movimiento->producto->update(['stock_actual' => $totalStock]);
+                }
+
+                $obsActual = $movimiento->observaciones;
+                $movimiento->update([
+                    'estado'        => 'anulado',
+                    'observaciones' => $obsActual ? "{$obsActual}\n{$observacionAnulacion}" : $observacionAnulacion,
+                ]);
+            }
+
+            // Anular la guía de remisión asociada si existe
+            if ($representante->numero_guia) {
+                \App\Models\GuiaRemision::where('numero_guia', $representante->numero_guia)
+                    ->where('estado', '!=', 'anulada')
+                    ->update(['estado' => 'anulada']);
+            }
+        });
+    }
+
     // ───────────────────────────────────────────────────────────────────────
 
-    private function generarNumeroGuia(): string
+    private function resolverNumeroGuiaAutomatico(int $almacenId, ?int $serieId = null): string
     {
+        if ($serieId) {
+            return $this->consumirCorrelativo($serieId);
+        }
+
+        $almacen = Almacen::with('sucursal')->find($almacenId);
+        if ($almacen?->sucursal) {
+            $serie = SerieComprobante::where('sucursal_id', $almacen->sucursal->id)
+                ->where('tipo_comprobante', '09')
+                ->where('activo', true)
+                ->first();
+            if ($serie) {
+                return $this->consumirCorrelativo($serie->id);
+            }
+        }
+
         $ultimo = MovimientoInventario::where('tipo_movimiento', 'transferencia')
             ->where('numero_guia', 'like', 'GR-%')
             ->latest('id')
@@ -271,5 +354,13 @@ class TrasladoService
         $numero = $ultimo ? ((int) substr($ultimo, 3) + 1) : 1;
 
         return 'GR-' . str_pad($numero, 5, '0', STR_PAD_LEFT);
+    }
+
+    private function consumirCorrelativo(int $serieId): string
+    {
+        $serie = SerieComprobante::lockForUpdate()->findOrFail($serieId);
+        $numero = $serie->serie . '-' . str_pad($serie->correlativo_actual, 8, '0', STR_PAD_LEFT);
+        $serie->increment('correlativo_actual');
+        return $numero;
     }
 }

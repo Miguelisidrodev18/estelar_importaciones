@@ -420,6 +420,8 @@ Route::middleware('auth')->group(function () {
         Route::put('/series/{serie}',   [\App\Http\Controllers\FacturacionElectronicaController::class, 'updateSerie'])->name('series.update');
         Route::delete('/series/{serie}',[\App\Http\Controllers\FacturacionElectronicaController::class, 'destroySerie'])->name('series.destroy');
         Route::post('/{venta}/reenviar',       [\App\Http\Controllers\FacturacionElectronicaController::class, 'reenviar'])->name('reenviar');
+        Route::post('/{venta}/enviar-sunat',   [\App\Http\Controllers\FacturacionElectronicaController::class, 'enviarSunat'])->name('enviar-sunat');
+        Route::post('/{venta}/consultar-sunat',[\App\Http\Controllers\FacturacionElectronicaController::class, 'consultarSunat'])->name('consultar-sunat');
         Route::patch('/{venta}/guia-estado',   [\App\Http\Controllers\FacturacionElectronicaController::class, 'updateEstadoGuia'])->name('guia-estado');
         Route::get('/{venta}/xml',             [\App\Http\Controllers\FacturacionElectronicaController::class, 'downloadXml'])->name('xml');
         Route::get('/configuracion', [\App\Http\Controllers\FacturacionElectronicaController::class, 'configuracion'])->name('configuracion');
@@ -459,6 +461,7 @@ Route::middleware('auth')->group(function () {
         Route::middleware('role:Administrador,Almacenero')->group(function () {
             Route::get('/{traslado}', [TrasladoController::class, 'show'])->name('show');
             Route::get('/{traslado}/guia-pdf', [TrasladoController::class, 'guiaPdf'])->name('guia-pdf');
+            Route::post('/{traslado}/anular', [TrasladoController::class, 'anular'])->name('anular');
         });
     });
 
@@ -472,6 +475,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/{guiasRemision}',          [\App\Http\Controllers\GuiaRemisionController::class, 'show'])->name('show');
         Route::patch('/{guiasRemision}/estado', [\App\Http\Controllers\GuiaRemisionController::class, 'updateEstado'])->name('update-estado');
         Route::get('/{guiasRemision}/pdf',      [\App\Http\Controllers\GuiaRemisionController::class, 'pdf'])->name('pdf');
+        Route::post('/{guiasRemision}/enviar-sunat',    [\App\Http\Controllers\GuiaRemisionController::class, 'enviarSunat'])->name('enviar-sunat');
+        Route::post('/{guiasRemision}/consultar-sunat', [\App\Http\Controllers\GuiaRemisionController::class, 'consultarSunat'])->name('consultar-sunat');
         Route::get('/buscar-destinatario',      [\App\Http\Controllers\GuiaRemisionController::class, 'buscarDestinatario'])->name('buscar-destinatario');
         Route::get('/api/ruc/{ruc}',            [\App\Http\Controllers\GuiaRemisionController::class, 'buscarRuc'])->name('api.ruc');
         Route::get('/api/dni/{dni}',            [\App\Http\Controllers\DniLookupController::class, 'buscar'])->name('api.dni');
@@ -585,7 +590,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/sucursales/{sucursal}/pagos', [SucursalController::class, 'updatePagos'])->name('sucursales.pagos.update');
 
         // Almacenes secundarios de una sucursal
-        Route::post('/sucursales/{sucursal}/almacenes', [SucursalController::class, 'storeAlmacenSecundario'])->name('sucursales.almacenes.store');
+        Route::post('/sucursales/{sucursal}/almacenes', [SucursalController::class, 'storeAlmacen'])->name('sucursales.almacenes.store');
 
         // ── Admin Caja (Supervisión) ──────────────────────────────────────────
         Route::get('/cajas/dashboard', [AdminCajaController::class, 'dashboard'])->name('cajas.dashboard');

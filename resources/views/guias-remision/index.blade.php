@@ -84,6 +84,7 @@
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Almacén → Destino</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">SUNAT</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</th>
                     </tr>
                 </thead>
@@ -121,16 +122,63 @@
                                 {{ $guia->estado_label }}
                             </span>
                         </td>
+                        <td class="px-4 py-3 text-center">
+                            @if($guia->sunat_estado === 'aceptado')
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700"
+                                      title="{{ $guia->sunat_descripcion }}">
+                                    <i class="fas fa-check-circle"></i> Aceptado
+                                </span>
+                            @elseif($guia->sunat_estado === 'enviado')
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700"
+                                      title="{{ $guia->sunat_descripcion }}">
+                                    <i class="fas fa-clock"></i> Enviado
+                                </span>
+                            @elseif($guia->sunat_estado === 'rechazado')
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700"
+                                      title="{{ $guia->sunat_descripcion }}">
+                                    <i class="fas fa-times-circle"></i> Rechazado
+                                </span>
+                            @elseif($guia->sunat_estado === 'error')
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-600"
+                                      title="{{ $guia->sunat_descripcion }}">
+                                    <i class="fas fa-exclamation-triangle"></i> Error
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500">
+                                    <i class="fas fa-minus-circle"></i> No enviado
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3 text-right">
                             <div class="flex items-center justify-end gap-2">
                                 <a href="{{ route('guias-remision.show', $guia) }}"
-                                   class="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                   class="text-blue-600 hover:text-blue-800 text-xs font-medium" title="Ver detalle">
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 <a href="{{ route('guias-remision.pdf', $guia) }}" target="_blank"
-                                   class="text-red-500 hover:text-red-700 text-xs font-medium">
+                                   class="text-red-500 hover:text-red-700 text-xs font-medium" title="Descargar PDF">
                                     <i class="fas fa-file-pdf"></i>
                                 </a>
+                                @if($guia->puedeEnviarSunat())
+                                    <form action="{{ route('guias-remision.enviar-sunat', $guia) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit"
+                                                class="text-amber-600 hover:text-amber-800 text-xs font-medium transition"
+                                                title="Enviar a SUNAT"
+                                                onclick="return confirm('¿Enviar esta guía a SUNAT?')">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </form>
+                                @elseif(in_array($guia->sunat_estado, ['enviado']))
+                                    <form action="{{ route('guias-remision.consultar-sunat', $guia) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit"
+                                                class="text-blue-600 hover:text-blue-800 text-xs font-medium transition"
+                                                title="Consultar estado SUNAT">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

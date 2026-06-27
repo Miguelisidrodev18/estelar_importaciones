@@ -19,11 +19,14 @@ class GuiaRemision extends Model
         'transportista_tipo_doc', 'transportista_doc', 'transportista_nombre',
         'conductor_dni', 'conductor_nombre', 'conductor_licencia', 'placa_vehiculo',
         'estado',
+        'sunat_estado', 'sunat_api_id', 'sunat_ticket',
+        'sunat_cdr_code', 'sunat_descripcion', 'sunat_enviado_at',
     ];
 
     protected $casts = [
-        'fecha_traslado' => 'date',
-        'peso_total'     => 'decimal:2',
+        'fecha_traslado'   => 'date',
+        'peso_total'       => 'decimal:2',
+        'sunat_enviado_at' => 'datetime',
     ];
 
     // ── Relaciones ────────────────────────────────────────────────
@@ -118,5 +121,34 @@ class GuiaRemision extends Model
     public function puedeConfirmar(): bool
     {
         return in_array($this->estado, ['pendiente', 'en_transito']);
+    }
+
+    public function puedeEnviarSunat(): bool
+    {
+        return in_array($this->estado, ['pendiente', 'en_transito', 'entregada'])
+            && in_array($this->sunat_estado, ['no_enviado', 'error', 'rechazado']);
+    }
+
+    public function getSunatEstadoLabelAttribute(): string
+    {
+        return match($this->sunat_estado) {
+            'no_enviado' => 'No enviado',
+            'enviado'    => 'Enviado',
+            'aceptado'   => 'Aceptado',
+            'rechazado'  => 'Rechazado',
+            'error'      => 'Error',
+            default      => 'No enviado',
+        };
+    }
+
+    public function getSunatEstadoCssAttribute(): string
+    {
+        return match($this->sunat_estado) {
+            'aceptado'   => 'bg-green-100 text-green-700',
+            'enviado'    => 'bg-blue-100 text-blue-700',
+            'rechazado'  => 'bg-red-100 text-red-700',
+            'error'      => 'bg-red-100 text-red-600',
+            default      => 'bg-gray-100 text-gray-500',
+        };
     }
 }

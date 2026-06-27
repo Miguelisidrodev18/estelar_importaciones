@@ -15,42 +15,41 @@
 <body class="bg-gray-50">
     <x-sidebar :role="auth()->user()->role->nombre" />
 
-    <div class="md:ml-64 p-4 md:p-8">
+    <div class="md:ml-64 p-4 md:p-5">
         <!-- Header con breadcrumb -->
-        <div class="mb-6">
-            <div class="flex items-center text-sm text-gray-500 mb-2">
+        <div class="mb-4">
+            <div class="flex items-center text-xs text-gray-500 mb-1">
                 <a href="{{ route('admin.dashboard') }}" class="hover:text-blue-900">Dashboard</a>
-                <i class="fas fa-chevron-right mx-2 text-xs"></i>
+                <i class="fas fa-chevron-right mx-1.5 text-[10px]"></i>
                 <a href="{{ route('compras.index') }}" class="hover:text-blue-900">Compras</a>
-                <i class="fas fa-chevron-right mx-2 text-xs"></i>
+                <i class="fas fa-chevron-right mx-1.5 text-[10px]"></i>
                 <span class="text-gray-700 font-medium">Nueva Compra</span>
             </div>
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-gray-900 flex items-center">
-                    <i class="fas fa-file-invoice mr-3 text-blue-900"></i>
+                <h1 class="text-xl font-bold text-gray-900 flex items-center">
+                    <i class="fas fa-file-invoice mr-2 text-blue-900 text-lg"></i>
                     Registrar Nueva Compra
                 </h1>
-                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                    <i class="fas fa-clock mr-1"></i>
-                    {{ now()->format('d/m/Y H:i') }}
+                <span class="px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                    <i class="fas fa-clock mr-1"></i>{{ now()->format('d/m/Y H:i') }}
                 </span>
             </div>
         </div>
 
         @if(session('error'))
-            <div class="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg flex items-start">
-                <i class="fas fa-exclamation-circle mt-0.5 mr-3 text-lg"></i>
+            <div class="mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-start text-sm">
+                <i class="fas fa-exclamation-circle mt-0.5 mr-2"></i>
                 <span>{{ session('error') }}</span>
             </div>
         @endif
 
         @if($errors->any())
-            <div class="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
-                <div class="flex items-center mb-2">
-                    <i class="fas fa-exclamation-triangle mr-2 text-lg"></i>
-                    <strong>Por favor corrige los siguientes errores:</strong>
+            <div class="mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded-lg">
+                <div class="flex items-center mb-1">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    <strong class="text-sm">Por favor corrige los siguientes errores:</strong>
                 </div>
-                <ul class="list-disc list-inside space-y-1 text-sm">
+                <ul class="list-disc list-inside space-y-0.5 text-xs">
                     @foreach($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
@@ -59,56 +58,54 @@
         @endif
 
         <!-- Formulario principal -->
-        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
             <!-- Cabecera decorativa -->
-            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-8 py-5">
-                <h2 class="text-xl font-bold text-white flex items-center">
-                    <i class="fas fa-shopping-cart mr-3"></i>
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-5 py-3">
+                <h2 class="text-base font-bold text-white flex items-center">
+                    <i class="fas fa-shopping-cart mr-2"></i>
                     Datos de la Compra
                 </h2>
             </div>
 
-            <form action="{{ route('compras.store') }}" method="POST" id="compraForm" class="p-8">
+            <form action="{{ route('compras.store') }}" method="POST" id="compraForm" class="p-5">
                 @csrf
 
                 <!-- TIPO DE COMPRA -->
-                <div class="mb-8">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-2">
-                            <i class="fas fa-tag text-purple-700 text-sm"></i>
+                <div class="mb-5">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                        <span class="w-6 h-6 bg-purple-100 rounded flex items-center justify-center mr-1.5">
+                            <i class="fas fa-tag text-purple-700 text-xs"></i>
                         </span>
                         Tipo de Compra
                     </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
-                        <!-- Local -->
+                    <div class="grid grid-cols-2 gap-3 max-w-xl">
                         <label class="cursor-pointer">
                             <input type="radio" name="tipo_compra" value="local"
                                    class="sr-only peer"
                                    onchange="cambiarTipoCompra('local')"
                                    {{ old('tipo_compra', 'local') === 'local' ? 'checked' : '' }}>
-                            <div class="peer-checked:border-green-500 peer-checked:bg-green-50 border-2 border-gray-200 rounded-xl p-4 flex items-center gap-3 transition hover:border-green-300">
-                                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
-                                    <i class="fas fa-store text-green-700"></i>
+                            <div class="peer-checked:border-green-500 peer-checked:bg-green-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 transition hover:border-green-300">
+                                <div class="w-8 h-8 bg-green-100 rounded flex items-center justify-center shrink-0">
+                                    <i class="fas fa-store text-green-700 text-sm"></i>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900 text-sm">Compra Local</p>
-                                    <p class="text-xs text-gray-500 mt-0.5">Proveedor local, sin documentos aduaneros</p>
+                                    <p class="font-semibold text-gray-900 text-xs">Compra Local</p>
+                                    <p class="text-[11px] text-gray-500">Sin documentos aduaneros</p>
                                 </div>
                             </div>
                         </label>
-                        <!-- Importación -->
                         <label class="cursor-pointer">
                             <input type="radio" name="tipo_compra" value="importacion"
                                    class="sr-only peer"
                                    onchange="cambiarTipoCompra('importacion')"
                                    {{ old('tipo_compra') === 'importacion' ? 'checked' : '' }}>
-                            <div class="peer-checked:border-orange-500 peer-checked:bg-orange-50 border-2 border-gray-200 rounded-xl p-4 flex items-center gap-3 transition hover:border-orange-300">
-                                <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
-                                    <i class="fas fa-ship text-orange-700"></i>
+                            <div class="peer-checked:border-orange-500 peer-checked:bg-orange-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 transition hover:border-orange-300">
+                                <div class="w-8 h-8 bg-orange-100 rounded flex items-center justify-center shrink-0">
+                                    <i class="fas fa-ship text-orange-700 text-sm"></i>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900 text-sm">Importación</p>
-                                    <p class="text-xs text-gray-500 mt-0.5">DUA, manifiesto y costos CIF</p>
+                                    <p class="font-semibold text-gray-900 text-xs">Importación</p>
+                                    <p class="text-[11px] text-gray-500">DUA, manifiesto y costos CIF</p>
                                 </div>
                             </div>
                         </label>
@@ -116,22 +113,22 @@
                 </div>
 
                 <!-- SECCIÓN IMPORTACIÓN (condicional) -->
-                <div id="seccion_importacion" class="{{ old('tipo_compra') === 'importacion' ? '' : 'hidden' }} mb-8">
-                    <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
-                        <h3 class="text-base font-semibold text-orange-900 mb-4 flex items-center">
-                            <i class="fas fa-ship mr-2 text-orange-600"></i>
+                <div id="seccion_importacion" class="{{ old('tipo_compra') === 'importacion' ? '' : 'hidden' }} mb-5">
+                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <h3 class="text-sm font-semibold text-orange-900 mb-3 flex items-center">
+                            <i class="fas fa-ship mr-1.5 text-orange-600 text-xs"></i>
                             Datos de Importación
                         </h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             <!-- Número DUA -->
                             <div>
-                                <label for="numero_dua" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="numero_dua" class="block text-xs font-medium text-gray-700 mb-1">
                                     Número DUA <span class="text-orange-500">*</span>
                                     <span class="text-xs text-gray-400 font-normal">(Declaración Única de Aduanas)</span>
                                 </label>
                                 <input type="text" name="numero_dua" id="numero_dua"
                                        value="{{ old('numero_dua') }}"
-                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                        placeholder="Ej: 117-2026-00001234">
                                 @error('numero_dua')
                                     <p class="mt-1 text-xs text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p>
@@ -139,132 +136,132 @@
                             </div>
                             <!-- Número Manifiesto -->
                             <div>
-                                <label for="numero_manifiesto" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="numero_manifiesto" class="block text-xs font-medium text-gray-700 mb-1">
                                     N° Manifiesto / Carga
                                 </label>
                                 <input type="text" name="numero_manifiesto" id="numero_manifiesto"
                                        value="{{ old('numero_manifiesto') }}"
-                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                        placeholder="Ej: MAN-2026-001">
                             </div>
                             <!-- Agente de Aduanas -->
                             <div>
-                                <label for="agente_aduanas" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="agente_aduanas" class="block text-xs font-medium text-gray-700 mb-1">
                                     Agente de Aduanas
                                 </label>
                                 <input type="text" name="agente_aduanas" id="agente_aduanas"
                                        value="{{ old('agente_aduanas') }}"
-                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                        placeholder="Nombre del agente o empresa">
                             </div>
                             <!-- Flete USD -->
                             <div>
-                                <label for="flete_usd" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="flete_usd" class="block text-xs font-medium text-gray-700 mb-1">
                                     Flete (USD)
                                     <span class="text-xs text-gray-400 font-normal">Costo de transporte internacional</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">$</span>
+                                    <span class="absolute left-3 top-2.5 text-gray-500 text-sm font-medium">$</span>
                                     <input type="number" name="flete_usd" id="flete_usd"
                                            value="{{ old('flete_usd', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
-                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           class="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
                             <!-- Seguro USD -->
                             <div>
-                                <label for="seguro_usd" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="seguro_usd" class="block text-xs font-medium text-gray-700 mb-1">
                                     Seguro (USD)
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">$</span>
+                                    <span class="absolute left-3 top-2.5 text-gray-500 text-sm font-medium">$</span>
                                     <input type="number" name="seguro_usd" id="seguro_usd"
                                            value="{{ old('seguro_usd', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
-                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           class="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
                             <!-- Otros Gastos USD -->
                             <div>
-                                <label for="otros_usd" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="otros_usd" class="block text-xs font-medium text-gray-700 mb-1">
                                     Otros Gastos (USD)
                                     <span class="text-xs text-gray-400 font-normal">Almacenaje, etc.</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">$</span>
+                                    <span class="absolute left-3 top-2.5 text-gray-500 text-sm font-medium">$</span>
                                     <input type="number" name="otros_usd" id="otros_usd"
                                            value="{{ old('otros_usd', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
-                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           class="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
                             <!-- Impuestos USD (Ad Valorem, etc.) -->
                             <div>
-                                <label for="impuestos_usd" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="impuestos_usd" class="block text-xs font-medium text-gray-700 mb-1">
                                     Impuestos (USD)
                                     <span class="text-xs text-gray-400 font-normal">Ad Valorem, etc.</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">$</span>
+                                    <span class="absolute left-3 top-2.5 text-gray-500 text-sm font-medium">$</span>
                                     <input type="number" name="impuestos_usd" id="impuestos_usd"
                                            value="{{ old('impuestos_usd', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
-                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           class="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
                             <!-- Impuestos PEN (IGV importación, etc.) -->
                             <div>
-                                <label for="impuestos_pen" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="impuestos_pen" class="block text-xs font-medium text-gray-700 mb-1">
                                     Impuestos (S/)
                                     <span class="text-xs text-gray-400 font-normal">IGV importación, ISC</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">S/</span>
+                                    <span class="absolute left-3 top-2.5 text-gray-500 text-sm font-medium">S/</span>
                                     <input type="number" name="impuestos_pen" id="impuestos_pen"
                                            value="{{ old('impuestos_pen', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
-                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           class="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
                             <!-- Transporte Local PEN -->
                             <div>
-                                <label for="transporte_local_pen" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="transporte_local_pen" class="block text-xs font-medium text-gray-700 mb-1">
                                     Transporte Local (S/)
                                     <span class="text-xs text-gray-400 font-normal">Puerto → almacén</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">S/</span>
+                                    <span class="absolute left-3 top-2.5 text-gray-500 text-sm font-medium">S/</span>
                                     <input type="number" name="transporte_local_pen" id="transporte_local_pen"
                                            value="{{ old('transporte_local_pen', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
-                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           class="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
                             <!-- Percepción PEN -->
                             <div>
-                                <label for="percepcion_pen" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label for="percepcion_pen" class="block text-xs font-medium text-gray-700 mb-1">
                                     Percepción (S/)
                                     <span class="text-xs text-gray-400 font-normal">Percepción SUNAT</span>
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-3.5 text-gray-500 text-sm font-medium">S/</span>
+                                    <span class="absolute left-3 top-2.5 text-gray-500 text-sm font-medium">S/</span>
                                     <input type="number" name="percepcion_pen" id="percepcion_pen"
                                            value="{{ old('percepcion_pen', 0) }}" min="0" step="0.01"
                                            oninput="calcularTotales()"
-                                           class="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
+                                           class="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
                                            placeholder="0.00">
                                 </div>
                             </div>
                             <!-- Resumen CIF -->
                             <div class="flex items-center">
-                                <div class="w-full bg-white border border-orange-200 rounded-xl p-4 text-sm">
-                                    <p class="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2">
+                                <div class="w-full bg-white border border-orange-200 rounded-lg p-3 text-sm">
+                                    <p class="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1.5">
                                         <i class="fas fa-calculator mr-1"></i>Costos CIF / Totales
                                     </p>
                                     <div class="space-y-1 text-xs text-gray-600">
@@ -283,7 +280,7 @@
                         </div>
 
                         <!-- Prorrateo -->
-                        <div id="prorrateo_section" class="hidden mt-4 bg-white border border-orange-200 rounded-xl p-4">
+                        <div id="prorrateo_section" class="hidden mt-3 bg-white border border-orange-200 rounded-lg p-3">
                             <p class="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-3">
                                 <i class="fas fa-divide mr-1"></i>Distribución de Costos por Producto (Prorrateo)
                             </p>
@@ -295,18 +292,18 @@
                 </div>
 
                 <!-- SECCIÓN 1: INFORMACIÓN PRINCIPAL -->
-                <div class="mb-10">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-2">
-                            <i class="fas fa-file-invoice text-blue-900 text-sm"></i>
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                        <span class="w-6 h-6 bg-blue-100 rounded flex items-center justify-center mr-1.5">
+                            <i class="fas fa-file-invoice text-blue-900 text-xs"></i>
                         </span>
                         Información de la Factura
                     </h3>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <!-- Proveedor (búsqueda en vivo) -->
                         <div class="relative" id="proveedor_container">
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label class="block text-xs font-medium text-gray-700 mb-1">
                                 Proveedor <span class="text-red-500">*</span>
                             </label>
                             {{-- Campo oculto que envía el ID al servidor --}}
@@ -314,12 +311,12 @@
 
                             {{-- Input de búsqueda --}}
                             <div class="relative" id="proveedor_busqueda_wrap" style="{{ old('proveedor_id') ? 'display:none' : '' }}">
-                                <i class="fas fa-search absolute left-4 top-3.5 text-gray-400 pointer-events-none"></i>
+                                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 pointer-events-none text-sm"></i>
                                 <input type="text"
                                        id="buscar_proveedor"
-                                       placeholder="Escribe RUC, razón social o nombre (mín. 3 caracteres)..."
+                                       placeholder="RUC, razón social o nombre (mín. 3 car.)..."
                                        autocomplete="off"
-                                       class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm">
+                                       class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm">
                             </div>
 
                             {{-- Dropdown de resultados --}}
@@ -332,7 +329,7 @@
                                 $provSeleccionado = old('proveedor_id') ? $proveedores->firstWhere('id', old('proveedor_id')) : null;
                             @endphp
                             <div id="proveedor_seleccionado"
-                                 class="{{ $provSeleccionado ? '' : 'hidden' }} mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+                                 class="{{ $provSeleccionado ? '' : 'hidden' }} mt-1.5 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <i class="fas fa-building text-blue-700 text-sm shrink-0"></i>
                                     <div class="min-w-0">
@@ -361,12 +358,12 @@
 
                         <!-- Número de Factura -->
                         <div>
-                            <label for="numero_factura" class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label for="numero_factura" class="block text-xs font-medium text-gray-700 mb-1">
                                 N° Factura/Boleta <span class="text-red-500">*</span>
                             </label>
                             <input type="text" name="numero_factura" id="numero_factura"
                                    value="{{ old('numero_factura') }}" required
-                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                   class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm"
                                    placeholder="Ej: F001-000001">
                             @error('numero_factura')
                                 <p class="mt-1 text-xs text-red-600 flex items-center">
@@ -377,12 +374,12 @@
 
                         <!-- Almacén de Destino -->
                         <div class="relative">
-                            <label for="almacen_id" class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label for="almacen_id" class="block text-xs font-medium text-gray-700 mb-1">
                                 Almacén de Destino <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
                                 <select name="almacen_id" id="almacen_id" required
-                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white">
+                                        class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm appearance-none bg-white text-sm">
                                     <option value="">— Seleccione un almacén —</option>
                                     @if($almacenesCentral->isNotEmpty())
                                         <optgroup label="── Almacenes Centrales">
@@ -403,7 +400,7 @@
                                         </optgroup>
                                     @endif
                                 </select>
-                                <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
                             @error('almacen_id')
                                 <p class="mt-1 text-xs text-red-600 flex items-center">
@@ -414,76 +411,76 @@
 
                         <!-- Fecha -->
                         <div>
-                            <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label for="fecha" class="block text-xs font-medium text-gray-700 mb-1">
                                 Fecha de Compra <span class="text-red-500">*</span>
                             </label>
                             <input type="date" name="fecha" id="fecha" required
                                    value="{{ old('fecha', date('Y-m-d')) }}"
-                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                   class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm">
                         </div>
 
                         <!-- Tipo Comprobante -->
                         <div class="relative">
-                            <label for="tipo_comprobante" class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label for="tipo_comprobante" class="block text-xs font-medium text-gray-700 mb-1">
                                 Tipo Comprobante
                             </label>
                             <div class="relative">
                                 <select name="tipo_comprobante" id="tipo_comprobante"
-                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white">
+                                        class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm appearance-none bg-white">
                                     <option value="factura">Factura</option>
                                     <option value="boleta">Boleta</option>
                                     <option value="nota_credito">Nota de Crédito</option>
                                 </select>
-                                <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
                         </div>
 
                         <!-- Forma de Pago -->
                         <div class="relative">
-                            <label for="forma_pago" class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label for="forma_pago" class="block text-xs font-medium text-gray-700 mb-1">
                                 Forma de Pago <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
                                 <select name="forma_pago" id="forma_pago" required
-                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white"
+                                        class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm appearance-none bg-white"
                                         onchange="toggleCondicionPago(this.value)">
                                     <option value="contado" {{ old('forma_pago') == 'contado' ? 'selected' : '' }}>Contado</option>
                                     <option value="credito" {{ old('forma_pago') == 'credito' ? 'selected' : '' }}>Crédito</option>
                                 </select>
-                                <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
                         </div>
 
                         <!-- Condición de Pago (crédito) -->
                         <div id="condicion_pago_div" class="{{ old('forma_pago') == 'credito' ? '' : 'hidden' }}">
-                            <label for="condicion_pago" class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label for="condicion_pago" class="block text-xs font-medium text-gray-700 mb-1">
                                 Días de Crédito
                             </label>
                             <input type="number" name="condicion_pago" id="condicion_pago"
                                 value="{{ old('condicion_pago', 30) }}" min="1" max="90"
-                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm"
                                 {{ old('forma_pago') == 'credito' ? '' : 'disabled' }}>
                         </div>
 
                         <!-- Moneda -->
                         <div class="relative">
-                            <label for="tipo_moneda" class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label for="tipo_moneda" class="block text-xs font-medium text-gray-700 mb-1">
                                 Moneda
                             </label>
                             <div class="relative">
                                 <select name="tipo_moneda" id="tipo_moneda"
-                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white"
+                                        class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm appearance-none bg-white"
                                         onchange="toggleTipoCambio(this.value)">
                                     <option value="PEN" {{ old('tipo_moneda', 'PEN') == 'PEN' ? 'selected' : '' }}>PEN (S/)</option>
                                     <option value="USD" {{ old('tipo_moneda') == 'USD' ? 'selected' : '' }}>USD ($)</option>
                                 </select>
-                                <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
                         </div>
 
                         <!-- Tipo de Cambio -->
                         <div id="tipo_cambio_div" class="hidden">
-                            <label for="tipo_cambio" class="block text-sm font-medium text-gray-700 mb-1.5">
+                            <label for="tipo_cambio" class="block text-xs font-medium text-gray-700 mb-1">
                                 Tipo de Cambio (S/ por $)
                             </label>
                             <div class="flex gap-2 items-center">
@@ -491,10 +488,10 @@
                                        value="{{ old('tipo_cambio', '') }}" min="0.001" step="0.001"
                                        placeholder="Ej: 3.750"
                                        oninput="calcularTotales()"
-                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm">
                                 <button type="button" id="btnCargarTC" onclick="cargarTipoCambioSUNAT()"
                                         title="Cargar tipo de cambio desde SUNAT"
-                                        class="flex-shrink-0 px-3 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl border-2 border-blue-200 transition text-sm font-medium whitespace-nowrap">
+                                        class="flex-shrink-0 px-2.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg border border-blue-200 transition text-sm font-medium whitespace-nowrap">
                                     <i class="fas fa-sync-alt"></i>
                                 </button>
                             </div>
@@ -506,62 +503,58 @@
                             </div>
                         </div>
 
-                        <!-- Tipo de Operación SUNAT (dentro del grid, fila completa) -->
+                        <!-- Tipo de Operación SUNAT -->
                         <div class="lg:col-span-3">
-                            <label for="tipo_operacion" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                <i class="fas fa-file-invoice mr-1 text-blue-600"></i>
+                            <label for="tipo_operacion" class="block text-xs font-medium text-gray-700 mb-1">
+                                <i class="fas fa-file-invoice mr-1 text-blue-600 text-[10px]"></i>
                                 Tipo de Operación SUNAT <span class="text-red-500">*</span>
                             </label>
-                            <div class="relative">
+                            <div class="relative max-w-md">
                                 <select name="tipo_operacion" id="tipo_operacion" required
-                                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none bg-white">
-                                    <option value="01" {{ old('tipo_operacion', '01') == '01' ? 'selected' : '' }}>01 — Gravado (aplica IGV 18%)</option>
-                                    <option value="02" {{ old('tipo_operacion') == '02' ? 'selected' : '' }}>02 — Exonerado (sin IGV)</option>
-                                    <option value="03" {{ old('tipo_operacion') == '03' ? 'selected' : '' }}>03 — Inafecto (sin IGV)</option>
-                                    <option value="04" {{ old('tipo_operacion') == '04' ? 'selected' : '' }}>04 — Exportación (sin IGV)</option>
+                                        class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm appearance-none bg-white">
+                                    <option value="01" {{ old('tipo_operacion', '01') == '01' ? 'selected' : '' }}>01 — Gravado (IGV 18%)</option>
+                                    <option value="02" {{ old('tipo_operacion') == '02' ? 'selected' : '' }}>02 — Exonerado</option>
+                                    <option value="03" {{ old('tipo_operacion') == '03' ? 'selected' : '' }}>03 — Inafecto</option>
+                                    <option value="04" {{ old('tipo_operacion') == '04' ? 'selected' : '' }}>04 — Exportación</option>
                                 </select>
-                                <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-400 pointer-events-none"></i>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
-                            <p class="text-xs text-gray-500 mt-1 flex items-center">
-                                <i class="fas fa-info-circle mr-1 text-blue-400"></i>
-                                Catálogo SUNAT. Solo operaciones gravadas (01) aplican IGV del 18%.
-                            </p>
                         </div>
                     </div>
                 </div>
 
-                <!-- SECCIÓN 2: PRODUCTOS (MEJORADA) -->
-                <div class="mb-10">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-                            <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-2">
-                                <i class="fas fa-boxes text-green-700 text-sm"></i>
+                <!-- SECCIÓN 2: PRODUCTOS -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-gray-900 flex items-center">
+                            <span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center mr-1.5">
+                                <i class="fas fa-boxes text-green-700 text-xs"></i>
                             </span>
                             Productos de la Compra
                         </h3>
                         <button type="button" onclick="abrirModalProductos()"
-                                class="px-4 py-2.5 bg-blue-900 text-white rounded-xl hover:bg-blue-800 transition shadow-md hover:shadow-lg flex items-center">
-                            <i class="fas fa-plus-circle mr-2"></i>
+                                class="px-3 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition shadow-md text-sm flex items-center">
+                            <i class="fas fa-plus-circle mr-1.5"></i>
                             Agregar Productos
                         </button>
                     </div>
 
                     <!-- Tabla de productos -->
-                    <div class="bg-gray-50 rounded-xl border-2 border-gray-200 overflow-hidden">
+                    <div class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200" id="tablaProductos">
                                 <thead class="bg-gray-100">
                                     <tr>
-                                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-10">#</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Producto</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Marca</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Modelo</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Color</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cant.</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" id="thPrecioUnit">Precio Unit. (S/)</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" id="thSubtotal">Subtotal</th>
-                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">IMEIs</th>
-                                        <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-20">Acciones</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase w-8">#</th>
+                                        <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase">Producto</th>
+                                        <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase">Marca</th>
+                                        <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase">Modelo</th>
+                                        <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase">Color</th>
+                                        <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase">Cant.</th>
+                                        <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase" id="thPrecioUnit">P. Unit. (S/)</th>
+                                        <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase" id="thSubtotal">Subtotal</th>
+                                        <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase">IMEIs</th>
+                                        <th class="px-3 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase w-16">Acc.</th>
                                     </tr>
                                 </thead>
                                 <tbody id="detallesBody" class="bg-white divide-y divide-gray-200">
@@ -571,26 +564,26 @@
                         </div>
 
                         <!-- Mensaje cuando no hay productos -->
-                        <div id="emptyProductos" class="text-center py-12 bg-white">
+                        <div id="emptyProductos" class="text-center py-8 bg-white">
                             <div class="flex flex-col items-center">
-                                <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                    <i class="fas fa-box-open text-3xl text-gray-400"></i>
+                                <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                                    <i class="fas fa-box-open text-2xl text-gray-400"></i>
                                 </div>
-                                <p class="text-gray-500 text-sm mb-2">No hay productos agregados</p>
+                                <p class="text-gray-500 text-sm">No hay productos agregados</p>
                                 <p class="text-xs text-gray-400">Haz clic en "Agregar Productos" para comenzar</p>
                             </div>
                         </div>
 
                         <!-- Totales -->
-                        <div class="bg-gray-50 px-6 py-4 border-t-2 border-gray-200">
+                        <div class="bg-gray-50 px-4 py-3 border-t border-gray-200">
                             <div class="flex justify-end">
-                                <div class="w-80 space-y-3">
+                                <div class="w-72 space-y-2">
 
                                     {{-- Toggle: precio incluye IGV --}}
-                                    <div id="togglePrecioIgvWrap" class="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                        <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-amber-800" for="precio_incluye_igv">
-                                            <i class="fas fa-tags text-amber-500"></i>
-                                            ¿El precio ingresado ya incluye IGV?
+                                    <div id="togglePrecioIgvWrap" class="flex items-center justify-between bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+                                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-semibold text-amber-800" for="precio_incluye_igv">
+                                            <i class="fas fa-tags text-amber-500 text-xs"></i>
+                                            ¿Precio incluye IGV?
                                         </label>
                                         <input type="hidden" name="precio_incluye_igv" value="0">
                                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -667,28 +660,28 @@
                 </div>
 
                 <!-- SECCIÓN 3: OBSERVACIONES -->
-                <div class="mb-8">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <span class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center mr-2">
-                            <i class="fas fa-comment text-yellow-600 text-sm"></i>
+                <div class="mb-5">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                        <span class="w-6 h-6 bg-yellow-100 rounded flex items-center justify-center mr-1.5">
+                            <i class="fas fa-comment text-yellow-600 text-xs"></i>
                         </span>
                         Observaciones
                     </h3>
-                    <textarea name="observaciones" rows="3"
-                              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    <textarea name="observaciones" rows="2"
+                              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-sm"
                               placeholder="Notas adicionales sobre la compra...">{{ old('observaciones') }}</textarea>
                 </div>
 
                 <!-- Botones de acción -->
-                <div class="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
-                    <a href="{{ route('compras.index') }}" 
-                       class="px-6 py-3 border-2 border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition font-medium">
-                        <i class="fas fa-times mr-2"></i>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
+                    <a href="{{ route('compras.index') }}"
+                       class="px-5 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition font-medium text-sm">
+                        <i class="fas fa-times mr-1.5"></i>
                         Cancelar
                     </a>
-                    <button type="submit" 
-                            class="px-8 py-3 bg-gradient-to-r from-blue-900 to-blue-800 text-white rounded-xl hover:from-blue-800 hover:to-blue-700 transition shadow-lg font-medium">
-                        <i class="fas fa-save mr-2"></i>
+                    <button type="submit"
+                            class="px-6 py-2 bg-gradient-to-r from-blue-900 to-blue-800 text-white rounded-lg hover:from-blue-800 hover:to-blue-700 transition shadow-lg font-medium text-sm">
+                        <i class="fas fa-save mr-1.5"></i>
                         Registrar Compra
                     </button>
                 </div>
@@ -1190,59 +1183,57 @@
         row.id = rowId;
         row.className = 'border-b border-gray-100 hover:bg-gray-50';
         row.innerHTML = `
-            <td class="px-4 py-3 text-center">
-                <span class="item-num inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs font-bold"></span>
+            <td class="px-2 py-2 text-center">
+                <span class="item-num inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold"></span>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-2 py-2">
                 <select name="detalles[${idx}][producto_id]"
                         id="producto_select_${idx}"
                         onchange="cargarDetallesProducto(this, ${idx})"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                        required>
+                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
                     <option value="">Seleccione producto</option>
                     ${opcionesProductos}
                 </select>
                 <div id="variante_container_${idx}"></div>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-2 py-2">
                 <select id="marca_select_${idx}"
                         onchange="cambiarMarca(${idx})"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
                         disabled>
                     <option value="">— Marca —</option>
                     ${opcionesMarcas}
                 </select>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-2 py-2">
                 <select name="detalles[${idx}][modelo_id]"
                         id="modelo_select_${idx}"
                         onchange="actualizarTrasCambioModelo(${idx})"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
                         disabled>
                     <option value="">— Modelo —</option>
                 </select>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-2 py-2">
                 <select name="detalles[${idx}][color_id]"
                         id="color_${idx}"
                         onchange="actualizarVistaIMEI(${idx})"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
                         disabled>
                     <option value="">No aplica</option>
                     ${opcionesColores}
                 </select>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-2 py-2">
                 <input type="number" name="detalles[${idx}][cantidad]"
                        id="cantidad_${idx}"
                        value="1" min="1" step="1"
                        onchange="actualizarCantidad(${idx})"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                       required>
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs">
             </td>
-            <td class="px-4 py-3">
+            <td class="px-2 py-2">
                 <div class="relative">
-                    <span class="absolute left-3 top-2 text-gray-500 text-sm" id="precio_prefix_${idx}">${document.getElementById('tipo_moneda').value === 'USD' ? '$' : 'S/'}</span>
+                    <span class="absolute left-2 top-1.5 text-gray-500 text-xs" id="precio_prefix_${idx}">${document.getElementById('tipo_moneda').value === 'USD' ? '$' : 'S/'}</span>
                     <input type="number" name="detalles[${idx}][precio_unitario]"
                            id="precio_${idx}"
                            value="" min="0.01" step="0.01"
@@ -1251,25 +1242,24 @@
                            onblur="if(this.value===''||parseFloat(this.value)===0){this.value='';}"
                            oninput="calcularSubtotal(${idx})"
                            onchange="calcularSubtotal(${idx}); propagarPrecio(${idx})"
-                           class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
-                           required>
+                           class="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded text-xs">
                 </div>
             </td>
-            <td class="px-4 py-3 font-semibold text-sm" id="subtotal_${idx}">${document.getElementById('tipo_moneda').value === 'USD' ? '$' : 'S/'} 0.00</td>
-            <td class="px-4 py-3">
-                <div id="imei_info_${idx}" class="hidden text-xs text-gray-500 mb-1">
+            <td class="px-2 py-2 font-semibold text-xs" id="subtotal_${idx}">${document.getElementById('tipo_moneda').value === 'USD' ? '$' : 'S/'} 0.00</td>
+            <td class="px-2 py-2">
+                <div id="imei_info_${idx}" class="hidden text-[10px] text-gray-500">
                     <span id="imei_count_${idx}">0</span> IMEI(s)
                 </div>
                 <button type="button" onclick="gestionarIMEIs(${idx})"
                         id="btn_imei_${idx}"
-                        class="text-blue-600 hover:text-blue-800 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                        class="text-blue-600 hover:text-blue-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                         disabled>
-                    <i class="fas fa-microchip mr-1"></i>IMEIs
+                    <i class="fas fa-microchip mr-0.5"></i>IMEIs
                 </button>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-2 py-2 text-center">
                 <button type="button" onclick="eliminarProducto('${rowId}')"
-                        class="text-red-600 hover:text-red-800 text-sm">
+                        class="text-red-600 hover:text-red-800 text-xs">
                     <i class="fas fa-trash"></i>
                 </button>
             </td>
@@ -1399,8 +1389,7 @@
                 <select name="detalles[${index}][variante_id]"
                         id="variante_select_${index}"
                         onchange="seleccionarVariante(${index})"
-                        class="w-full px-2 py-1.5 border border-indigo-300 rounded-lg text-sm bg-indigo-50 focus:ring-2 focus:ring-indigo-400"
-                        required>
+                        class="w-full px-2 py-1.5 border border-indigo-300 rounded-lg text-sm bg-indigo-50 focus:ring-2 focus:ring-indigo-400">
                     <option value="">— Seleccione variante —</option>
                     ${opciones}
                 </select>
@@ -2840,6 +2829,37 @@
                     icon: 'warning',
                     title: 'Productos requeridos',
                     text: 'Debes agregar al menos un producto a la compra.',
+                    confirmButtonColor: '#1e3a8a'
+                });
+                return false;
+            }
+
+            // Validar que cada fila tenga producto, precio y variante (si aplica)
+            let filaIncompleta = null;
+            document.querySelectorAll('[id^="producto_select_"]').forEach(sel => {
+                if (filaIncompleta) return;
+                const idx = sel.id.replace('producto_select_', '');
+                if (!sel.value) {
+                    filaIncompleta = 'Fila ' + (parseInt(idx) + 1) + ': selecciona un producto o elimina la fila vacía.';
+                    return;
+                }
+                const precio = parseFloat(document.getElementById('precio_' + idx)?.value) || 0;
+                if (precio <= 0) {
+                    filaIncompleta = 'Fila ' + (parseInt(idx) + 1) + ' (' + sel.options[sel.selectedIndex].text + '): ingresa el precio unitario.';
+                    return;
+                }
+                const varianteSelect = document.getElementById('variante_select_' + idx);
+                if (varianteSelect && !varianteSelect.value) {
+                    filaIncompleta = 'Fila ' + (parseInt(idx) + 1) + ' (' + sel.options[sel.selectedIndex].text + '): selecciona una variante.';
+                    return;
+                }
+            });
+            if (filaIncompleta) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Datos incompletos',
+                    text: filaIncompleta,
                     confirmButtonColor: '#1e3a8a'
                 });
                 return false;

@@ -137,8 +137,16 @@
                         <span class="font-semibold text-gray-800">S/ {{ number_format($precio->precio_compra, 2) }}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-500">Precio venta</span>
+                        <span class="text-gray-500 font-semibold">Precio de Venta</span>
                         <span class="font-bold text-blue-700">S/ {{ number_format($precio->precio, 2) }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-gray-400 border-t border-gray-100 pt-2 mt-1">
+                        <span>Base sin IGV</span>
+                        <span>S/ {{ number_format($precio->precio / 1.18, 2) }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-gray-400">
+                        <span>IGV (18%)</span>
+                        <span>S/ {{ number_format($precio->precio - ($precio->precio / 1.18), 2) }}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-gray-500">Margen</span>
@@ -180,7 +188,6 @@
                      margen: {{ $precio->margen ?? 0 }},
                      precioVenta: {{ $precio->precio ?? 0 }},
                      modoCalculo: 'margen',
-                     incluyeIgv: {{ $precio->incluye_igv ? 'true' : 'false' }},
                      varianteId: {{ $precio->variante_id ?? 'null' }},
 
                      proveedorId: null,
@@ -440,7 +447,7 @@
                             {{-- Precio venta --}}
                             <div>
                                 <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                                    Precio Venta (S/) <span class="text-red-500">*</span>
+                                    Precio de Venta (S/) <span class="text-red-500">*</span>
                                 </label>
                                 <input type="number"
                                        name="precio_venta"
@@ -455,22 +462,27 @@
                                 <p x-show="modoCalculo==='precio'" class="text-xs text-gray-400 mt-1">Ingresa el precio que quieres cobrar</p>
                             </div>
 
-                            {{-- IGV (solo referencial) --}}
+                            {{-- Resumen deducción IGV --}}
+                            <input type="hidden" name="incluye_igv" value="1">
                             <div class="md:col-span-2">
-                                <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-                                    <input type="hidden" name="incluye_igv" value="0">
-                                    <input type="checkbox" name="incluye_igv" value="1"
-                                           x-model="incluyeIgv"
-                                           class="w-4 h-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-400">
-                                    <div>
-                                        <p class="text-sm font-semibold text-gray-700">Mostrar precio referencial con IGV (18%)</p>
-                                        <p class="text-xs text-gray-400 mt-0.5">Solo informativo — no modifica el precio ni el margen</p>
+                                <div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 space-y-1.5">
+                                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                        <i class="fas fa-receipt mr-1"></i> Resumen
+                                    </p>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-500">Base sin IGV</span>
+                                        <span class="font-medium text-gray-700" x-text="'S/ ' + (Math.round(parseFloat(precioVenta || 0) / 1.18 * 100) / 100).toFixed(2)"></span>
                                     </div>
-                                </label>
-                                <div x-show="incluyeIgv" class="mt-2 flex justify-between items-center px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
-                                    <span>Ref. precio con IGV 18%</span>
-                                    <span class="font-medium" x-text="'S/ ' + (Math.round(parseFloat(precioVenta || 0) * 1.18 * 100) / 100).toFixed(2)"></span>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-500">IGV (18%)</span>
+                                        <span class="font-medium text-gray-700" x-text="'S/ ' + (Math.round((parseFloat(precioVenta || 0) - parseFloat(precioVenta || 0) / 1.18) * 100) / 100).toFixed(2)"></span>
+                                    </div>
+                                    <div class="flex justify-between text-sm border-t border-gray-200 pt-1.5">
+                                        <span class="font-semibold text-blue-800">Precio de Venta</span>
+                                        <span class="font-bold text-blue-800 text-lg" x-text="'S/ ' + (parseFloat(precioVenta || 0)).toFixed(2)"></span>
+                                    </div>
                                 </div>
+                                <p class="text-xs text-gray-400 mt-1">Este es el precio que se muestra en el POS y que paga el cliente.</p>
                             </div>
 
                             {{-- Precio mayorista --}}

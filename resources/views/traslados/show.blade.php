@@ -15,19 +15,76 @@
         <x-header title="Detalle del Traslado" subtitle="Trazabilidad completa del traslado" />
 
         @php
-            $colores   = ['pendiente' => 'bg-yellow-100 text-yellow-800', 'confirmado' => 'bg-green-100 text-green-800'];
+            $colores   = [
+                'pendiente'  => 'bg-yellow-100 text-yellow-800',
+                'confirmado' => 'bg-green-100 text-green-800',
+                'anulado'    => 'bg-red-100 text-red-800',
+            ];
             $esGuia    = !str_starts_with($traslado->numero_guia ?? 'id:', 'id:');
             $titulo    = $esGuia ? $traslado->numero_guia : '# ' . $traslado->id;
+            $puedeAnular = $traslado->estado === 'pendiente';
         @endphp
 
-        <div class="flex items-center mb-6 gap-3">
-            <a href="{{ route('traslados.index') }}" class="text-blue-600 hover:text-blue-800">
-                <i class="fas fa-arrow-left"></i>
-            </a>
-            <h2 class="text-2xl font-bold text-gray-800">Traslado {{ $titulo }}</h2>
-            <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $colores[$traslado->estado] ?? 'bg-gray-100 text-gray-700' }}">
-                {{ ucfirst($traslado->estado) }}
-            </span>
+        <div class="flex items-center justify-between mb-6" x-data="{ showAnular: false }">
+            <div class="flex items-center gap-3">
+                <a href="{{ route('traslados.index') }}" class="text-blue-600 hover:text-blue-800">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h2 class="text-2xl font-bold text-gray-800">Traslado {{ $titulo }}</h2>
+                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $colores[$traslado->estado] ?? 'bg-gray-100 text-gray-700' }}">
+                    {{ ucfirst($traslado->estado) }}
+                </span>
+            </div>
+
+            @if($puedeAnular)
+            <button @click="showAnular = true"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-semibold rounded-lg transition-colors">
+                <i class="fas fa-ban"></i> Anular Traslado
+            </button>
+
+            {{-- Modal de anulación --}}
+            <div x-show="showAnular" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAnular = false"></div>
+                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-ban text-red-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">Anular Traslado</h3>
+                            <p class="text-sm text-gray-500">{{ $titulo }}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        Se revertira todo el stock: los IMEIs volveran a "En Stock" en el almacen origen y las cantidades de accesorios se devolveran.
+                    </div>
+
+                    <form action="{{ route('traslados.anular', $traslado) }}" method="POST">
+                        @csrf
+                        <div class="mb-4">
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                Motivo de anulacion
+                            </label>
+                            <textarea name="motivo" rows="3"
+                                      class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 resize-none"
+                                      placeholder="Describe el motivo de la anulacion..."></textarea>
+                        </div>
+                        <div class="flex gap-3">
+                            <button type="button" @click="showAnular = false"
+                                    class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition">
+                                Cancelar
+                            </button>
+                            <button type="submit"
+                                    class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition">
+                                <i class="fas fa-ban mr-1"></i> Confirmar Anulacion
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            @endif
         </div>
 
         {{-- Botón Guía de Remisión --}}

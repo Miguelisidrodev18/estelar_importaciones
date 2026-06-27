@@ -1292,13 +1292,9 @@
         </div>
         <div class="p-5 max-h-[60vh] overflow-y-auto">
             <div class="grid grid-cols-2 gap-2.5">
-                <template x-for="v in productoActual?.variantes" :key="v.id">
+                <template x-for="v in variantesConStock()" :key="v.id">
                     <button @click="seleccionarVariante(v)"
-                            :disabled="stockVarianteEnAlmacen(v) === 0 && productoActual?.tipo_inventario !== 'serie'"
-                            class="text-left border rounded-xl p-3 transition group disabled:opacity-40 disabled:cursor-not-allowed"
-                            :class="stockVarianteEnAlmacen(v) > 0 || productoActual?.tipo_inventario === 'serie'
-                                ? 'border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                                : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30'">
+                            class="text-left border rounded-xl p-3 transition group border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                         <div class="flex items-center gap-2 mb-1.5">
                             <template x-if="v.color_hex">
                                 <div class="w-5 h-5 rounded-full shrink-0 ring-1 ring-gray-200 dark:ring-gray-600" :style="'background:' + v.color_hex"></div>
@@ -1316,17 +1312,17 @@
                                       class="block text-[9px] text-amber-500 font-medium leading-tight"
                                       x-text="modoMayorista ? 'Regular: S/ ' + (v.precio_venta != null ? parseFloat(v.precio_venta) : (parseFloat(productoActual?.precio_venta || 0) + parseFloat(v.sobreprecio || 0))).toFixed(2) : 'Mayor: S/ ' + parseFloat(v.precio_mayorista ?? productoActual?.precio_mayorista).toFixed(2)"></span>
                             </div>
-                            <span :class="stockVarianteEnAlmacen(v) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'"
+                            <span class="text-green-600 dark:text-green-400"
                                   x-text="productoActual?.tipo_inventario === 'serie'
-                                      ? (orden.almacenId && v.stock_por_almacen?.[orden.almacenId] !== undefined
-                                          ? v.stock_por_almacen[orden.almacenId] + ' IMEI aquí'
-                                          : v.stock_actual + ' IMEI total')
-                                      : (stockVarianteEnAlmacen(v) > 0
-                                          ? stockVarianteEnAlmacen(v) + ' en stock'
-                                          : 'Sin stock')"></span>
+                                      ? stockVarianteEnAlmacen(v) + ' IMEI'
+                                      : stockVarianteEnAlmacen(v) + ' en stock'"></span>
                         </div>
                     </button>
                 </template>
+            </div>
+            <div x-show="variantesConStock().length === 0" class="py-8 text-center">
+                <i class="fas fa-box-open text-3xl text-gray-300 dark:text-gray-600 mb-2 block"></i>
+                <p class="text-sm text-gray-500 dark:text-gray-400">No hay variantes con stock en este punto de venta</p>
             </div>
         </div>
         <div class="p-4 border-t border-gray-100 dark:border-gray-700">
@@ -1988,9 +1984,13 @@ function posApp() {
         // Stock de una variante en el almacén seleccionado
         stockVarianteEnAlmacen(v) {
             if (!this.orden.almacenId || !v.stock_por_almacen || Object.keys(v.stock_por_almacen).length === 0) {
-                return v.stock_actual;  // sin datos por almacén → usar total
+                return v.stock_actual;
             }
             return parseInt(v.stock_por_almacen[this.orden.almacenId] ?? 0);
+        },
+        variantesConStock() {
+            if (!this.productoActual?.variantes) return [];
+            return this.productoActual.variantes.filter(v => this.stockVarianteEnAlmacen(v) > 0);
         },
         get productosConStock()  {
             return this._productosFiltrados.filter(p =>

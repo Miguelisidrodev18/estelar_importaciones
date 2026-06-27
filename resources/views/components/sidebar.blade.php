@@ -260,7 +260,7 @@
                             <li>
                                 <a href="{{ route('inventario.almacenes.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.almacenes.*') ? 'bg-blue-600' : '' }}">
-                                    <i class="fas fa-warehouse mr-3 text-sm"></i>Almacenes y Tiendas
+                                    <i class="fas fa-warehouse mr-3 text-sm"></i>Locales y Stock
                                 </a>
                             </li>
                             <li>
@@ -461,14 +461,8 @@
                             </li>
                             <li>
                                 <a href="{{ route('admin.sucursales.index') }}"
-                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.sucursales.*') ? 'bg-blue-600' : '' }}">
-                                    <i class="fas fa-store mr-3 text-sm"></i>Sucursales
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('inventario.almacenes.index') }}"
-                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.almacenes.*') ? 'bg-blue-600' : '' }}">
-                                    <i class="fas fa-warehouse mr-3 text-sm"></i>Almacenes
+                                    class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('admin.sucursales.*') || request()->routeIs('inventario.almacenes.*') ? 'bg-blue-600' : '' }}">
+                                    <i class="fas fa-map-marker-alt mr-3 text-sm"></i>Locales y Almacenes
                                 </a>
                             </li>
                             <li>
@@ -523,7 +517,7 @@
                             <li>
                                 <a href="{{ route('inventario.almacenes.index') }}"
                                     class="flex items-center px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors {{ request()->routeIs('inventario.almacenes.*') ? 'bg-blue-600' : '' }}">
-                                    <i class="fas fa-warehouse mr-3 text-sm"></i>Almacenes y Tiendas
+                                    <i class="fas fa-warehouse mr-3 text-sm"></i>Locales y Stock
                                 </a>
                             </li>
                             <li>

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Almacen;
+use App\Models\Imei;
+use App\Models\StockAlmacen;
 use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -62,35 +64,23 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Mostrar formulario para crear almacén
+     * Redirigir a crear sucursal — todo almacén debe pertenecer a una sucursal (SUNAT)
      */
     public function create()
     {
-        return view('inventario.almacenes.create');
+        return redirect()
+            ->route('admin.sucursales.create')
+            ->with('info', 'Para crear un nuevo almacén, primero crea el establecimiento (sucursal) en SUNAT. El almacén se genera automáticamente.');
     }
 
     /**
-     * Guardar nuevo almacén
+     * Redirigir al flujo correcto
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'nombre'    => 'required|string|max:100',
-            'direccion' => 'nullable|string|max:255',
-            'telefono'  => 'nullable|string|max:20',
-            'estado'    => 'required|in:activo,inactivo',
-        ], [
-            'nombre.required' => 'El nombre del almacén es obligatorio',
-        ]);
-
-        $validated['codigo'] = Almacen::generarCodigo();
-        $validated['tipo']   = 'principal';
-
-        Almacen::create($validated);
-
         return redirect()
-            ->route('inventario.almacenes.index')
-            ->with('success', 'Almacén creado exitosamente');
+            ->route('admin.sucursales.create')
+            ->with('info', 'Los almacenes se crean automáticamente al registrar un establecimiento (sucursal).');
     }
 
     /**
@@ -98,40 +88,51 @@ class AlmacenController extends Controller
      */
     public function show(Almacen $almacen)
     {
-        $almacen->load(['encargado', 'movimientos' => function($query) {
-            $query->with('producto')->latest()->limit(20);
-        }]);
-        
-        // Obtener stock por producto en este almacén
-        $stockPorProducto = \DB::table('movimientos_inventario')
-            ->select('producto_id', \DB::raw('SUM(CASE 
-                WHEN tipo_movimiento IN ("ingreso", "devolucion") THEN cantidad
-                WHEN tipo_movimiento IN ("salida", "merma") THEN -cantidad
-                WHEN tipo_movimiento = "transferencia" AND almacen_id = ' . $almacen->id . ' THEN -cantidad
-                WHEN tipo_movimiento = "transferencia" AND almacen_destino_id = ' . $almacen->id . ' THEN cantidad
-                ELSE 0
-            END) as stock_almacen'))
-            ->where(function($query) use ($almacen) {
-                $query->where('almacen_id', $almacen->id)
-                      ->orWhere('almacen_destino_id', $almacen->id);
-            })
+        $almacen->load(['encargado', 'sucursal', 'movimientos' => fn($q) => $q->with('producto')->latest()->limit(20)]);
+
+        $almacenId = $almacen->id;
+
+        // Stock de productos tipo "cantidad" desde stock_almacen
+        $stockCantidad = StockAlmacen::where('almacen_id', $almacenId)
+            ->where('cantidad', '>', 0)
+            ->get()
+            ->keyBy('producto_id');
+
+        // Stock de productos tipo "serie" contando IMEIs en_stock
+        $stockImeis = Imei::where('almacen_id', $almacenId)
+            ->where('estado_imei', Imei::ESTADO_EN_STOCK)
+            ->selectRaw('producto_id, COUNT(*) as total')
             ->groupBy('producto_id')
-            ->having('stock_almacen', '>', 0)
-            ->get();
-        
-        // Cargar información de productos
-        $productosIds = $stockPorProducto->pluck('producto_id');
-        $productos = \App\Models\Producto::whereIn('id', $productosIds)->get()->keyBy('id');
-        
-        // Combinar información
-        $stockDetalle = $stockPorProducto->map(function($item) use ($productos) {
-            $producto = $productos->get($item->producto_id);
-            return [
-                'producto' => $producto,
-                'stock' => $item->stock_almacen,
-            ];
-        })->sortByDesc('stock');
-        
+            ->pluck('total', 'producto_id');
+
+        // Juntar todos los producto_id con stock
+        $todosIds = $stockCantidad->keys()->merge($stockImeis->keys())->unique();
+
+        if ($todosIds->isEmpty()) {
+            $stockDetalle = collect();
+        } else {
+            $productos = \App\Models\Producto::with(['categoria', 'marca'])
+                ->whereIn('id', $todosIds)
+                ->get()
+                ->keyBy('id');
+
+            $stockDetalle = $todosIds->map(function ($pid) use ($productos, $stockCantidad, $stockImeis) {
+                $producto = $productos->get($pid);
+                if (!$producto) return null;
+
+                $esSerie = $producto->tipo_inventario === 'serie';
+                $stock = $esSerie
+                    ? (int) ($stockImeis[$pid] ?? 0)
+                    : (int) ($stockCantidad[$pid]?->cantidad ?? 0);
+
+                return [
+                    'producto' => $producto,
+                    'stock'    => $stock,
+                    'es_serie' => $esSerie,
+                ];
+            })->filter()->sortByDesc('stock')->values();
+        }
+
         return view('inventario.almacenes.show', compact('almacen', 'stockDetalle'));
     }
 

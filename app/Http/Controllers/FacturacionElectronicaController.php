@@ -6,6 +6,7 @@ use App\Models\Empresa;
 use App\Models\Venta;
 use App\Models\SerieComprobante;
 use App\Models\Sucursal;
+use App\Services\SunatComprobanteService;
 use Illuminate\Http\Request;
 
 class FacturacionElectronicaController extends Controller
@@ -182,6 +183,36 @@ class FacturacionElectronicaController extends Controller
         $venta->update(['estado_sunat' => 'pendiente_envio']);
 
         return back()->with('success', 'Comprobante marcado para reenvío a SUNAT.');
+    }
+
+    public function enviarSunat(Venta $venta)
+    {
+        if (!in_array($venta->estado_sunat, ['pendiente_envio', 'rechazado']) && $venta->tipo_comprobante !== 'cotizacion') {
+            if ($venta->estado_sunat === 'aceptado') {
+                return back()->with('error', 'Este comprobante ya fue aceptado por SUNAT.');
+            }
+        }
+
+        $result = app(SunatComprobanteService::class)->enviar($venta);
+
+        return back()->with(
+            $result['success'] ? 'success' : 'error',
+            $result['message']
+        );
+    }
+
+    public function consultarSunat(Venta $venta)
+    {
+        if (!$venta->sunat_api_id) {
+            return back()->with('error', 'Este comprobante no ha sido enviado a SUNAT.');
+        }
+
+        $result = app(SunatComprobanteService::class)->consultarEstado($venta);
+
+        return back()->with(
+            $result['success'] ? 'success' : 'error',
+            $result['message']
+        );
     }
 
     public function configuracion()

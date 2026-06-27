@@ -62,7 +62,7 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    @php $colores = ['pendiente' => 'bg-yellow-100 text-yellow-800', 'confirmado' => 'bg-green-100 text-green-800']; @endphp
+                    @php $colores = ['pendiente' => 'bg-yellow-100 text-yellow-800', 'confirmado' => 'bg-green-100 text-green-800', 'anulado' => 'bg-red-100 text-red-800']; @endphp
 
                     @forelse($traslados as $guia => $movimientos)
                     @php
